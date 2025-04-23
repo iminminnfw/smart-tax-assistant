@@ -134,9 +134,24 @@ export default function Home() {
                 {/* Corrected Social Proof Section */}
                 <div className="mt-10 flex items-center justify-center lg:justify-start space-x-6">
                   <div className="flex -space-x-2 overflow-hidden">
-                    <Image src="https://via.placeholder.com/40/DBEAFE/1E40AF?text=U1" alt="User 1" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
-                    <Image src="https://via.placeholder.com/40/C7D2FE/1D4ED8?text=U2" alt="User 2" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
-                    <Image src="https://via.placeholder.com/40/A5B4FC/3B82F6?text=U3" alt="User 3" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
+                  <Image
+              src="https://placehold.co/40x40/DBEAFE/1E40AF/png?text=U1" // .png อาจจะช่วยเรื่อง compatibility
+              alt="User 1"
+              width={32} height={32}
+              className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover"
+            />
+            <Image
+              src="https://placehold.co/40x40/C7D2FE/1D4ED8/png?text=U2"
+              alt="User 2"
+              width={32} height={32}
+              className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover"
+            />
+            <Image
+              src="https://placehold.co/40x40/A5B4FC/3B82F6/png?text=U3"
+              alt="User 3"
+              width={32} height={32}
+              className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover"
+             />
                     <div className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 text-gray-500 text-xs font-medium">
                        +99
                     </div>
@@ -189,23 +204,23 @@ export default function Home() {
               <div className="py-8 px-6 bg-white/60 backdrop-blur-md rounded-2xl shadow-lg border border-gray-100">
                 <p className="text-center text-sm font-medium text-gray-600 mb-6">ได้รับความไว้วางใจจากแบรนด์ชั้นนำ</p>
                 <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5 items-center">
-                  {[
-                    { name: "TechCorp", url: "https://via.placeholder.com/150x50/E0E7FF/3730A3?text=TechCorp" },
-                    { name: "FinanceInc", url: "https://via.placeholder.com/150x50/D1FAE5/065F46?text=FinanceInc" },
-                    { name: "RetailHub", url: "https://via.placeholder.com/150x50/FEF3C7/92400E?text=RetailHub" },
-                    { name: "ServicePro", url: "https://via.placeholder.com/150x50/FEE2E2/991B1B?text=ServicePro" },
-                    { name: "GlobalEnt", url: "https://via.placeholder.com/150x50/E5E7EB/1F2937?text=GlobalEnt" },
-                  ].map((brand) => (
-                    <div key={brand.name} className="col-span-1 flex justify-center grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition duration-300 ease-in-out transform hover:scale-105">
-                      <Image
-                        src={brand.url}
-                        alt={brand.name}
-                        width={150}
-                        height={50}
-                        className="h-10 w-auto object-contain"
-                      />
-                    </div>
-                  ))}
+                {[
+            { name: "TechCorp", url: "https://placehold.co/150x50/E0E7FF/3730A3/png?text=TechCorp" },
+            { name: "FinanceInc", url: "https://placehold.co/150x50/D1FAE5/065F46/png?text=FinanceInc" },
+            { name: "RetailHub", url: "https://placehold.co/150x50/FEF3C7/92400E/png?text=RetailHub" },
+            { name: "ServicePro", url: "https://placehold.co/150x50/FEE2E2/991B1B/png?text=ServicePro" },
+            { name: "GlobalEnt", url: "https://placehold.co/150x50/E5E7EB/1F2937/png?text=GlobalEnt" },
+          ].map((brand) => (
+            <div key={brand.name} className="col-span-1 flex justify-center ...">
+              <Image
+                src={brand.url} // ใช้ URL ใหม่
+                alt={brand.name}
+                width={150}
+                height={50}
+                className="h-10 w-auto object-contain"
+              />
+            </div>
+          ))}
                 </div>
               </div>
             </div>

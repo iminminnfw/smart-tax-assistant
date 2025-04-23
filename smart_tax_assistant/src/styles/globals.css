@@ -22,11 +22,10 @@
      animation: float 6s ease-in-out infinite;
    }
    .animate-float-delay {
-      animation: float 6s ease-in-out infinite 1s; /* delay 1 วินาที */
+      animation: float 6s ease-in-out infinite 1s; 
    }
  }
  
- /* Optional: smooth scrolling for anchor links */
  html {
    scroll-behavior: smooth;
  }

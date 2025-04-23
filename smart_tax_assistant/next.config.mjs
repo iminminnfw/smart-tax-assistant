@@ -12,9 +12,9 @@ const nextConfig = {
         },
         {
           protocol: 'https',
-          hostname: 'via.placeholder.com', 
-          port: '',
-          pathname: '/**', // อนุญาตทุก path
+        hostname: 'placehold.co', // <-- เปลี่ยนเป็นอันนี้
+        port: '',
+        pathname: '/**',
         },
       ],
     },
