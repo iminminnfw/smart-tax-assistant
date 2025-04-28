@@ -20,10 +20,11 @@ export default function Home() {
               </span>
               <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
                 <span className="block">ระบบจัดการภาษี</span>
-                <span className="block mt-1 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                <span className="block mt-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                   อัจฉริยะด้วย AI
                 </span>
               </h1>
+
               <p className="mt-6 text-xl leading-relaxed text-gray-600">
                 ทำให้เรื่องภาษีเป็นเรื่องง่าย คำนวณแม่นยำ วางแผนลดหย่อนชาญฉลาด พร้อม AI ปรึกษาได้ 24 ชั่วโมง
               </p>

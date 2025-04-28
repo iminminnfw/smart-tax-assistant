@@ -45,7 +45,6 @@ export default function Navbar() {
 
           {/* Desktop Menu */}
           <div className="hidden sm:flex sm:items-center sm:space-x-8">
-             {/* ใช้ /# เพื่อนำทางไปหน้าแรกก่อน ถ้า Link นี้อาจถูกกดจากหน้าอื่น */}
             <Link href="/#features" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               คุณสมบัติ
             </Link>

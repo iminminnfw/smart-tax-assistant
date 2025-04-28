@@ -1,17 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
-import { Sarabun } from "next/font/google";
-import "../styles/globals.css"; // Import Tailwind CSS และ custom styles
+import { Prompt } from "next/font/google"; 
+import "../styles/globals.css"; 
 
-// Import Components ที่แยกออกมา
 import Navbar from "@/components/Navbar/Navbar"; 
 import Footer from "@/components/Footer/Footer"; 
 
-// ตั้งค่า Font
-const sarabun = Sarabun({
+const selectedFont = Prompt({
   weight: ["300", "400", "500", "700"],
   subsets: ["latin", "thai"],
-  variable: '--font-sarabun',
+  variable: '--font-selected',
   display: 'swap',
 });
 
@@ -27,20 +25,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      {/*
-        เพิ่ม class flex flex-col min-h-screen ให้ body
-        เพื่อให้ Footer ถูกดันลงไปอยู่ล่างสุดเสมอ
-      */}
-      <body className={`${sarabun.className} flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-gray-800`}>
-        <Navbar /> {/* แสดง Navbar ทุกหน้า */}
-        {/*
-          เพิ่ม class flex-grow ให้ main
-          เพื่อให้เนื้อหายืดเต็มพื้นที่ที่เหลือระหว่าง Navbar และ Footer
-        */}
+     
+      <body className={`${selectedFont.className} flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-gray-800`}>
+        <Navbar /> 
         <main className="flex-grow">
-          {children} {/* แสดงเนื้อหาของ Page Component ที่นี่ */}
+          {children} 
         </main>
-        <Footer /> {/* แสดง Footer ทุกหน้า */}
+        <Footer /> 
       </body>
     </html>
   );
