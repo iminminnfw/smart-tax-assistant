@@ -1,31 +1,34 @@
- /* src/styles/globals.css */
- @tailwind base;
- @tailwind components;
- @tailwind utilities;
- 
- /* เพิ่ม custom animations */
- @layer utilities {
-   @keyframes pulse-slow {
-     50% {
-       opacity: .5;
-     }
-   }
-   .animate-pulse-slow {
-     animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-   }
- 
-   @keyframes float {
-     0%, 100% { transform: translateY(0px); }
-     50% { transform: translateY(-10px); }
-   }
-   .animate-float {
-     animation: float 6s ease-in-out infinite;
-   }
-   .animate-float-delay {
-      animation: float 6s ease-in-out infinite 1s; 
-   }
- }
- 
- html {
-   scroll-behavior: smooth;
- }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* เพิ่ม custom animations */
+@layer utilities {
+  @keyframes pulse-slow {
+    50% {
+      opacity: .5;
+    }
+  }
+  .animate-pulse-slow {
+    animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-float-delay {
+     animation: float 6s ease-in-out infinite 1s; /* delay 1 วินาที */
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply text-gray-800; /* กำหนดสีตัวอักษรพื้นฐาน */
+}
