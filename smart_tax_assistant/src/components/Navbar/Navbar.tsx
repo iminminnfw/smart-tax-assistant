@@ -51,7 +51,9 @@ export default function Navbar() {
             <Link href="/#howItWorks" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               วิธีใช้งาน
             </Link>
-        
+            <Link href="/#pricing" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
+              แพ็คเกจ
+            </Link>
             <Link href="/register" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               ลงทะเบียน
             </Link>
