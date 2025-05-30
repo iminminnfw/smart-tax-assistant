@@ -51,9 +51,7 @@ export default function Navbar() {
             <Link href="/#howItWorks" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               วิธีใช้งาน
             </Link>
-            <Link href="/#pricing" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
-              แพ็คเกจ
-            </Link>
+          
             <Link href="/register" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               ลงทะเบียน
             </Link>
@@ -87,8 +85,7 @@ export default function Navbar() {
               {/* ใช้ /# และ onClick={closeMobileMenu} */}
               <Link href="/#features" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>คุณสมบัติ</Link>
               <Link href="/#howItWorks" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>วิธีใช้งาน</Link>
-              <Link href="/#pricing" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>แพ็คเกจ</Link>
-              <Link href="/login" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>เข้าสู่ระบบ</Link>
+               <Link href="/login" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>เข้าสู่ระบบ</Link>
            </div>
            <div className="pt-2 pb-4 px-4 border-t border-gray-100">
              <Link href="/register" className="block w-full px-5 py-3 rounded-full text-center font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md" onClick={closeMobileMenu}>เริ่มใช้งานฟรี</Link>

@@ -32,15 +32,7 @@ export default function Home() {
                  <Link href="/register" className="inline-flex items-center justify-center px-8 py-4 border border-transparent text-base font-medium rounded-full shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5">เริ่มต้นใช้งานฟรี <svg className="ml-2 w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg></Link>
                  <Link href="#howItWorks" className="inline-flex items-center justify-center px-8 py-4 border border-gray-300 text-base font-medium rounded-full text-blue-700 bg-white hover:bg-blue-50 shadow-md transition-all duration-300 transform hover:scale-105 hover:-translate-y-0.5">ดูวิธีการทำงาน <svg className="ml-2 w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg></Link>
               </div>
-              <div className="mt-10 flex items-center justify-center lg:justify-start space-x-6">
-                <div className="flex -space-x-2 overflow-hidden">
-                  <Image src="https://placehold.co/40x40/DBEAFE/1E40AF/png?text=U1" alt="User 1" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
-                  <Image src="https://placehold.co/40x40/C7D2FE/1D4ED8/png?text=U2" alt="User 2" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
-                  <Image src="https://placehold.co/40x40/A5B4FC/3B82F6/png?text=U3" alt="User 3" width={32} height={32} className="inline-block h-8 w-8 rounded-full ring-2 ring-white object-cover" />
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 text-gray-500 text-xs font-medium">+99</div>
-                </div>
-                <div className="text-sm text-gray-500"><span className="font-medium text-gray-900">เข้าร่วมกับ 1,200+ ผู้ใช้งาน</span> ที่วางใจเรา</div>
-              </div>
+             
             </div>
 
             {/* Image Content */}
