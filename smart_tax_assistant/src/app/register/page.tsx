@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 
 export default function RegisterPage() {
+  const [selectedGender, setSelectedGender] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,15 +15,26 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleGenderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedGender(event.target.value);
+    console.log("Selected Gender:", event.target.value);
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    if (!name.trim() || !email.trim() || !password || !confirmPassword || !userType) {
-      setError('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+    // เพิ่มการตรวจสอบ selectedGender ใน Validation
+    if (!name.trim() || !email.trim() || !password || !confirmPassword || !userType || !selectedGender) {
+      setError('กรุณากรอกข้อมูลให้ครบทุกช่อง รวมถึงการเลือกเพศ');
       setIsLoading(false);
       return;
+    }
+    if (userType === 'other' && !otherUserType.trim()) { // เพิ่มการตรวจสอบ otherUserType ถ้าจำเป็น
+        setError('กรุณาระบุประเภทผู้ใช้งานอื่นๆ');
+        setIsLoading(false);
+        return;
     }
     if (password !== confirmPassword) {
       setError('รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน');
@@ -35,7 +47,14 @@ export default function RegisterPage() {
        return;
     }
 
-    console.log('Registering user:', { name, email, userType });
+    // รวม selectedGender ในข้อมูลที่จะส่ง (ถ้ามี)
+    const registrationData = {
+        name,
+        email,
+        userType: userType === 'other' ? otherUserType : userType,
+        gender: selectedGender,
+    };
+    console.log('Registering user:', registrationData);
     await new Promise(resolve => setTimeout(resolve, 1500));
     console.log('Simulated registration complete');
     setError('ฟังก์ชันลงทะเบียนยังไม่ได้ Implement');
@@ -68,6 +87,7 @@ export default function RegisterPage() {
           )}
 
           <div className="space-y-6">
+            {/* User Type Field */}
             <div>
               <label htmlFor="user-type" className="block text-sm font-medium text-gray-700 mb-2">
                 ประเภทผู้ใช้งาน
@@ -77,7 +97,12 @@ export default function RegisterPage() {
                 name="user-type"
                 required
                 value={userType}
-                onChange={(e) => setUserType(e.target.value)} 
+                onChange={(e) => {
+                    setUserType(e.target.value);
+                    if (e.target.value !== 'other') {
+                      setOtherUserType('');
+                    }
+                }}
                 className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out bg-white"
               >
                 <option value="" disabled>-- เลือกประเภท --</option>
@@ -87,9 +112,9 @@ export default function RegisterPage() {
                 <option value="other">อื่นๆ</option>
               </select>
             </div>
-                   {/* เลือกอาชีพอื่น */}
+            {/* Other User Type Field (Conditional) */}
             {userType === 'other' && (
-              <div className="transition-all duration-300 ease-in-out"> 
+              <div className="transition-all duration-300 ease-in-out">
                 <label htmlFor="other-user-type" className="block text-sm font-medium text-gray-700 mb-2">
                   ระบุประเภทผู้ใช้งานอื่นๆ
                 </label>
@@ -97,7 +122,7 @@ export default function RegisterPage() {
                   id="other-user-type"
                   name="other-user-type"
                   type="text"
-                  required={userType === 'other'} 
+                  required={userType === 'other'}
                   value={otherUserType}
                   onChange={(e) => setOtherUserType(e.target.value)}
                   className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
@@ -106,9 +131,32 @@ export default function RegisterPage() {
               </div>
             )}
 
+             {/* Gender Select Field - ย้ายมาตรงนี้ และใช้ Class ที่สอดคล้องกัน */}
+            <div>
+              <label htmlFor="gender_select" className="block text-sm font-medium text-gray-700 mb-2">
+                คำนำหน้า
+              </label>
+              <select
+                id="gender_select"
+                name="gender"
+                required // เพิ่ม required ถ้าต้องการให้บังคับเลือก
+                value={selectedGender}
+                onChange={handleGenderChange}
+                // ใช้ className เดียวกับ user-type select
+                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out bg-white"
+              >
+                <option value="" disabled>-- เลือกคำนำหน้า --</option>
+                <option value="male">นาย</option>
+                <option value="female">นาง</option>
+                <option value="other_gender">นางสาว</option> 
+               
+              </select>
+            </div>
+
+            {/* Name Field */}
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                ชื่อ-นามสกุล (ตามบัตรประชาชน)
+                ชื่อ-นามสกุล
               </label>
               <input
                 id="name"
@@ -117,11 +165,14 @@ export default function RegisterPage() {
                 autoComplete="name"
                 required
                 value={name}
-                onChange={(e) => setName(e.target.value)} 
+                onChange={(e) => setName(e.target.value)}
                 className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                 placeholder="กรอกชื่อและนามสกุลจริง"
               />
             </div>
+
+           
+
 
             <div>
               <label htmlFor="email-address" className="block text-sm font-medium text-gray-700 mb-2">
@@ -134,12 +185,13 @@ export default function RegisterPage() {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)} 
+                onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
-                placeholder="you@example.com"
+                placeholder="myname@example.com or myname123@example.com"
               />
             </div>
 
+            {/* Password Fields Container */}
              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
@@ -152,7 +204,7 @@ export default function RegisterPage() {
                     autoComplete="new-password"
                     required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)} 
+                    onChange={(e) => setPassword(e.target.value)}
                     className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                     placeholder="อย่างน้อย 6 ตัวอักษร"
                   />
@@ -168,7 +220,7 @@ export default function RegisterPage() {
                     autoComplete="new-password"
                     required
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                     placeholder="กรอกรหัสผ่านอีกครั้ง"
                   />
@@ -176,6 +228,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Terms Agreement */}
           <div className="flex items-start pt-4">
             <div className="flex-shrink-0">
               <input
@@ -193,6 +246,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Submit Button */}
           <div className="pt-6">
             <button
               type="submit"

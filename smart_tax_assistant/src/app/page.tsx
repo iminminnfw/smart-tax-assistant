@@ -130,13 +130,12 @@ export default function Home() {
               <div className="flex-1 flex flex-col items-center text-center p-8 relative mb-10 lg:mb-0">
                 <div className="relative z-10 flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-2xl shadow-lg mb-6 ring-4 ring-white">2</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">เชื่อมต่อ/อัปโหลดข้อมูล</h3>
-                <p className="text-base text-gray-600">เชื่อมต่อกับบัญชีธนาคาร หรืออัปโหลดเอกสารรายได้และค่าใช้จ่าย</p>
+                <p className="text-base text-gray-600">เชื่อมต่อกับบัญชีธนาคาร หรืออัปโหลดเอกสารรายได้และค่าใช้จ่าย(พิมพ์เอาเท่คิดว่าไม่น่าจะเอา)</p>
                 <div className="mt-6 p-4 bg-white rounded-xl shadow-md border border-gray-100">
                   <svg className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                 </div>
-                {/* Connection Line (Mobile) */}
                 <div className="lg:hidden absolute bottom-0 left-1/2 w-1 h-10 border-l-2 border-dashed border-blue-300 transform -translate-x-1/2 translate-y-full"></div>
               </div>
               {/* Step 3 */}
