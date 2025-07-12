@@ -25,7 +25,6 @@ export default function RegisterPage() {
     setIsLoading(true);
     setError(null);
 
-    // เพิ่มการตรวจสอบ selectedGender ใน Validation
     if (!name.trim() || !email.trim() || !password || !confirmPassword || !userType || !selectedGender) {
       setError('กรุณากรอกข้อมูลให้ครบทุกช่อง รวมถึงการเลือกเพศ');
       setIsLoading(false);
@@ -191,7 +190,6 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* Password Fields Container */}
              <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
