@@ -59,8 +59,8 @@ export default function Footer() {
           </div>
         </div>
                  {/* Bottom Footer */}
-        <div className="mt-8 border-t border-gray-700 pt-8 md:flex md:items-center md:justify-center">
-          <p className="text-base text-gray-400">
+        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-base text-gray-500">
             © {new Date().getFullYear()} Smart Tax Assistant. สงวนลิขสิทธิ์.
           </p>
         </div>

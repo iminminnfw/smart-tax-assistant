@@ -1,5 +1,5 @@
 // src/components/Navbar/Navbar.tsx
-'use client'; // จำเป็นต้องใช้ เพราะมี useState และ useEffect
+'use client'; 
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ export default function Navbar() {
         <div className="flex justify-between h-20 items-center">
           {/* Logo */}
           <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="flex items-center" onClick={closeMobileMenu}> {/* Close menu on logo click */}
+            <Link href="/" className="flex items-center" onClick={closeMobileMenu}>
               <svg className="h-9 w-auto text-blue-600" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="rgba(59, 130, 246, 0.1)"/>
                  <path d="M17 9.5L12 12L7 9.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -52,11 +52,13 @@ export default function Navbar() {
               วิธีใช้งาน
             </Link>
           
-            <Link href="/register" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
+            {/* [FIX] เปลี่ยน href จาก /registerform เป็น /auth */}
+            <Link href="/auth" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200">
               ลงทะเบียน
             </Link>
+            {/* [FIX] เปลี่ยน href จาก /loginform เป็น /auth */}
             <Link
-              href="/login"
+              href="/auth"
               className="ml-4 inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 transform hover:scale-105"
             >
               เข้าสู่ระบบ
@@ -82,13 +84,14 @@ export default function Navbar() {
       {isMobileMenuOpen && (
          <div className="sm:hidden bg-white shadow-lg rounded-b-2xl absolute w-full">
            <div className="pt-2 pb-3 space-y-1 px-4">
-              {/* ใช้ /# และ onClick={closeMobileMenu} */}
               <Link href="/#features" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>คุณสมบัติ</Link>
               <Link href="/#howItWorks" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>วิธีใช้งาน</Link>
-               <Link href="/login" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>เข้าสู่ระบบ</Link>
+              {/* [FIX] เปลี่ยน href จาก /loginform เป็น /auth */}
+              <Link href="/auth" className="block px-4 py-3 rounded-lg font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors" onClick={closeMobileMenu}>เข้าสู่ระบบ</Link>
            </div>
            <div className="pt-2 pb-4 px-4 border-t border-gray-100">
-             <Link href="/register" className="block w-full px-5 py-3 rounded-full text-center font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md" onClick={closeMobileMenu}>เริ่มใช้งานฟรี</Link>
+             {/* [FIX] เปลี่ยน href จาก /registerform เป็น /auth */}
+             <Link href="/auth" className="block w-full px-5 py-3 rounded-full text-center font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md" onClick={closeMobileMenu}>เริ่มใช้งานฟรี</Link>
            </div>
          </div>
       )}

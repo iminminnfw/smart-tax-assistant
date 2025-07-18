@@ -8,7 +8,7 @@ export default function TermsContent() {
   const router = useRouter();
 
   const handleBack = () => {
-    router.push('/register'); // Navigate to register page
+    router.push('/auth'); // Navigate to register page
   };
 
   return (
