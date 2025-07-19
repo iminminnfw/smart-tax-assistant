@@ -221,102 +221,159 @@ export default function Home() {
 
   return (
     <>
-      {/* Enhanced Interactive Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(16,185,129,0.08),transparent_50%),radial-gradient(circle_at_40%_40%,rgba(139,92,246,0.06),transparent_50%)]"></div>
-        <div 
-          className="absolute w-[600px] h-[600px] bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-cyan-500/10 rounded-full mix-blend-multiply filter blur-3xl animate-pulse opacity-70"
-          style={{ left: `${mousePosition.x * 0.03}px`, top: `${mousePosition.y * 0.03}px`, transform: 'translate(-50%, -50%)' }}
-        ></div>
-        <div 
-          className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-gradient-to-r from-cyan-500/8 via-teal-500/8 to-blue-500/8 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-1000"
-          style={{ transform: `translateY(${scrollY * 0.1}px)` }}
-        ></div>
-        <div 
-          className="absolute bottom-1/4 left-1/4 w-[350px] h-[350px] bg-gradient-to-r from-purple-500/8 via-pink-500/8 to-red-500/8 rounded-full mix-blend-multiply filter blur-3xl animate-pulse delay-2000"
-          style={{ transform: `translateY(${scrollY * -0.05}px)` }}
-        ></div>
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="absolute w-1 h-1 bg-blue-400/30 rounded-full animate-ping"
-            style={{ left: `${20 + i * 15}%`, top: `${30 + i * 10}%`, animationDelay: `${i * 0.5}s`, animationDuration: `${3 + i * 0.5}s` }}
-          ></div>
-        ))}
-      </div>
+    
 
-      {/* Enhanced Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-32 h-32 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+{/* Diagonal Split Hero Section */}
+<section className="relative min-h-screen bg-white overflow-hidden">
+  
+  {/* Background Image Overlay */}
+  <div className="absolute inset-0">
+    <div 
+      className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-5"
+      style={{
+        backgroundImage: `url(${heroImageUrl})`,
+        filter: 'grayscale(100%) brightness(1.2)'
+      }}
+    ></div>
+  </div>
+  
+  {/* Animated Background Elements */}
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-blue-100/30 to-purple-100/30 rounded-full blur-xl animate-pulse"></div>
+    <div className="absolute top-40 right-20 w-48 h-48 bg-gradient-to-br from-purple-100/30 to-pink-100/30 rounded-full blur-xl animate-pulse delay-1000"></div>
+    <div className="absolute bottom-40 left-20 w-40 h-40 bg-gradient-to-br from-green-100/30 to-blue-100/30 rounded-full blur-xl animate-pulse delay-2000"></div>
+  </div>
+  
+  <div className="relative flex items-center min-h-[calc(100vh-80px)]">
+    
+    {/* Left Content */}
+    <div className="relative z-20 w-full lg:w-1/2 px-8 lg:px-16">
+      <div className="max-w-lg">
+        <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
+          ระบบจัดการภาษี<br />
+          <span className="text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text">
+            อัจฉริยะด้วย AI
+          </span>
+        </h1>
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
-          <div className="lg:grid lg:grid-cols-12 lg:gap-16 items-center">
-            {/* Enhanced Text Content */}
-            <div className={`text-center lg:text-left lg:col-span-6 z-10 transition-all duration-1000 transform ${ isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0' }`}>
-              <span className="inline-flex items-center py-3 px-6 mb-8 text-sm font-semibold tracking-wider text-blue-800 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full shadow-lg backdrop-blur-sm border border-blue-200/50">
-                <span className="w-2 h-2 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full mr-2 animate-pulse shadow-sm"></span>
-                 ยินดีต้อนรับสู่ SmartTax
-              </span>
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-gray-900 mb-8 leading-tight">
-                <span className="block bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 bg-clip-text text-transparent">ระบบจัดการภาษี</span>
-                <span className="block mt-2 bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 bg-clip-text text-transparent animate-pulse">อัจฉริยะด้วย AI</span>
-              </h1>
-              <p className="mt-6 text-xl md:text-2xl leading-relaxed text-gray-600 mb-12 max-w-2xl">
-                ทำให้เรื่องภาษีเป็นเรื่องง่าย คำนวณแม่นยำ วางแผนลดหย่อนชาญฉลาด 
-                <span className="block mt-2 text-blue-600 font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">🤖 พร้อม AI ปรึกษาได้ 24 ชั่วโมง</span>
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-6">
-                <Link href="/auth" className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-2xl text-white bg-gradient-to-r from-blue-600 via-purple-600 to-blue-700 shadow-2xl transition-all duration-300 ease-in-out hover:from-blue-700 hover:via-purple-700 hover:to-blue-800 hover:-translate-y-1 hover:shadow-[0_20px_40px_-10px_rgba(59,130,246,0.5)] active:scale-95 overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-white/0 to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <span className="relative flex items-center">
-                    🚀 เริ่มต้นใช้งานฟรี
-                    <svg className="ml-2 w-5 h-5 transition-transform duration-300 ease-in-out group-hover:translate-x-1" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                  </span>
-                </Link>
-                <Link href="#howItWorks" className="group inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-2xl text-gray-700 bg-white/90 backdrop-blur-sm shadow-xl border border-gray-200/80 transition-all duration-300 ease-in-out hover:bg-white hover:border-blue-300 hover:-translate-y-1 hover:shadow-2xl hover:text-blue-600">
-                  <span className="flex items-center">
-                    <svg className="mr-2 w-5 h-5 text-blue-600 transition-transform duration-300 ease-in-out group-hover:scale-110" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
-                     ดูวิธีการทำงาน
-                  </span>
-                </Link>
-              </div>
-            </div>
-            <div className={`mt-16 lg:mt-0 lg:col-span-6 relative transition-all duration-1000 delay-300 transform ${ isVisible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0' }`}>
-              <div className="relative mx-auto rounded-3xl shadow-2xl overflow-hidden bg-gradient-to-br from-white to-gray-50 p-4 border border-gray-200/50">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                  <Image src={heroImageUrl} alt="SmartTax Dashboard Preview" width={1740} height={1160} className="w-full h-auto object-cover" priority/>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
+        <p className="text-lg text-gray-600 leading-relaxed mb-8 max-w-md">
+          ทำให้เรื่องภาษีเป็นเรื่องง่าย คำนวณภาษีแม่นยำ วางแผนลดหย่อนภาษี พร้อม AI ปรึกษาฟรี 24 ชั่วโมง
+        </p>
+        
+        <div className="flex items-center space-x-4">
+          <Link href="/#howItWorks" className="px-8 py-4 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white rounded-full font-semibold hover:from-pink-600 hover:via-purple-600 hover:to-blue-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
+            วิธีใช้งาน
+          </Link>
+          <Link href="/#features" className="px-8 py-4 bg-gray-100 text-gray-900 border border-gray-200 rounded-full font-semibold hover:bg-gray-200 hover:border-gray-300 transition-all">
+            คุณสมบัติ
+          </Link>
+        </div>
+      </div>
+    </div>
+    
+    {/* Right Visual - Diagonal Split with Image Integration */}
+    <div className="absolute top-0 right-0 w-full lg:w-3/5 h-full">
+      <div 
+        className="relative w-full h-full"
+        style={{
+          background: `linear-gradient(135deg, transparent 0%, transparent 20%, rgba(249, 250, 251, 0.95) 20%, rgba(243, 244, 246, 1) 100%)`,
+          clipPath: 'polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%)'
+        }}
+      >
+        
+        {/* Background Image in Right Section */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
+          style={{
+            backgroundImage: `url(${heroImageUrl})`,
+            filter: 'grayscale(80%) brightness(1.1) contrast(0.9)',
+            clipPath: 'polygon(20% 0%, 100% 0%, 100% 100%, 0% 100%)'
+          }}
+        ></div>
+        
+        {/* 3D Visual Elements */}
+        <div className="relative w-full h-full flex items-center justify-center p-16">
+          
+          {/* Main Dashboard Mockup */}
+          <div className="relative transform rotate-12 perspective-1000">
+            <div className="w-80 h-56 bg-white shadow-2xl border border-gray-200 rounded-2xl overflow-hidden">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+                <div className="flex space-x-2">
+                  <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                  <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse delay-100"></div>
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse delay-200"></div>
                 </div>
+                <div className="text-gray-600 text-xs font-semibold">SmartTax AI</div>
               </div>
-              <div className="absolute -bottom-8 -left-8 sm:bottom-auto sm:top-12 sm:-left-12 transform animate-float">
-                <div className="bg-gradient-to-br from-white via-green-50 to-white backdrop-blur-xl rounded-2xl shadow-2xl p-6 border border-green-200/50 max-w-xs">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg">
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">✅ ยื่นภาษีสำเร็จ!</p>
-                      <p className="text-xs text-gray-600">ยอดคืนภาษี: <span className="text-green-600 font-bold">฿12,500</span></p>
-                    </div>
+              
+              {/* Content */}
+              <div className="p-4 space-y-3 bg-white">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                  <div>
+                    <div className="text-gray-900 text-sm font-medium">คำนวณภาษี AI</div>
+                    <div className="text-gray-500 text-xs">กำลังวิเคราะห์...</div>
                   </div>
                 </div>
-              </div>
-              <div className="absolute -top-8 -right-8 sm:top-auto sm:bottom-12 sm:-right-12 transform animate-float-delay">
-                <div className="bg-gradient-to-br from-white via-blue-50 to-white backdrop-blur-xl rounded-2xl shadow-2xl p-6 border border-blue-200/50 max-w-xs">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 text-white shadow-lg">
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900">🤖 AI แนะนำ</p>
-                      <p className="text-xs text-gray-600">ลดหย่อนเพิ่ม <span className="text-blue-600 font-bold">+฿5,000</span></p>
-                    </div>
-                  </div>
+                
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2 border border-gray-200">
+                  <div className="text-green-600 text-sm font-semibold">✓ ตรวจพบค่าลดหย่อน</div>
+                  <div className="text-xl text-gray-900 font-bold">฿15,750</div>
+                  <div className="text-gray-500 text-xs">ประหยัดได้ +23%</div>
                 </div>
               </div>
             </div>
           </div>
+          
+          {/* Floating AI Bots */}
+          <div className="absolute top-20 right-20 transform -rotate-12">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-purple-600 rounded-xl shadow-lg flex items-center justify-center border border-white/20">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse ml-1 delay-200"></div>
+            </div>
+          </div>
+          
+          <div className="absolute bottom-24 left-16 transform rotate-6">
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 via-cyan-500 to-blue-600 rounded-xl shadow-lg flex items-center justify-center border border-white/20">
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+              <div className="w-3 h-3 bg-white rounded-full animate-pulse ml-1 delay-300"></div>
+            </div>
+          </div>
+          
+          {/* Connecting Lines/Beams */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-32 right-32 w-32 h-px bg-gradient-to-r from-purple-400 via-pink-400 to-transparent animate-pulse"></div>
+            <div className="absolute bottom-32 left-24 w-24 h-px bg-gradient-to-r from-blue-400 via-cyan-400 to-transparent transform rotate-45 animate-pulse delay-500"></div>
+          </div>
+          
+          {/* Enhanced Grid Pattern Overlay */}
+          <div 
+            className="absolute inset-0 opacity-5"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(59, 130, 246, 0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(147, 51, 234, 0.4) 1px, transparent 1px)
+              `,
+              backgroundSize: '2rem 2rem',
+              animation: 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+            }}
+          ></div>
+          
+          {/* Additional Floating Elements */}
+          <div className="absolute top-1/3 left-1/3 w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+          <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-purple-400 rounded-full animate-ping delay-1000"></div>
+          <div className="absolute top-2/3 left-1/4 w-1.5 h-1.5 bg-pink-400 rounded-full animate-ping delay-2000"></div>
+          
         </div>
-      </section>
+      </div>
+    </div>
+    
+  </div>
+</section>
       
       {/* [REPLACED] ส่วนนี้จะถูกแทนที่ */}
       <ModernHowItWorks />
