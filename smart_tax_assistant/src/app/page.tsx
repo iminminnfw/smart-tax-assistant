@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 // [FIX] แก้ไขการ import ไอคอนจาก lucide-react ให้ถูกต้อง
-import { ChevronRight, Shield, Upload, Target, Sparkles, CheckCircle, TrendingUp } from 'lucide-react';
+import { Bot, Zap, Bell, BarChart2, ChevronRight, Shield, Upload, Target, Sparkles, CheckCircle, TrendingUp } from 'lucide-react';
 
 // --- [NEW] Type Definitions for Props ---
 interface FloatingElementProps {
@@ -378,89 +378,167 @@ export default function Home() {
       {/* [REPLACED] ส่วนนี้จะถูกแทนที่ */}
       <ModernHowItWorks />
 
-      {/* Enhanced Features Section */}
-      <section id="features" className="py-24 bg-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(16,185,129,0.05),transparent_50%),radial-gradient(circle_at_80%_20%,rgba(59,130,246,0.05),transparent_50%)]"></div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-20">
-            <span className="inline-block py-3 px-6 text-sm font-semibold tracking-wider text-blue-800 uppercase bg-gradient-to-r from-blue-100 to-cyan-100 rounded-full mb-4 shadow-lg">
-              ⭐ คุณสมบัติเด่น
-            </span>
-            <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">
-              เครื่องมือที่ใช่สำหรับ
-              <span className="text-blue-600"> ภาษีของคุณ</span>
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              ทุกสิ่งที่คุณต้องการในการจัดการภาษีอย่างมีประสิทธิภาพ 💪
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { 
-                title: '🤖 AI Chatbot อัจฉริยะ', 
-                description: 'ปรึกษาภาษี 24/7 กับ AI ที่เข้าใจกฎหมายไทย ให้คำตอบแม่นยำ และอัปเดตข้อมูลล่าสุดตลอดเวลา', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>,
-                color: 'blue'
-              },
-              { 
-                title: '⚡ คำนวณภาษีอัตโนมัติ', 
-                description: 'เพียงอัปโหลดข้อมูล ระบบคำนวณภาษีให้ทันที ลดข้อผิดพลาด และประหยัดเวลา', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
-                color: 'purple'
-              },
-              { 
-                title: '🔔 แจ้งเตือนกำหนดการ', 
-                description: 'ไม่พลาดทุกเดดไลน์ยื่นภาษี ด้วยการแจ้งเตือนผ่านช่องทางที่คุณเลือก Email, SMS', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
-                color: 'green'
-              },
-              { 
-                title: '💰 วางแผนลดหย่อนภาษี', 
-                description: 'AI ช่วยวิเคราะห์และแนะนำแนวทางลดหย่อนภาษีที่เหมาะสมกับคุณ ประหยัดได้มากสุด', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
-                color: 'teal'
-              },
-              { 
-                title: '📊 สรุปรายงานภาษี', 
-                description: 'ดูรายงานสรุปภาษีเข้าใจง่าย เปรียบเทียบข้อมูลย้อนหลังได้ในคลิกเดียว', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-                color: 'orange'
-              },
-              { 
-                title: '🛡️ ปลอดภัยและเป็นส่วนตัว', 
-                description: 'ปกป้องข้อมูลของคุณด้วยมาตรฐานความปลอดภัยระดับสากล เข้ารหัสข้อมูลครบวงจร', 
-                icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
-                color: 'gray'
-              }
-            ].map((feature) => (
-              <div key={feature.title} className={`group relative p-8 bg-gradient-to-br from-white to-gray-50/50 rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-200/50 overflow-hidden`}>
-                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${
-                  feature.color === 'blue' ? 'from-blue-400 to-cyan-400' :
-                  feature.color === 'purple' ? 'from-purple-400 to-pink-400' :
-                  feature.color === 'green' ? 'from-green-400 to-teal-400' :
-                  feature.color === 'teal' ? 'from-teal-400 to-cyan-400' :
-                  feature.color === 'orange' ? 'from-orange-400 to-red-400' :
-                  'from-gray-400 to-gray-500'
-                } opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                <div className={`inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-r ${
-                  feature.color === 'blue' ? 'from-blue-500 to-cyan-500' :
-                  feature.color === 'purple' ? 'from-purple-500 to-pink-500' :
-                  feature.color === 'green' ? 'from-green-500 to-teal-500' :
-                  feature.color === 'teal' ? 'from-teal-500 to-cyan-500' :
-                  feature.color === 'orange' ? 'from-orange-500 to-red-500' :
-                  'from-gray-600 to-gray-800'
-                } text-white mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                  {feature.icon}
+   {/* Enhanced Features Section - Light Theme */}
+<section id="features" className="py-32 bg-gradient-to-br from-gray-50 via-white to-blue-50 relative overflow-hidden">
+  {/* Background elements for light theme */}
+  <div className="absolute inset-0">
+    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_80%_80%,rgba(147,51,234,0.05),transparent_50%)]"></div>
+    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-full bg-[radial-gradient(ellipse_at_50%_100%,rgba(16,185,129,0.03),transparent_70%)]"></div>
+  </div>
+  
+  <div className="absolute inset-0 w-full h-full bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div>
+
+  {/* Animated floating elements */}
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-blue-100/40 to-purple-100/40 rounded-full blur-xl animate-pulse"></div>
+    <div className="absolute top-40 right-20 w-48 h-48 bg-gradient-to-br from-purple-100/40 to-pink-100/40 rounded-full blur-xl animate-pulse delay-1000"></div>
+    <div className="absolute bottom-40 left-20 w-40 h-40 bg-gradient-to-br from-green-100/40 to-blue-100/40 rounded-full blur-xl animate-pulse delay-2000"></div>
+    <div className="absolute bottom-20 right-10 w-36 h-36 bg-gradient-to-br from-cyan-100/40 to-teal-100/40 rounded-full blur-xl animate-pulse delay-3000"></div>
+  </div>
+
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+    {/* Header section */}
+    <div className="text-center mb-24">
+      <div className="inline-flex items-center gap-2 py-3 px-6 text-sm font-semibold tracking-wider text-blue-800 uppercase bg-gradient-to-r from-blue-100 via-white to-cyan-100 rounded-full mb-6 shadow-lg border border-blue-200/50 backdrop-blur-sm">
+        <span>⭐</span>
+        <span>คุณสมบัติเด่น</span>
+        <span>⭐</span>
+      </div>
+      <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-6 leading-tight">
+        เครื่องมือที่ใช่สำหรับ
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600"> ภาษีของคุณ</span>
+      </h2>
+      <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+        ทุกสิ่งที่คุณต้องการในการจัดการภาษีอย่างมีประสิทธิภาพ พร้อมเทคโนโลยี AI ล้ำสมัย 💪
+      </p>
+    </div>
+    
+    {/* Alternating Feature Panels */}
+    <div className="space-y-24">
+      {(() => {
+        const gradientMap = {
+          blue: 'from-blue-500 to-cyan-500',
+          purple: 'from-purple-500 to-pink-500',
+          green: 'from-green-500 to-teal-500',
+          teal: 'from-teal-500 to-cyan-500',
+          orange: 'from-orange-500 to-red-500',
+          gray: 'from-gray-500 to-slate-600',
+        };
+
+        const features = [
+          { 
+            title: '🤖 AI Chatbot อัจฉริยะ', 
+            description: 'ปรึกษาภาษี 24/7 กับ AI ที่เข้าใจกฎหมายไทย ให้คำตอบแม่นยำ และอัปเดตข้อมูลล่าสุดตลอดเวลา ประหยัดค่าใช้จ่ายที่ปรึกษาภาษี', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>,
+            color: 'blue',
+            features: ['ตอบคำถามภาษี 24/7', 'อัปเดตกฎหมายล่าสุด', 'คำแนะนำเฉพาะบุคคล']
+          },
+          { 
+            title: '⚡ คำนวณภาษีอัตโนมัติ', 
+            description: 'เพียงอัปโหลดข้อมูล ระบบคำนวณภาษีให้ทันที ลดข้อผิดพลาด และประหยัดเวลา พร้อมตรวจสอบความถูกต้องแบบอัตโนมัติ', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
+            color: 'purple',
+            features: ['คำนวณแม่นยำ 99.9%', 'ประหยัดเวลา 80%', 'ตรวจสอบอัตโนมัติ']
+          },
+          { 
+            title: '🔔 แจ้งเตือนกำหนดการ', 
+            description: 'ไม่พลาดทุกเดดไลน์ยื่นภาษี ด้วยการแจ้งเตือนผ่านช่องทางที่คุณเลือก Email, SMS, Line รับประกันไม่เสียค่าปรับ', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>,
+            color: 'green',
+            features: ['แจ้งเตือนหลายช่องทาง', 'ปรับแต่งเวลาได้', 'ไม่พลาดกำหนดเวลา']
+          },
+          { 
+            title: '💰 วางแผนลดหย่อนภาษี', 
+            description: 'AI ช่วยวิเคราะห์และแนะนำแนวทางลดหย่อนภาษีที่เหมาะสมกับคุณ ประหยัดได้มากสุด พร้อมคำนวณผลตอบแทนจากการลงทุน', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+            color: 'teal',
+            features: ['วิเคราะห์ส่วนบุคคล', 'แนะนำการลงทุน', 'ประหยัดสูงสุด']
+          },
+          { 
+            title: '📊 สรุปรายงานภาษี', 
+            description: 'ดูรายงานสรุปภาษีเข้าใจง่าย เปรียบเทียบข้อมูลย้อนหลังได้ในคลิกเดียว พร้อมกราฟแสดงแนวโน้มและการวิเคราะห์', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
+            color: 'orange',
+            features: ['รายงานภาพรวม', 'กราฟแนวโน้ม', 'เปรียบเทียบปีก่อน']
+          },
+          { 
+            title: '🛡️ ปลอดภัยและเป็นส่วนตัว', 
+            description: 'ปกป้องข้อมูลของคุณด้วยมาตรฐานความปลอดภัยระดับสากล เข้ารหัสข้อมูลครบวงจร พร้อมการสำรองข้อมูลอัตโนมัติ', 
+            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
+            color: 'gray',
+            features: ['เข้ารหัสระดับธนาคาร', 'สำรองข้อมูลอัตโนมัติ', 'มาตรฐานสากล']
+          }
+        ];
+
+        return features.map((feature, index) => (
+          <div key={feature.title} className={`transform transition-all duration-700 ${index % 2 === 0 ? 'translate-x-0' : 'translate-x-0'}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+              
+              {/* Visual Panel */}
+              <div className={`relative flex items-center justify-center group ${index % 2 === 1 ? 'lg:order-first' : ''}`}>
+                {/* Background glow effect */}
+                <div className={`absolute w-80 h-80 bg-gradient-to-r ${gradientMap[feature.color as keyof typeof gradientMap]}/10 rounded-full blur-3xl animate-pulse group-hover:scale-110 transition-transform duration-1000`}></div>
+                
+                {/* Main visual container */}
+                <div className={`relative flex items-center justify-center h-72 w-72 rounded-3xl bg-white/80 backdrop-blur-md border border-gray-200/50 shadow-2xl group-hover:shadow-3xl transition-all duration-500 group-hover:scale-105`}>
+                  {/* Icon container */}
+                  <div className={`flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-r ${gradientMap[feature.color as keyof typeof gradientMap]} text-white shadow-xl group-hover:scale-110 transition-transform duration-300`}>
+                    {React.cloneElement(feature.icon, { className: "h-10 w-10" })}
+                  </div>
+                  
+                  {/* Floating elements around the main icon */}
+                  <div className="absolute top-6 right-6 w-4 h-4 bg-blue-400/60 rounded-full animate-ping"></div>
+                  <div className="absolute bottom-8 left-8 w-3 h-3 bg-purple-400/60 rounded-full animate-ping delay-500"></div>
+                  <div className="absolute top-1/2 left-6 w-2 h-2 bg-pink-400/60 rounded-full animate-ping delay-1000"></div>
+                  
+                  {/* Grid overlay */}
+                  <div className="absolute inset-0 rounded-3xl opacity-5 bg-[linear-gradient(rgba(0,0,0,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(0,0,0,0.1)_1px,transparent_1px)] bg-[size:1rem_1rem]"></div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">{feature.title}</h3>
-                <p className="text-gray-600 leading-relaxed">{feature.description}</p>
               </div>
-            ))}
+              
+              {/* Text Content */}
+              <div className={`${index % 2 === 1 ? 'lg:order-last' : ''} space-y-6`}>
+                {/* Icon badge */}
+                <div className={`inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-r ${gradientMap[feature.color as keyof typeof gradientMap]} text-white mb-2 shadow-lg hover:scale-110 transition-transform duration-300`}>
+                  {React.cloneElement(feature.icon, { className: "h-7 w-7" })}
+                </div>
+                
+                {/* Title */}
+                <h3 className="text-4xl font-bold text-gray-900 leading-tight">
+                  {feature.title}
+                </h3>
+                
+                {/* Description */}
+                <p className="text-lg text-gray-600 leading-relaxed">
+                  {feature.description}
+                </p>
+                
+                {/* Feature highlights */}
+                <div className="space-y-3">
+                  {feature.features.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className={`flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-r ${gradientMap[feature.color as keyof typeof gradientMap]} flex items-center justify-center`}>
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-gray-700 font-medium">{item}</span>
+                    </div>
+                  ))}
+                </div>
+                
+               
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        ));
+      })()}
+    </div>
+    
+    
+  </div>
+</section>
 
       
        
