@@ -23,18 +23,13 @@ interface PulsingDotProps {
 
 // --- [NEW] คอมโพเนนต์ ModernHowItWorks ที่คุณสร้างขึ้น ---
 const ModernHowItWorks = () => {
-  const [activeStep, setActiveStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     // ใช้ isMounted เพื่อให้แน่ใจว่า component โหลดเสร็จก่อนเริ่ม animation
     const timer = setTimeout(() => setIsVisible(true), 100);
-    const interval = setInterval(() => {
-      setActiveStep(prev => (prev + 1) % 3);
-    }, 4000);
     return () => {
       clearTimeout(timer);
-      clearInterval(interval);
     };
   }, []);
 
@@ -69,13 +64,12 @@ const ModernHowItWorks = () => {
   ];
 
   // [FIX] เพิ่ม Type ให้กับ Props
-  const FloatingElement = ({ delay = 0, children, className = "", onClick = () => {} }: FloatingElementProps) => (
+  const FloatingElement = ({ delay = 0, children, className = "" }: FloatingElementProps) => (
     <div 
       className={`transform transition-all duration-1000 ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0'
       } ${className}`}
       style={{ transitionDelay: `${delay}ms` }}
-      onClick={onClick}
     >
       {children}
     </div>
@@ -117,7 +111,7 @@ const ModernHowItWorks = () => {
             </div>
             <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-6 leading-tight">
               จัดการภาษีง่ายๆ ใน{' '}
-              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent animate-pulse">
+              <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent">
                 3 ขั้นตอน
               </span>
             </h2>
@@ -126,57 +120,52 @@ const ModernHowItWorks = () => {
             </p>
           </div>
         </FloatingElement>
-        <FloatingElement delay={200}>
-          <div className="flex justify-center mb-16">
-            <div className="flex items-center gap-8 p-4 bg-white/60 backdrop-blur-sm rounded-full shadow-lg border border-gray-200/50">
-              {steps.map((_, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <PulsingDot active={activeStep === index} delay={index * 200} />
-                  {index < steps.length - 1 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </FloatingElement>
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
           {steps.map((step, index) => {
             const IconComponent = step.icon;
-            const isActive = activeStep === index;
             return (
               <FloatingElement 
                 key={step.number} 
                 delay={300 + index * 100}
-                className="group cursor-pointer"
-                onClick={() => setActiveStep(index)}
+                className="group"
               >
-                <div className={`relative transition-all duration-700 ${isActive ? 'scale-105 -translate-y-2' : 'hover:scale-102 hover:-translate-y-1'}`}>
+                <div className="relative transition-all duration-700 hover:scale-105 hover:-translate-y-2">
                   <div className={`absolute inset-0 bg-gradient-to-r ${step.color} rounded-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-xl`}></div>
-                  <div className={`relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border transition-all duration-500 overflow-hidden ${isActive ? 'border-transparent shadow-2xl bg-white/90' : 'border-gray-200/50 hover:border-gray-300/50 hover:shadow-2xl'}`}>
-                    <div className={`h-2 bg-gradient-to-r ${step.color} ${isActive ? 'opacity-100' : 'opacity-60'} transition-opacity duration-500`}></div>
+                  <div className="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-200/50 hover:border-gray-300/50 hover:shadow-2xl transition-all duration-500 overflow-hidden">
+                    <div className={`h-2 bg-gradient-to-r ${step.color} opacity-100`}></div>
                     <div className="p-8">
                       <div className="flex items-center justify-center mb-8">
-                        <div className={`relative inline-flex items-center justify-center h-24 w-24 rounded-2xl bg-gradient-to-r ${step.color} text-white shadow-2xl transition-all duration-500 ${isActive ? 'scale-110 shadow-3xl' : 'group-hover:scale-105'}`}>
+                        <div className={`relative inline-flex items-center justify-center h-24 w-24 rounded-2xl bg-gradient-to-r ${step.color} text-white shadow-2xl group-hover:scale-105 transition-all duration-500`}>
                           <IconComponent className="h-10 w-10" />
-                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"><span className="text-sm font-bold text-gray-700">{step.number}</span></div>
-                          <div className={`absolute inset-0 rounded-2xl border-2 border-white/50 transition-all duration-500 ${isActive ? 'scale-125 opacity-0' : 'scale-100 opacity-100'}`}></div>
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-sm font-bold text-gray-700">{step.number}</span>
+                          </div>
                         </div>
                       </div>
                       <div className="text-center space-y-6">
-                        <h3 className={`text-2xl font-bold text-gray-900 transition-colors duration-300 ${isActive ? 'text-gray-900' : 'group-hover:text-gray-700'}`}>{step.title}</h3>
+                        <h3 className="text-2xl font-bold text-gray-900 group-hover:text-gray-700 transition-colors duration-300">{step.title}</h3>
                         <p className="text-gray-600 leading-relaxed text-lg">{step.description}</p>
-                        <div className={`transition-all duration-500 ${isActive ? 'opacity-100 max-h-96' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+                        
+                        {/* แสดงคุณสมบัติเด่นตลอดเวลา */}
+                        <div className="opacity-100">
                           <div className={`mt-6 p-4 bg-gradient-to-r ${step.bgColor} rounded-2xl`}>
-                            <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> คุณสมบัติเด่น</h4>
+                            <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4" /> คุณสมบัติเด่น
+                            </h4>
                             <ul className="space-y-2 text-sm text-gray-700">
-                              {step.features.map((feature, idx) => (<li key={idx} className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" /><span>{feature}</span></li>))}
+                              {step.features.map((feature, idx) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                  <span>{feature}</span>
+                                </li>
+                              ))}
                             </ul>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className={`h-1 bg-gradient-to-r ${step.color} transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}></div>
+                    <div className={`h-1 bg-gradient-to-r ${step.color} opacity-100`}></div>
                   </div>
                 </div>
               </FloatingElement>
