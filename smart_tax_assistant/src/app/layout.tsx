@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { Prompt } from "next/font/google"; 
 import "../styles/globals.css"; 
 
-import Navbar from "@/components/Navbar/Navbar"; 
-import Footer from "@/components/Footer/Footer"; 
+import AuthProvider from "@/components/AuthProvider";
 
 const selectedFont = Prompt({
   weight: ["300", "400", "500", "700"],
@@ -27,11 +26,12 @@ export default function RootLayout({
     <html lang="th">
      
       <body className={`${selectedFont.className} flex flex-col min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 text-gray-800`}>
-        <Navbar /> 
         <main className="flex-grow">
-          {children} 
+          <AuthProvider>
+            {children} 
+          </AuthProvider>
+          
         </main>
-        <Footer /> 
       </body>
     </html>
   );

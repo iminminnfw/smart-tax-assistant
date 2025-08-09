@@ -6,10 +6,79 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid()) // Primary Key ที่เป็น Unique ID
+  name          String?                        // ชื่อ-นามสกุล (สามารถเป็นค่าว่างได้เผื่อกรณี Login ผ่าน Social)
+  email         String    @unique                 // อีเมลของผู้ใช้ ใช้ในการ Login และต้องไม่ซ้ำกัน
+  
+  // สำคัญ: ต้องเก็บรหัสผ่านที่ผ่านการเข้ารหัส (Hashed) แล้วเท่านั้น
+  // ห้ามเก็บรหัสผ่านแบบ Plain Text เด็ดขาด
+  password      String
+
+  emailVerified DateTime? // วันเวลาที่ยืนยันอีเมล (ถ้ายังไม่ยืนยันจะเป็น null)
+  image         String?   // URL รูปโปรไฟล์ (เผื่ออนาคต)
+
+  // ตารางที่เกี่ยวข้อง (เผื่ออนาคตสำหรับการทำ Social Login)
+  accounts      Account[]
+  sessions      Session[]
+
+  // วันเวลาที่สร้างและอัปเดตข้อมูล
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users") // กำหนดให้ตารางในฐานข้อมูลชื่อ "users"
+}
+
+// --- โมเดลเสริมสำหรับการทำ Authentication ที่สมบูรณ์ ---
+// โมเดลเหล่านี้ได้รับแรงบันดาลใจจาก NextAuth.js ซึ่งเป็นมาตรฐานที่นิยม
+// และจะช่วยให้คุณต่อยอดระบบได้ง่ายในอนาคต
+
+// ตารางสำหรับจัดการ Social Logins (เช่น Google, Facebook)
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String // เช่น "google", "facebook"
+  providerAccountId  String // ID ที่ได้จาก Provider
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// ตารางสำหรับจัดการ Session ของผู้ใช้ (รองรับ "จดจำฉันไว้")
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ตารางสำหรับเก็บ Token ชั่วคราว (ใช้สำหรับยืนยันอีเมล หรือ รีเซ็ตรหัสผ่าน)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }

@@ -3,10 +3,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation'; 
 import { Lock, Mail, User, Building, ChevronDown, Check, ArrowRight, Sparkles } from 'lucide-react';
-
+import { signIn } from 'next-auth/react';
 // --- Login Form Component ---
 const LoginForm = ({ onSwitchToRegister }: { onSwitchToRegister: () => void }) => {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -17,17 +19,26 @@ const LoginForm = ({ onSwitchToRegister }: { onSwitchToRegister: () => void }) =
     event.preventDefault();
     setIsLoading(true);
     setError(null);
-    if (!email.trim() || !password) {
-      setError('กรุณากรอกอีเมลและรหัสผ่าน');
-      setIsLoading(false);
-      return;
-    }
-    console.log('Logging in user:', { email, rememberMe });
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log('Simulated login complete');
-    setError('ฟังก์ชันเข้าสู่ระบบยังไม่ได้ Implement');
+
+    console.log('ข้อมูลที่จะส่งไปให้ signIn:', { email, password });
+    
+    const result = await signIn('credentials', {
+      redirect: false, // สำคัญมาก: บอก NextAuth ว่าไม่ต้อง redirect เอง
+      email: email,
+      password: password,
+    });
+
     setIsLoading(false);
-  };
+
+    if (result?.error) {
+      // ถ้าล็อกอินไม่ผ่าน, NextAuth จะคืนค่า error message ที่เรา throw ไว้ใน authorize()
+      setError(result.error);
+    } else if (result?.ok) {
+      // ถ้าล็อกอินสำเร็จ (result.ok เป็น true)
+      console.log('Login successful with NextAuth!');
+      router.push('/WelcomeHome'); // สั่ง redirect ด้วยตัวเอง
+    }
+};
 
   return (
     <div className="w-full">
@@ -140,11 +151,44 @@ const RegisterForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
-    console.log('Registering user...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log('Simulated registration complete');
-    setError('ฟังก์ชันลงทะเบียนยังไม่ได้ Implement');
-    setIsLoading(false);
+    
+    const formData = new FormData(event.currentTarget);
+    const name = formData.get('name') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirm-password') as string;
+
+    // ตรวจสอบรหัสผ่าน
+    if (password !== confirmPassword) {
+      setError('รหัสผ่านไม่ตรงกัน');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+  
+        throw new Error(data.error || 'มีบางอย่างผิดพลาด');
+      }
+
+      // ลงทะเบียนสำเร็จ! สลับกลับไปหน้า Login
+      console.log('Registration successful:', data);
+      alert('สร้างบัญชีสำเร็จแล้ว! กรุณาเข้าสู่ระบบ');
+      onSwitchToLogin();
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
