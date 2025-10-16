@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import Logo from '@/components/Logo';
+import { menuItems } from '@/config/menuItems';
 import {
   LogOut,
   User,
@@ -53,7 +54,7 @@ export default function WelcomeHomePage() {
     return null;
   }
 
-  // Mock dashboard data
+  // Mock dashboard data (คืนกลับมา)
   const dashboardData = {
     totalTax: 45680,
     monthlyTarget: 50000,
@@ -89,55 +90,12 @@ export default function WelcomeHomePage() {
     image: session?.user?.image || null,
   };
 
-  // Updated menu items as requested
-  const menuItems = [
-    {
-      href: '/profile-settings',
-      icon: User,
-      label: 'จัดการบัญชีผู้ใช้',
-      color: 'text-blue-600 bg-blue-100',
-      description: 'จัดการข้อมูลส่วนตัวและการตั้งค่า',
-    },
-    {
-      href: '/financial-info',
-      icon: Wallet,
-      label: 'ข้อมูลทางการเงิน',
-      color: 'text-green-600 bg-green-100',
-      description: 'รายได้ รายจ่าย และข้อมูลการเงิน',
-    },
-    {
-      href: '/WelcomeHome',
-      icon: Home,
-      label: 'Dashboard',
-      color: 'text-purple-600 bg-purple-100',
-      description: 'ภาพรวมและสถิติของคุณ',
-    },
-    {
-      href: '/simulation',
-      icon: Target,
-      label: 'สร้างสถานการณ์จำลอง',
-      color: 'text-orange-600 bg-orange-100',
-      description: 'จำลองสถานการณ์ภาษีต่างๆ',
-    },
-    {
-      href: '/calendar',
-      icon: Calendar,
-      label: 'ปฏิทิน',
-      color: 'text-red-600 bg-red-100',
-      description: 'กำหนดการและเตือนความจำ',
-    },
-    {
-      href: '/chat',
-      icon: MessageCircle,
-      label: 'แชต',
-      color: 'text-indigo-600 bg-indigo-100',
-      description: 'ปรึกษาและสอบถามข้อมูล',
-    },
-  ];
+  // Updated menu items
+ 
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
+      {/* Navigation และ Mobile Menu เหมือนเดิม */}
       <nav className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-40">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -152,11 +110,9 @@ export default function WelcomeHomePage() {
                 <Menu className="w-6 h-6 text-gray-600" />
               )}
             </button>
-
             <Logo />
           </div>
 
-          {/* Search Bar */}
           <div className="flex-1 max-w-md mx-8 hidden md:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -171,7 +127,6 @@ export default function WelcomeHomePage() {
             </div>
           </div>
 
-          {/* User Menu */}
           <div className="flex items-center space-x-4">
             <button className="p-2 text-gray-400 hover:text-gray-600 relative transition-colors">
               <Bell className="w-5 h-5" />
@@ -208,19 +163,15 @@ export default function WelcomeHomePage() {
         </div>
       </nav>
 
-      {/* Mobile Menu Overlay - Push Style */}
+      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <>
-          {/* Backdrop - คลิกเพื่อปิด menu */}
           <div
             className="fixed inset-0 bg-black/50 z-50"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-
-          {/* Sidebar Menu */}
           <div className="fixed left-0 top-0 h-full w-80 bg-white shadow-xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto">
             <div className="p-6">
-              {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
                   {user.image ? (
@@ -247,7 +198,6 @@ export default function WelcomeHomePage() {
                 </button>
               </div>
 
-              {/* Menu Items */}
               <div className="space-y-2">
                 {menuItems.map((item, index) => {
                   const IconComponent = item.icon;
@@ -281,7 +231,7 @@ export default function WelcomeHomePage() {
         </>
       )}
 
-      {/* Main Content - ปรับ margin เมื่อเปิด menu */}
+      {/* Main Content พร้อม Charts */}
       <div className={`transition-all duration-300 ease-in-out ${
         isMobileMenuOpen ? 'ml-80' : 'ml-0'
       }`}>
@@ -304,12 +254,11 @@ export default function WelcomeHomePage() {
             </p>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards (คืนกลับมา) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Tax Calculation Card */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Calculator className="w-6 h-6 text-blue-600" />
                 </div>
                 <span className="text-green-500 text-sm font-medium flex items-center bg-green-50 px-2 py-1 rounded-full">
@@ -326,7 +275,6 @@ export default function WelcomeHomePage() {
               <p className="text-xs text-gray-500 mt-2">เพิ่มขึ้นจากเดือนที่แล้ว</p>
             </div>
 
-            {/* Tax Reduction Card */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -345,55 +293,10 @@ export default function WelcomeHomePage() {
               </p>
               <p className="text-xs text-gray-500 mt-2">ประหยัดได้มากขึ้น!</p>
             </div>
-
-            {/* Progress Card */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <PieChart className="w-6 h-6 text-purple-600" />
-                </div>
-                <button className="hover:bg-gray-100 p-1 rounded transition-colors">
-                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
-              <h3 className="text-gray-600 text-sm font-medium mb-1">
-                ความคืบหน้า
-              </h3>
-              <p className="text-2xl font-bold text-gray-800">
-                {dashboardData.totalProgress}%
-              </p>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${dashboardData.totalProgress}%` }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Completed Forms Card */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-orange-600" />
-                </div>
-                <span className="text-green-500 text-sm font-medium flex items-center bg-green-50 px-2 py-1 rounded-full">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  15%
-                </span>
-              </div>
-              <h3 className="text-gray-600 text-sm font-medium mb-1">
-                แบบฟอร์มเสร็จแล้ว
-              </h3>
-              <p className="text-2xl font-bold text-gray-800">
-                {dashboardData.completedForms} ฟอร์ม
-              </p>
-              <p className="text-xs text-gray-500 mt-2">เหลืออีก 2 ฟอร์ม</p>
-            </div>
           </div>
 
-          {/* Charts and Progress Section */}
+          {/* Charts Section (คืนกลับมา) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Monthly Tax Chart */}
             <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -409,7 +312,6 @@ export default function WelcomeHomePage() {
                 </button>
               </div>
 
-              {/* Enhanced Bar Chart */}
               <div className="space-y-3">
                 {dashboardData.monthlyData.map((item, index) => {
                   const maxAmount = Math.max(
@@ -449,21 +351,9 @@ export default function WelcomeHomePage() {
               </div>
             </div>
 
-            {/* Monthly Target - Enhanced */}
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    เป้าหมายรายเดือน
-                  </h3>
-                  <p className="text-sm text-gray-500">ความคืบหน้าของคุณ</p>
-                </div>
-                <button className="hover:bg-gray-100 p-2 rounded-lg transition-colors">
-                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
+              
 
-              {/* Enhanced Progress Circle */}
               <div className="flex flex-col items-center">
                 <div className="relative w-32 h-32 mb-4">
                   <svg
@@ -523,7 +413,6 @@ export default function WelcomeHomePage() {
                   วันนี้ สูงกว่าเดือนที่แล้ว ทำได้ดีมาก! 🚀
                 </p>
 
-                {/* Enhanced Stats */}
                 <div className="w-full space-y-4">
                   <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <span className="text-gray-600 text-sm font-medium">
@@ -561,7 +450,7 @@ export default function WelcomeHomePage() {
             </div>
           </div>
 
-          {/* Enhanced Quick Actions */}
+          {/* Quick Actions (คืนกลับมา) */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
               <div>

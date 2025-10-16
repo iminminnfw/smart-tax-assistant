@@ -6,7 +6,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
@@ -14,25 +13,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum TaxType {
+  INDIVIDUAL
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  NONE
+}
+
+enum Language {
+  TH
+  EN
+}
+
 model User {
-  id            String    @id @default(cuid()) // Primary Key ที่เป็น Unique ID
-  name          String?                        // ชื่อ-นามสกุล (สามารถเป็นค่าว่างได้เผื่อกรณี Login ผ่าน Social)
-  email         String    @unique                 // อีเมลของผู้ใช้ ใช้ในการ Login และต้องไม่ซ้ำกัน
-  
+  id           String    @id @default(cuid()) // Primary Key ที่เป็น Unique ID
+  name         String? // ชื่อ-นามสกุล (สามารถเป็นค่าว่างได้เผื่อกรณี Login ผ่าน Social)
+  firstName    String?   @db.VarChar(120)
+  lastName     String?   @db.VarChar(160)
+  email        String    @unique
+  dateOfBirth  DateTime?
+  address      String?   @db.Text
+  district     String?   @db.VarChar(100)
+  province     String?   @db.VarChar(100)
+  postalCode   String?   @db.VarChar(10)
+  occupation   String?   @db.VarChar(120)
+  annualIncome Decimal?  @db.Decimal(12, 2)
+  language     Language  @default(TH)
+  taxType      TaxType   @default(INDIVIDUAL)
+
   // สำคัญ: ต้องเก็บรหัสผ่านที่ผ่านการเข้ารหัส (Hashed) แล้วเท่านั้น
   // ห้ามเก็บรหัสผ่านแบบ Plain Text เด็ดขาด
-  password      String
+  password String
+  phone    String? @unique @db.VarChar(20)
 
-  emailVerified DateTime? // วันเวลาที่ยืนยันอีเมล (ถ้ายังไม่ยืนยันจะเป็น null)
-  image         String?   // URL รูปโปรไฟล์ (เผื่ออนาคต)
+  emailVerified          DateTime? // วันเวลาที่ยืนยันอีเมล (ถ้ายังไม่ยืนยันจะเป็น null)
+  image                  String? // URL รูปโปรไฟล์ (เผื่ออนาคต)
+  notifyOnPasswordChange NotificationChannel @default(EMAIL)
+  notifyEmail            Boolean             @default(true)
+  notifySms              Boolean             @default(false)
+  notifyTaxDeadlines     Boolean             @default(true)
+  notifyReports          Boolean             @default(true)
 
   // ตารางที่เกี่ยวข้อง (เผื่ออนาคตสำหรับการทำ Social Login)
-  accounts      Account[]
-  sessions      Session[]
+  accounts Account[]
+  sessions Session[]
 
   // วันเวลาที่สร้างและอัปเดตข้อมูล
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  UserToken UserToken[]
+
+  folders DocumentFolder[]
+  files   DocumentFile[]
 
   @@map("users") // กำหนดให้ตารางในฐานข้อมูลชื่อ "users"
 }
@@ -43,18 +78,18 @@ model User {
 
 // ตารางสำหรับจัดการ Social Logins (เช่น Google, Facebook)
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String // เช่น "google", "facebook"
-  providerAccountId  String // ID ที่ได้จาก Provider
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String // เช่น "google", "facebook"
+  providerAccountId String // ID ที่ได้จาก Provider
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -73,12 +108,74 @@ model Session {
   @@map("sessions")
 }
 
-// ตารางสำหรับเก็บ Token ชั่วคราว (ใช้สำหรับยืนยันอีเมล หรือ รีเซ็ตรหัสผ่าน)
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
+enum UserTokenType {
+  PASSWORD_RESET
+  PASSWORD_CHANGE
+  NEW_DEVICE_CONFIRM
+  EMAIL_VERIFY
+}
 
-  @@unique([identifier, token])
-  @@map("verification_tokens")
+model UserToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      UserTokenType
+  tokenHash String        @unique
+  expires   DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expires])
+  @@map("user_tokens") // ชื่อจริงใน DB
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String // FK ไปที่ User (ผูกกับบัญชีชัดเจน)
+  token     String   @unique // แนะนำเก็บเป็น hash
+  expires   DateTime
+  type      String // "EMAIL_VERIFY" | "PASSWORD_RESET"
+  createdAt DateTime @default(now())
+}
+
+model DocumentFolder {
+  id     String @id @default(cuid())
+  name   String @db.VarChar(200)
+  color  String @default("#3B82F6")
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId String? // รองรับ sub-folder
+  parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children DocumentFolder[] @relation("FolderHierarchy")
+
+  files     DocumentFile[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("document_folders")
+}
+
+model DocumentFile {
+  id         String          @id @default(cuid())
+  name       String          @db.VarChar(200)
+  content    String?         @db.Text // สำหรับไฟล์ที่สร้างเป็น text
+  fileUrl    String?         @db.Text // URL ไฟล์ที่อัปโหลด
+  fileName   String?         @db.VarChar(255) // ชื่อไฟล์เดิม
+  fileSize   Int? // ขนาดไฟล์ (bytes)
+  mimeType   String?         @db.VarChar(100) // ประเภทไฟล์ (image/png, application/pdf)
+  isUploaded Boolean         @default(false) // แยกแยะไฟล์ที่อัปโหลด vs สร้างเป็น text
+  type       String? // เช่น "TAX_FORM", "RECEIPT", "NOTE"
+  tags       String[]        @default([])
+  folderId   String?
+  folder     DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("document_files")
 }

@@ -18,10 +18,20 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",             // ✅ เพิ่มเพื่อให้ paths ทำงานได้
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],       // ใช้เรียกทุกอย่างใต้ src/
+      "@app/*": ["./src/app/*"], 
+      "@auth/*": ["./src/app/api/auth/*"],  // ใช้เรียกไฟล์ auth ใน app/api/auth
+      "@lib/*": ["./src/lib/*"],
+      "@components/*": ["./src/components/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

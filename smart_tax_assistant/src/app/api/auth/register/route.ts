@@ -1,64 +1,69 @@
+// src/app/api/auth/register/route.ts
 import { NextResponse } from 'next/server';
-// [แก้ไข] นำเข้า Prisma Client จากที่เดียวเพื่อประสิทธิภาพที่ดีกว่า
-// หากยังไม่มีไฟล์นี้ ให้สร้าง src/lib/prisma.ts แล้วใส่ `export const prisma = new PrismaClient();`
-// แต่เพื่อความง่าย จะใช้แบบเดิมไปก่อน
-import { PrismaClient } from '@/generated/prisma/client';import bcrypt from 'bcrypt';
+import prisma from '@/lib/prisma';
+import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+function splitFullName(full: string) {
+  const parts = (full ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return { firstName: parts[0] ?? '', lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+}
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    
-    // --- [จุดแก้ไขที่สำคัญที่สุด] ---
-    // ดึงค่าเฉพาะฟิลด์ที่ต้องการออกมาจาก body
-    // เพื่อป้องกันไม่ให้มี field อื่นๆ ที่ไม่ต้องการ (เช่น id) ปะปนเข้าไป
-    const { name, email, password } = body;
+    const { firstName, lastName, name, email, password } = await req.json();
 
-    // 1. ตรวจสอบว่ามีข้อมูลหลักครบถ้วนหรือไม่
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
-    }
-    
-    // 2. ตรวจสอบว่ามีอีเมลนี้ในระบบแล้วหรือยัง
-    const existingUser = await prisma.user.findUnique({ 
-      where: { email: email } 
-    });
-
-    if (existingUser) {
-      return NextResponse.json({ error: 'อีเมลนี้ถูกใช้งานแล้ว' }, { status: 409 }); // 409 Conflict
+    // 1) validate เบื้องต้น
+    if (!email || !password || (!firstName && !lastName && !name)) {
+      return NextResponse.json({ error: 'ข้อมูลไม่ครบ' }, { status: 400 });
     }
 
-    // 3. เข้ารหัสรหัสผ่าน (Hashing)
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 2) normalize ชื่อ
+    const fn = firstName ?? splitFullName(name).firstName;
+    const ln = lastName  ?? splitFullName(name).lastName;
+    const displayName = [fn, ln].filter(Boolean).join(' ').trim() || null;
 
-    // 4. สร้างผู้ใช้ใหม่ในฐานข้อมูล โดยใช้ตัวแปรที่ดึงออกมา
+    // 3) กันอีเมลซ้ำ
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) {
+      return NextResponse.json({ error: 'อีเมลนี้ถูกใช้แล้ว' }, { status: 409 });
+    }
+
+    // 4) แฮชรหัสผ่าน
+    const passwordHashed = await bcrypt.hash(password, 12);
+
+    // ⬇️ ใช้อย่างใดอย่างหนึ่งให้ตรง schema ของคุณ
+    // ถ้า schema มี field "passwordHash":
     const user = await prisma.user.create({
       data: {
-        name: name,
-        email: email,
-        password: hashedPassword,
-        // ไม่ต้องระบุ id ที่นี่ ปล่อยให้ Prisma จัดการเอง!
-      },
-    });
+        password: passwordHashed,
+        email,// ✅ ใช้ฟิลด์ "password" ให้ตรง schema
+        firstName: fn || null,
+        lastName:  ln || null,
+        name: [fn, ln].filter(Boolean).join(' ') || null,
+  },
+  select: { id: true, email: true, name: true, firstName: true, lastName: true },
+});
 
-    // ไม่ส่งข้อมูล user ทั้งหมดกลับไปเพื่อความปลอดภัย
-    const userResult = {
-      id: user.id,
-      name: user.name,
-      email: user.email
-    };
+    // // ถ้า schema ของคุณยังเป็น field "password":
+    // const user = await prisma.user.create({
+    //   data: {
+    //     email,
+    //     password: passwordHash,       // ← เก็บแฮชลงฟิลด์ password
+    //     firstName: fn || null,
+    //     lastName:  ln || null,
+    //     name: displayName,
+    //   },
+    //   select: { id: true, email: true, name: true, firstName: true, lastName: true },
+    // });
 
-    return NextResponse.json({ message: 'สร้างบัญชีสำเร็จ!', user: userResult }, { status: 201 });
-
-  } catch (error) {
-    console.error('[REGISTER_API_ERROR]', error);
-
-    // เพิ่มการตรวจสอบประเภทของ error เพื่อให้ response ฉลาดขึ้น
-    if (error instanceof Error && 'code' in error && (error as any).code === 'P2002') {
-         return NextResponse.json({ error: 'อีเมลนี้ถูกใช้งานแล้ว' }, { status: 409 });
+    return NextResponse.json({ ok: true, user }, { status: 201 });
+  } catch (e: any) {
+    // กัน unique ซ้ำจากระดับ DB (สำรอง)
+    if (e?.code === 'P2002') {
+      return NextResponse.json({ error: 'ข้อมูลซ้ำ (unique)' }, { status: 409 });
     }
-
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์' }, { status: 500 });
+    console.error('REGISTER ERROR:', e);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -153,7 +153,8 @@ const RegisterForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
     setError(null);
     
     const formData = new FormData(event.currentTarget);
-    const name = formData.get('name') as string;
+    const firstName = (formData.get('firstName') as string).trim();
+    const lastName = (formData.get('lastName') as string).trim();
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirm-password') as string;
@@ -166,10 +167,19 @@ const RegisterForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
     }
 
     try {
+
+      const playload = {
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`.trim(),
+        email,
+        password,
+      };
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(playload),
       });
 
       const data = await response.json();
@@ -179,8 +189,7 @@ const RegisterForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
         throw new Error(data.error || 'มีบางอย่างผิดพลาด');
       }
 
-      // ลงทะเบียนสำเร็จ! สลับกลับไปหน้า Login
-      console.log('Registration successful:', data);
+      //console.log('Registration successful:', data);
       alert('สร้างบัญชีสำเร็จแล้ว! กรุณาเข้าสู่ระบบ');
       onSwitchToLogin();
 
@@ -220,16 +229,31 @@ const RegisterForm = ({ onSwitchToLogin }: { onSwitchToLogin: () => void }) => {
           </div>
         )}
         
-        <div className="relative group">
-          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
-          <input 
-            name="name" 
-            type="text" 
-            required 
-            className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white focus:bg-white text-sm" 
-            placeholder="ชื่อ-นามสกุล"
-          />
-        </div>
+        <div className="grid grid-cols-2 gap-3">
+  <div className="relative group">
+    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+    <input
+      name="firstName"
+      type="text"
+      required
+      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white focus:bg-white text-sm"
+      placeholder="ชื่อ"
+      autoComplete="given-name"
+    />
+  </div>
+
+  <div className="relative group">
+    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+    <input
+      name="lastName"
+      type="text"
+      required
+      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white focus:bg-white text-sm"
+      placeholder="นามสกุล"
+      autoComplete="family-name"
+    />
+  </div>
+</div>
 
         <div className="relative group">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
