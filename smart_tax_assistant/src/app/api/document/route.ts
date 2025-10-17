@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     const takeRaw = Number(searchParams.get("take") ?? 20) || 20;
     const take = Math.min(Math.max(takeRaw, 1), 100);
 
-    const where: any = { userId };
+    const where: any = { userId, isDeleted: false };
     if (folderId) where.folderId = folderId;
     if (q) {
       where.OR = [

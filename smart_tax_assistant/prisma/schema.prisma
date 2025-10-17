@@ -150,10 +150,17 @@ model DocumentFolder {
   parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
   children DocumentFolder[] @relation("FolderHierarchy")
 
+  // Soft delete fields
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
   files     DocumentFile[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
 
+  @@index([userId])
+  @@index([parentId])
+  @@index([userId, isDeleted])
   @@map("document_folders")
 }
 
@@ -168,8 +175,13 @@ model DocumentFile {
   isUploaded Boolean         @default(false) // แยกแยะไฟล์ที่อัปโหลด vs สร้างเป็น text
   type       String? // เช่น "TAX_FORM", "RECEIPT", "NOTE"
   tags       String[]        @default([])
+
+  // Soft delete fields
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
   folderId   String?
-  folder     DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folder     DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -177,5 +189,8 @@ model DocumentFile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
+  @@index([folderId])
+  @@index([userId, isDeleted])
   @@map("document_files")
 }

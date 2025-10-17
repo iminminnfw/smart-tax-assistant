@@ -384,7 +384,7 @@ export default function DocumentPage() {
               </div>
               
               <div className="flex items-center space-x-3">
-                {selectedFolder && (
+                {selectedFolder ? (
                   <>
                     <button
                       onClick={handleGoBack}
@@ -393,7 +393,7 @@ export default function DocumentPage() {
                       <Home className="w-5 h-5" />
                       <span>กลับหน้าหลัก</span>
                     </button>
-                    
+
                     {/* ⭐ เพิ่มปุ่มลบโฟลเดอร์ */}
                     <button
                       onClick={() => setShowDeleteFolderConfirm(selectedFolder.id)}
@@ -403,8 +403,20 @@ export default function DocumentPage() {
                       <span>ลบโฟลเดอร์</span>
                     </button>
                   </>
+                ) : (
+                  <>
+                    {/* Trash Button - Only show on main page */}
+                    <button
+                      onClick={() => router.push('/trash')}
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-medium shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"
+                      title="View Trash"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                      <span>ถังขยะ</span>
+                    </button>
+                  </>
                 )}
-                
+
                 <button
                   onClick={() => setShowCreateFolder(true)}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium shadow-sm hover:shadow-md transition-all duration-200 flex items-center space-x-2"

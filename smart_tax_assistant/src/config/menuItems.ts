@@ -25,18 +25,18 @@ export const menuItems = [
     description: 'ภาพรวมและสถิติของคุณ',
   },
   {
-    href: '/simulation',
+    href: '/ai-optimizer',
     icon: Target,
     label: 'สร้างสถานการณ์จำลอง',
     color: 'text-orange-600 bg-orange-100',
     description: 'จำลองสถานการณ์ภาษีต่างๆ',
   },
   {
-    href: '/calendar',
+    href: '/tax-calendar',
     icon: Calendar,
-    label: 'ปฏิทิน',
+    label: 'ปฏิทินภาษี',
     color: 'text-red-600 bg-red-100',
-    description: 'กำหนดการและเตือนความจำ',
+    description: 'กำหนดการยื่นภาษีและนับถอยหลัง',
   },
   {
     href: '/document',   // 👈 เปลี่ยน path จาก /chat → /document

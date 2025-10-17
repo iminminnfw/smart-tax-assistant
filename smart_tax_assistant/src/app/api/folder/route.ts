@@ -11,8 +11,16 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const folders = await prisma.documentFolder.findMany({
-    where: { user: { email: session.user.email } },
-    include: { children: true, files: true },
+    where: {
+      user: { email: session.user.email },
+      isDeleted: false
+    },
+    include: {
+      children: true,
+      files: {
+        where: { isDeleted: false }
+      }
+    },
   });
 
   return NextResponse.json(folders);

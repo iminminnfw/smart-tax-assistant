@@ -37,10 +37,10 @@ export async function PATCH(req: Request, { params }: ParamsP) {
   return NextResponse.json(updated);
 }
 
-// ⭐ แก้ไข DELETE method ที่มีอยู่แล้ว
+// Soft delete folder (move to trash)
 export async function DELETE(_req: Request, { params }: ParamsP) {
   const { id } = await params;
-  
+
   // ตรวจสอบ authentication
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
@@ -48,11 +48,12 @@ export async function DELETE(_req: Request, { params }: ParamsP) {
   }
 
   try {
-    // ตรวจสอบว่าโฟลเดอร์เป็นของผู้ใช้คนนี้หรือไม่ และดึงไฟล์ที่อยู่ในโฟลเดอร์
+    // ตรวจสอบว่าโฟลเดอร์เป็นของผู้ใช้คนนี้หรือไม่
     const folder = await prisma.documentFolder.findFirst({
-      where: { 
-        id, 
-        user: { email: session.user.email } 
+      where: {
+        id,
+        user: { email: session.user.email },
+        isDeleted: false
       },
       include: { files: true },
     });
@@ -61,20 +62,26 @@ export async function DELETE(_req: Request, { params }: ParamsP) {
       return NextResponse.json({ error: 'Folder not found' }, { status: 404 });
     }
 
-    // ลบไฟล์ทั้งหมดในโฟลเดอร์ก่อน (ถ้ามี)
+    const now = new Date();
+
+    // Soft delete ไฟล์ทั้งหมดในโฟลเดอร์
     if (folder.files.length > 0) {
-      await prisma.documentFile.deleteMany({
-        where: { folderId: id },
+      await prisma.documentFile.updateMany({
+        where: { folderId: id, isDeleted: false },
+        data: { isDeleted: true, deletedAt: now },
       });
     }
 
-    // ลบโฟลเดอร์
-    await prisma.documentFolder.delete({ where: { id } });
+    // Soft delete โฟลเดอร์
+    await prisma.documentFolder.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: now },
+    });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       ok: true,
-      message: 'Folder deleted successfully',
-      deletedFiles: folder.files.length 
+      message: 'Folder moved to trash',
+      deletedFiles: folder.files.length
     });
 
   } catch (error) {

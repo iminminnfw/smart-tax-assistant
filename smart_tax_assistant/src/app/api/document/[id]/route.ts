@@ -38,7 +38,7 @@ export async function PATCH(req: Request, { params }: ParamsType) {
 
 export async function DELETE(req: Request, { params }: ParamsType) {
   const { id } = await params;
-  
+
   // ตรวจสอบสิทธิ์ของผู้ใช้
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -53,7 +53,7 @@ export async function DELETE(req: Request, { params }: ParamsType) {
     });
     userId = u?.id;
   }
-  
+
   if (!userId) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 });
   }
@@ -61,17 +61,20 @@ export async function DELETE(req: Request, { params }: ParamsType) {
   try {
     // ตรวจสอบว่าไฟล์เป็นของผู้ใช้
     const file = await prisma.documentFile.findFirst({
-      where: { id, userId },
+      where: { id, userId, isDeleted: false },
     });
 
     if (!file) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    // ลบไฟล์
-    await prisma.documentFile.delete({ where: { id } });
-    
-    return NextResponse.json({ ok: true, message: 'File deleted successfully' });
+    // Soft delete ไฟล์
+    await prisma.documentFile.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    return NextResponse.json({ ok: true, message: 'File moved to trash' });
   } catch (error) {
     console.error('Error deleting file:', error);
     return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
