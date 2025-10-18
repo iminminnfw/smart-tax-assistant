@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppNavigation } from '@/components/AppNavigation';
 import {
   Trash2,
   RotateCcw,
@@ -10,7 +11,6 @@ import {
   File,
   Clock,
   AlertTriangle,
-  ArrowLeft,
   Home
 } from 'lucide-react';
 
@@ -164,19 +164,13 @@ export default function TrashPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/document')}
-              className="p-3 bg-white hover:bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200"
-              title="กลับไปหน้าเอกสาร"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      <AppNavigation />
 
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Trash2 className="w-8 h-8 text-gray-700" />
               <div>
@@ -184,7 +178,6 @@ export default function TrashPage() {
                 <p className="text-sm text-gray-500">จัดการไฟล์ที่ถูกลบ</p>
               </div>
             </div>
-          </div>
 
           <div className="flex items-center gap-3">
             <button
@@ -333,6 +326,7 @@ export default function TrashPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

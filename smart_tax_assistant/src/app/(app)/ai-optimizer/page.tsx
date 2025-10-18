@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppNavigation } from '@/components/AppNavigation';
 import {
   Sparkles,
   Target,
@@ -285,19 +286,14 @@ export default function AIOptimizerPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => router.push('/document')}
-              className="p-3 bg-white hover:bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      <AppNavigation />
 
-            <div className="flex items-center gap-3">
+      <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 min-h-screen">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
                 <Brain className="w-6 h-6 text-white" />
               </div>
@@ -308,7 +304,6 @@ export default function AIOptimizerPage() {
                 <p className="text-gray-600">ให้ AI วิเคราะห์และแนะนำแผนภาษีที่เหมาะกับคุณ</p>
               </div>
             </div>
-          </div>
 
           {/* Demo Warning */}
           <div className="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 flex items-start gap-3">
@@ -548,6 +543,7 @@ export default function AIOptimizerPage() {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

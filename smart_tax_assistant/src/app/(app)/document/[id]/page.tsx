@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import SafeImage from '@/components/SafeImage/SafeImage';
+import { AppNavigation } from '@/components/AppNavigation';
 
 import { ArrowLeft, Download, Calendar, Tag, FileText, Trash2 } from 'lucide-react';
 import Link from "next/link";

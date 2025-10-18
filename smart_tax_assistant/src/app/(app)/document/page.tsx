@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter , useSearchParams} from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { AppNavigation } from '@/components/AppNavigation';
 import FileUploadModal from '@/components/FileUploadModal/FileUploadModal';
 import {
   FolderPlus,
@@ -21,7 +22,7 @@ import {
   Home,
   Sparkles,
   Trash2,
-  AlertTriangle, // เพิ่ม icon ใหม่
+  AlertTriangle,
 } from 'lucide-react';
 
 interface DocumentFolder {
@@ -338,10 +339,13 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      <div className="flex">
-        {/* Main Content */}
-        <div className="flex-1 p-8">
+    <div className="min-h-screen bg-gray-50">
+      <AppNavigation />
+
+      <div className="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+        <div className="flex">
+          {/* Main Content */}
+          <div className="flex-1 p-8">
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-6">
@@ -910,6 +914,7 @@ export default function DocumentPage() {
         onUploaded={handleUploaded}
         folderId={selectedFolder?.id}
       />
+      </div>
     </div>
   );
 }
