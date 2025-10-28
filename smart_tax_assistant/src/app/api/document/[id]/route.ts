@@ -9,9 +9,29 @@ type ParamsType = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, { params }: ParamsType) {
   const { id } = await params;
-  
-  const file = await prisma.documentFile.findUnique({
-    where: { id },
+
+  // Check authentication
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let userId = (session.user as any).id as string | undefined;
+  if (!userId && session.user.email) {
+    const u = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    });
+    userId = u?.id;
+  }
+
+  if (!userId) {
+    return NextResponse.json({ error: 'User not found' }, { status: 401 });
+  }
+
+  // Fetch document with ownership check
+  const file = await prisma.documentFile.findFirst({
+    where: { id, userId },
     include: { folder: true },
   });
 

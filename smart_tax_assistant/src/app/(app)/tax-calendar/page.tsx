@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { AppNavigation } from '@/components/AppNavigation';
+
 import {
   Calendar as CalendarIcon,
   Clock,
-  ArrowLeft,
   Home,
   AlertCircle,
-  FileText,
-  Upload,
   CheckCircle2,
   Info,
   Bell,
@@ -80,7 +79,7 @@ const TAX_DEADLINES: TaxDeadline[] = [
 
 export default function TaxCalendarPage() {
   const router = useRouter();
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate] = useState(new Date());
   const [selectedYear, setSelectedYear] = useState(2025);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [nextDeadline, setNextDeadline] = useState<TaxDeadline | null>(null);
@@ -222,353 +221,350 @@ export default function TaxCalendarPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => router.push('/WelcomeHome')}
-              className="p-3 bg-white hover:bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </button>
+    <div className="min-h-screen bg-gray-50">
+      <AppNavigation />
 
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center">
-                <CalendarIcon className="w-6 h-6 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl flex items-center justify-center">
+                  <CalendarIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                    ปฏิทินภาษี 2025-2026
+                  </h1>
+                  <p className="text-gray-600">สำหรับผู้มีรายได้ตาม ม.40(6) และ 40(8)</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
-                  ปฏิทินภาษี 2025-2026
-                </h1>
-                <p className="text-gray-600">สำหรับผู้มีรายได้ตาม ม.40(6) และ 40(8)</p>
-              </div>
+
+              <button
+                onClick={() => setShowInfo(true)}
+                className="ml-auto p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-colors"
+              >
+                <Info className="w-5 h-5" />
+              </button>
             </div>
 
-            <button
-              onClick={() => setShowInfo(true)}
-              className="ml-auto p-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 transition-colors"
-            >
-              <Info className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Info Banner */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
-              <strong>หมายเหตุ:</strong> ปฏิทินนี้เฉพาะผู้มีรายได้จาก <strong>อาชีพอิสระ (ม.40(6))</strong> และ <strong>ธุรกิจ/พาณิชย์ (ม.40(8))</strong> เช่น ฟรีแลนซ์, คนขายของออนไลน์, ผู้รับเหมา ฯลฯ
+            {/* Info Banner */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-800">
+                <strong>หมายเหตุ:</strong> ปฏิทินนี้เฉพาะผู้มีรายได้จาก <strong>อาชีพอิสระ (ม.40(6))</strong> และ <strong>ธุรกิจ/พาณิชย์ (ม.40(8))</strong> เช่น ฟรีแลนซ์, คนขายของออนไลน์, ผู้รับเหมา ฯลฯ
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Countdown Timer */}
-        {nextDeadline && (
-          <div className="bg-gradient-to-br from-red-500 to-orange-600 rounded-3xl shadow-2xl p-8 mb-8 text-white">
-            <div className="text-center mb-6">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Clock className="w-6 h-6" />
-                <h2 className="text-2xl font-bold">เหลือเวลาอีก</h2>
+          {/* Countdown Timer */}
+          {nextDeadline && (
+            <div className="bg-gradient-to-br from-red-500 to-orange-600 rounded-3xl shadow-2xl p-8 mb-8 text-white">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Clock className="w-6 h-6" />
+                  <h2 className="text-2xl font-bold">เหลือเวลาอีก</h2>
+                </div>
+                <p className="text-white/90 text-lg">{nextDeadline.title}</p>
+                <p className="text-white/80 text-sm mt-1">
+                  กำหนดส่ง: {nextDeadline.date.toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
               </div>
-              <p className="text-white/90 text-lg">{nextDeadline.title}</p>
-              <p className="text-white/80 text-sm mt-1">
-                กำหนดส่ง: {nextDeadline.date.toLocaleDateString('th-TH', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-            </div>
 
-            <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
-              {[
-                { label: 'วัน', value: countdown.days },
-                { label: 'ชั่วโมง', value: countdown.hours },
-                { label: 'นาที', value: countdown.minutes },
-                { label: 'วินาที', value: countdown.seconds }
-              ].map((item) => (
-                <div key={item.label} className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
-                  <div className="text-4xl font-bold mb-1">
-                    {item.value.toString().padStart(2, '0')}
+              <div className="grid grid-cols-4 gap-4 max-w-2xl mx-auto">
+                {[
+                  { label: 'วัน', value: countdown.days },
+                  { label: 'ชั่วโมง', value: countdown.hours },
+                  { label: 'นาที', value: countdown.minutes },
+                  { label: 'วินาที', value: countdown.seconds }
+                ].map((item) => (
+                  <div key={item.label} className="bg-white/20 backdrop-blur-sm rounded-2xl p-4">
+                    <div className="text-4xl font-bold mb-1">
+                      {item.value.toString().padStart(2, '0')}
+                    </div>
+                    <div className="text-white/80 text-sm">{item.label}</div>
                   </div>
-                  <div className="text-white/80 text-sm">{item.label}</div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex justify-center gap-4">
+                <div className={`px-4 py-2 rounded-full text-sm font-medium ${
+                  nextDeadline.filingMethod === 'efiling'
+                    ? 'bg-green-500/30 text-white'
+                    : 'bg-orange-500/30 text-white'
+                }`}>
+                  {nextDeadline.filingMethod === 'efiling' ? '📱 ยื่นออนไลน์' : '📄 ยื่นเอกสาร'}
+                </div>
+                <div className="px-4 py-2 bg-white/20 rounded-full text-sm font-medium text-white">
+                  {nextDeadline.form}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Calendar */}
+          <div className="bg-white rounded-3xl shadow-xl p-6">
+            {/* Calendar Header */}
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => changeMonth('prev')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </button>
+
+              <h3 className="text-2xl font-bold text-gray-900">
+                {monthNames[selectedMonth]} {selectedYear + 543}
+              </h3>
+
+              <button
+                onClick={() => changeMonth('next')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Days of Week */}
+            <div className="grid grid-cols-7 gap-2 mb-4">
+              {['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'].map((day) => (
+                <div key={day} className="text-center font-semibold text-gray-600 py-2">
+                  {day}
                 </div>
               ))}
             </div>
 
-            <div className="mt-6 flex justify-center gap-4">
-              <div className={`px-4 py-2 rounded-full text-sm font-medium ${
-                nextDeadline.filingMethod === 'efiling'
-                  ? 'bg-green-500/30 text-white'
-                  : 'bg-orange-500/30 text-white'
-              }`}>
-                {nextDeadline.filingMethod === 'efiling' ? '📱 ยื่นออนไลน์' : '📄 ยื่นเอกสาร'}
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-2">
+              {renderCalendar()}
+            </div>
+
+            {/* Legend */}
+            <div className="mt-6 flex flex-wrap gap-4 justify-center">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+                <span className="text-sm text-gray-600">ยื่นเอกสาร</span>
               </div>
-              <div className="px-4 py-2 bg-white/20 rounded-full text-sm font-medium text-white">
-                {nextDeadline.form}
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                <span className="text-sm text-gray-600">ยื่นออนไลน์</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-blue-50 border-2 border-blue-500 rounded"></div>
+                <span className="text-sm text-gray-600">วันนี้</span>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Calendar */}
-        <div className="bg-white rounded-3xl shadow-xl p-6">
-          {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              onClick={() => changeMonth('prev')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            <h3 className="text-2xl font-bold text-gray-900">
-              {monthNames[selectedMonth]} {selectedYear + 543}
+          {/* All Deadlines List */}
+          <div className="mt-8 bg-white rounded-3xl shadow-xl p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-orange-600" />
+              กำหนดการยื่นภาษีทั้งหมด
             </h3>
 
-            <button
-              onClick={() => changeMonth('next')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
+            <div className="space-y-4">
+              {TAX_DEADLINES.sort((a, b) => a.date.getTime() - b.date.getTime()).map((deadline) => {
+                const isPast = deadline.date < new Date();
 
-          {/* Days of Week */}
-          <div className="grid grid-cols-7 gap-2 mb-4">
-            {['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'].map((day) => (
-              <div key={day} className="text-center font-semibold text-gray-600 py-2">
-                {day}
-              </div>
-            ))}
-          </div>
+                return (
+                  <div
+                    key={deadline.id}
+                    className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
+                      isPast
+                        ? 'bg-gray-50 border-gray-200 opacity-60'
+                        : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-2xl">
+                            {deadline.filingMethod === 'efiling' ? '📱' : '📄'}
+                          </span>
+                          <div>
+                            <h4 className="font-bold text-gray-900">{deadline.title}</h4>
+                            <p className="text-sm text-gray-600">{deadline.description}</p>
+                          </div>
+                        </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {renderCalendar()}
-          </div>
-
-          {/* Legend */}
-          <div className="mt-6 flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
-              <span className="text-sm text-gray-600">ยื่นเอกสาร</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-              <span className="text-sm text-gray-600">ยื่นออนไลน์</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-50 border-2 border-blue-500 rounded"></div>
-              <span className="text-sm text-gray-600">วันนี้</span>
-            </div>
-          </div>
-        </div>
-
-        {/* All Deadlines List */}
-        <div className="mt-8 bg-white rounded-3xl shadow-xl p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-orange-600" />
-            กำหนดการยื่นภาษีทั้งหมด
-          </h3>
-
-          <div className="space-y-4">
-            {TAX_DEADLINES.sort((a, b) => a.date.getTime() - b.date.getTime()).map((deadline) => {
-              const isPast = deadline.date < new Date();
-
-              return (
-                <div
-                  key={deadline.id}
-                  className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
-                    isPast
-                      ? 'bg-gray-50 border-gray-200 opacity-60'
-                      : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200 hover:shadow-md'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl">
-                          {deadline.filingMethod === 'efiling' ? '📱' : '📄'}
-                        </span>
-                        <div>
-                          <h4 className="font-bold text-gray-900">{deadline.title}</h4>
-                          <p className="text-sm text-gray-600">{deadline.description}</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                            {deadline.form}
+                          </span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            deadline.filingMethod === 'efiling'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}>
+                            {deadline.filingMethod === 'efiling' ? 'ยื่นออนไลน์' : 'ยื่นเอกสาร'}
+                          </span>
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                            {deadline.category === 'mid-year' ? 'กลางปี' : 'ประจำปี'}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                          {deadline.form}
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          deadline.filingMethod === 'efiling'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-orange-100 text-orange-800'
-                        }`}>
-                          {deadline.filingMethod === 'efiling' ? 'ยื่นออนไลน์' : 'ยื่นเอกสาร'}
-                        </span>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                          {deadline.category === 'mid-year' ? 'กลางปี' : 'ประจำปี'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right ml-4">
-                      <div className="text-2xl font-bold text-gray-900">
-                        {deadline.date.getDate()}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {monthNames[deadline.date.getMonth()]}
-                      </div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {deadline.date.getFullYear() + 543}
-                      </div>
-                      {isPast && (
-                        <div className="mt-2">
-                          <CheckCircle2 className="w-5 h-5 text-gray-400 mx-auto" />
+                      <div className="text-right ml-4">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {deadline.date.getDate()}
                         </div>
-                      )}
+                        <div className="text-sm text-gray-600">
+                          {monthNames[deadline.date.getMonth()]}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {deadline.date.getFullYear() + 543}
+                        </div>
+                        {isPast && (
+                          <div className="mt-2">
+                            <CheckCircle2 className="w-5 h-5 text-gray-400 mx-auto" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Info Modal */}
+          {showInfo && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
+                      <Info className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900">ข้อมูลเกี่ยวกับภาษี</h3>
+                  </div>
+                  <button
+                    onClick={() => setShowInfo(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-lg text-gray-900 mb-2">ผู้มีรายได้ตาม ม.40(6)</h4>
+                    <p className="text-gray-700 mb-2">รายได้จากวิชาชีพอิสระ เช่น:</p>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
+                      <li>กฎหมาย (ทนายความ)</li>
+                      <li>การแพทย์ (แพทย์, ทันตแพทย์)</li>
+                      <li>วิศวกรรม</li>
+                      <li>สถาปัตยกรรม</li>
+                      <li>การบัญชี</li>
+                      <li>ศิลปะ (จิตรกร, ประติมากร)</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-lg text-gray-900 mb-2">ผู้มีรายได้ตาม ม.40(8)</h4>
+                    <p className="text-gray-700 mb-2">รายได้จากการประกอบธุรกิจ พาณิชยกรรม เช่น:</p>
+                    <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
+                      <li>ฟรีแลนซ์ (Graphic Designer, Content Creator)</li>
+                      <li>ผู้รับเหมา (Contractor)</li>
+                      <li>ขายของออนไลน์</li>
+                      <li>ธุรกิจขนส่ง</li>
+                      <li>เกษตรกรรม</li>
+                      <li>ธุรกิจอื่นๆ ที่ไม่ระบุไว้</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                    <h4 className="font-bold text-yellow-900 mb-2">⚠️ สำคัญ!</h4>
+                    <p className="text-yellow-800 text-sm">
+                      วันที่ระบุเป็นตามประกาศกรมสรรพากร อาจมีการเปลี่ยนแปลงหรือขยายเวลา
+                      กรุณาติดตามประกาศอย่างเป็นทางการจากกรมสรรพากรเพิ่มเติม
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-lg text-gray-900 mb-2">แบบฟอร์มภาษี</h4>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="font-medium text-gray-900">ภ.ง.ด. 94</p>
+                        <p className="text-sm text-gray-600">แบบแสดงรายการภาษีเงินได้บุคคลธรรมดาครึ่งปี</p>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <p className="font-medium text-gray-900">ภ.ง.ด. 90</p>
+                        <p className="text-sm text-gray-600">แบบแสดงรายการภาษีเงินได้บุคคลธรรมดา (ทั้งปี)</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* Info Modal */}
-        {showInfo && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
-                    <Info className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-900">ข้อมูลเกี่ยวกับภาษี</h3>
-                </div>
                 <button
                   onClick={() => setShowInfo(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
                 >
-                  ✕
+                  เข้าใจแล้ว
                 </button>
               </div>
+            </div>
+          )}
 
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-bold text-lg text-gray-900 mb-2">ผู้มีรายได้ตาม ม.40(6)</h4>
-                  <p className="text-gray-700 mb-2">รายได้จากวิชาชีพอิสระ เช่น:</p>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                    <li>กฎหมาย (ทนายความ)</li>
-                    <li>การแพทย์ (แพทย์, ทันตแพทย์)</li>
-                    <li>วิศวกรรม</li>
-                    <li>สถาปัตยกรรม</li>
-                    <li>การบัญชี</li>
-                    <li>ศิลปะ (จิตรกร, ประติมากร)</li>
-                  </ul>
+          {/* Selected Deadline Modal */}
+          {selectedDeadline && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl p-8 max-w-lg w-full">
+                <div className="text-center mb-6">
+                  <div className="text-6xl mb-4">
+                    {selectedDeadline.filingMethod === 'efiling' ? '📱' : '📄'}
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    {selectedDeadline.title}
+                  </h3>
+                  <p className="text-gray-600">{selectedDeadline.description}</p>
                 </div>
 
-                <div>
-                  <h4 className="font-bold text-lg text-gray-900 mb-2">ผู้มีรายได้ตาม ม.40(8)</h4>
-                  <p className="text-gray-700 mb-2">รายได้จากการประกอบธุรกิจ พาณิชยกรรม เช่น:</p>
-                  <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                    <li>ฟรีแลนซ์ (Graphic Designer, Content Creator)</li>
-                    <li>ผู้รับเหมา (Contractor)</li>
-                    <li>ขายของออนไลน์</li>
-                    <li>ธุรกิจขนส่ง</li>
-                    <li>เกษตรกรรม</li>
-                    <li>ธุรกิจอื่นๆ ที่ไม่ระบุไว้</li>
-                  </ul>
-                </div>
+                <div className="space-y-4 mb-6">
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
+                    <span className="text-gray-600">วันที่</span>
+                    <span className="font-bold text-gray-900">
+                      {selectedDeadline.date.toLocaleDateString('th-TH', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </span>
+                  </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                  <h4 className="font-bold text-yellow-900 mb-2">⚠️ สำคัญ!</h4>
-                  <p className="text-yellow-800 text-sm">
-                    วันที่ระบุเป็นตามประกาศกรมสรรพากร อาจมีการเปลี่ยนแปลงหรือขยายเวลา
-                    กรุณาติดตามประกาศอย่างเป็นทางการจากกรมสรรพากรเพิ่มเติม
-                  </p>
-                </div>
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
+                    <span className="text-gray-600">แบบฟอร์ม</span>
+                    <span className="font-bold text-gray-900">{selectedDeadline.form}</span>
+                  </div>
 
-                <div>
-                  <h4 className="font-bold text-lg text-gray-900 mb-2">แบบฟอร์มภาษี</h4>
-                  <div className="space-y-3">
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="font-medium text-gray-900">ภ.ง.ด. 94</p>
-                      <p className="text-sm text-gray-600">แบบแสดงรายการภาษีเงินได้บุคคลธรรมดาครึ่งปี</p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="font-medium text-gray-900">ภ.ง.ด. 90</p>
-                      <p className="text-sm text-gray-600">แบบแสดงรายการภาษีเงินได้บุคคลธรรมดา (ทั้งปี)</p>
-                    </div>
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
+                    <span className="text-gray-600">วิธีการยื่น</span>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      selectedDeadline.filingMethod === 'efiling'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {selectedDeadline.filingMethod === 'efiling' ? 'ยื่นออนไลน์' : 'ยื่นเอกสาร'}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              <button
-                onClick={() => setShowInfo(false)}
-                className="w-full mt-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                เข้าใจแล้ว
-              </button>
+                <button
+                  onClick={() => setSelectedDeadline(null)}
+                  className="w-full py-3 bg-gray-600 text-white font-bold rounded-xl hover:bg-gray-700 transition-colors"
+                >
+                  ปิด
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Selected Deadline Modal */}
-        {selectedDeadline && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-lg w-full">
-              <div className="text-center mb-6">
-                <div className="text-6xl mb-4">
-                  {selectedDeadline.filingMethod === 'efiling' ? '📱' : '📄'}
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {selectedDeadline.title}
-                </h3>
-                <p className="text-gray-600">{selectedDeadline.description}</p>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                  <span className="text-gray-600">วันที่</span>
-                  <span className="font-bold text-gray-900">
-                    {selectedDeadline.date.toLocaleDateString('th-TH', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                  <span className="text-gray-600">แบบฟอร์ม</span>
-                  <span className="font-bold text-gray-900">{selectedDeadline.form}</span>
-                </div>
-
-                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-                  <span className="text-gray-600">วิธีการยื่น</span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    selectedDeadline.filingMethod === 'efiling'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-orange-100 text-orange-800'
-                  }`}>
-                    {selectedDeadline.filingMethod === 'efiling' ? 'ยื่นออนไลน์' : 'ยื่นเอกสาร'}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setSelectedDeadline(null)}
-                className="w-full py-3 bg-gray-600 text-white font-bold rounded-xl hover:bg-gray-700 transition-colors"
-              >
-                ปิด
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

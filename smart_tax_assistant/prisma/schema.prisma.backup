@@ -1,0 +1,429 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum TaxType {
+  INDIVIDUAL
+  BUSINESS
+  FREELANCE
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  NONE
+}
+
+enum Language {
+  TH
+  EN
+}
+
+enum UserTokenType {
+  PASSWORD_RESET
+  PASSWORD_CHANGE
+  NEW_DEVICE_CONFIRM
+  EMAIL_VERIFY
+}
+
+enum TaxFilingStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TaxFormType {
+  PND90  // ภ.ง.ด. 90 - ทั้งปี
+  PND91  // ภ.ง.ด. 91 - พนักงานบริษัท
+  PND94  // ภ.ง.ด. 94 - ครึ่งปี (สำหรับ ม.40(6) และ ม.40(8))
+}
+
+// ✅ เพิ่ม: ประเภทรายได้ตาม มาตรา 40
+enum IncomeType {
+  // มาตรา 40(1) - เงินเดือน ค่าจ้าง
+  SALARY
+  
+  // มาตรา 40(2) - ค่าจ้างทำของ
+  WAGES
+  
+  // มาตรา 40(3) - ค่าลิขสิทธิ์
+  COPYRIGHT
+  
+  // มาตรา 40(4) - ดอกเบี้ย
+  INTEREST
+  
+  // มาตรา 40(5) - เงินปันผล
+  DIVIDEND
+  
+  // ✅ มาตรา 40(6) - วิชาชีพอิสระ
+  PROFESSIONAL_LAW          // ทนายความ
+  PROFESSIONAL_MEDICAL      // แพทย์, ทันตแพทย์
+  PROFESSIONAL_ENGINEERING  // วิศวกร
+  PROFESSIONAL_ARCHITECTURE // สถาปนิก
+  PROFESSIONAL_ACCOUNTING   // บัญชี
+  PROFESSIONAL_ART          // จิตรกร, ประติมากร
+  PROFESSIONAL_OTHER        // อื่นๆ
+  
+  // มาตรา 40(7) - รับเหมาก่อสร้าง
+  CONTRACTOR
+  
+  // ✅ มาตรา 40(8) - ธุรกิจ พาณิชยกรรม
+  BUSINESS_FREELANCE        // Graphic Designer, Content Creator
+  BUSINESS_CONTRACTOR       // ผู้รับเหมา
+  BUSINESS_ONLINE_SELLING   // ขายของออนไลน์
+  BUSINESS_TRANSPORTATION   // ธุรกิจขนส่ง
+  BUSINESS_AGRICULTURE      // เกษตรกรรม
+  BUSINESS_OTHER            // ธุรกิจอื่นๆ
+  
+  // อื่นๆ
+  RENTAL     // ค่าเช่า
+  INVESTMENT // การลงทุน
+  OTHER      // อื่นๆ
+}
+
+enum DeductionType {
+  PERSONAL
+  SPOUSE
+  CHILD
+  PARENT
+  
+  LIFE_INSURANCE
+  HEALTH_INSURANCE
+  PENSION_INSURANCE
+  
+  PROVIDENT_FUND
+  RMF
+  SSF
+  
+  DONATION
+  HOME_LOAN
+  
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  BUSINESS_EXPENSE  // ค่าใช้จ่ายในการประกอบวิชาชีพ/ธุรกิจ
+  
+  OTHER
+}
+
+// ✅ เพิ่ม: ประเภทอาชีพ
+enum OccupationType {
+  // พนักงานบริษัท
+  EMPLOYEE
+  
+  // ม.40(6) - วิชาชีพอิสระ
+  PROFESSIONAL
+  
+  // ม.40(8) - ธุรกิจ/พาณิชยกรรม
+  BUSINESS_OWNER
+  
+  // อื่นๆ
+  FREELANCE
+  RETIRED
+  STUDENT
+  OTHER
+}
+
+// ========================================
+// USER & AUTH
+// ========================================
+
+model User {
+  id           String    @id @default(cuid())
+  name         String?
+  firstName    String?   @db.VarChar(120)
+  lastName     String?   @db.VarChar(160)
+  email        String    @unique
+  password     String?
+  phone        String?   @unique @db.VarChar(20)
+  
+  dateOfBirth  DateTime?
+  address      String?   @db.Text
+  district     String?   @db.VarChar(100)
+  province     String?   @db.VarChar(100)
+  postalCode   String?   @db.VarChar(10)
+  
+  occupation       String?         @db.VarChar(120)
+  occupationType   OccupationType? // ✅ เพิ่ม
+  annualIncome     Decimal?        @db.Decimal(12, 2)
+  
+  // ✅ เพิ่ม: สำหรับวิชาชีพอิสระ/ธุรกิจ
+  taxId            String?         @unique @db.VarChar(13) // เลขประจำตัวผู้เสียภาษี
+  businessName     String?         @db.VarChar(200)
+  businessType     String?         @db.VarChar(100)
+  businessAddress  String?         @db.Text
+  
+  language     Language  @default(TH)
+  taxType      TaxType   @default(INDIVIDUAL)
+  
+  emailVerified          DateTime?
+  image                  String?
+  notifyOnPasswordChange NotificationChannel @default(EMAIL)
+  notifyEmail            Boolean             @default(true)
+  notifySms              Boolean             @default(false)
+  notifyTaxDeadlines     Boolean             @default(true)
+  notifyReports          Boolean             @default(true)
+  
+  profileCompleted Boolean @default(false)
+  
+  accounts   Account[]
+  sessions   Session[]
+  tokens     UserToken[]
+  
+  folders            DocumentFolder[]
+  files              DocumentFile[]
+  taxFilings         TaxFiling[]
+  incomeRecords      IncomeRecord[]
+  deductionRecords   DeductionRecord[]
+  aiScenarios        AIScenario[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+model UserToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      UserTokenType
+  tokenHash String        @unique
+  expires   DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, type])
+  @@index([expires])
+  @@map("user_tokens")
+}
+
+// ========================================
+// DOCUMENTS
+// ========================================
+
+model DocumentFolder {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(200)
+  color     String   @default("#3B82F6")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  parentId  String?
+  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  
+  files     DocumentFile[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  
+  @@index([userId])
+  @@index([parentId])
+  @@index([userId, isDeleted])
+  @@map("document_folders")
+}
+
+model DocumentFile {
+  id         String   @id @default(cuid())
+  name       String   @db.VarChar(200)
+  content    String?  @db.Text
+  fileUrl    String?  @db.Text
+  fileName   String?  @db.VarChar(255)
+  fileSize   Int?
+  mimeType   String?  @db.VarChar(100)
+  isUploaded Boolean  @default(false)
+  type       String?
+  tags       String[] @default([])
+  
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  
+  folderId  String?
+  folder    DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  incomeRecords    IncomeRecord[]
+  deductionRecords DeductionRecord[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([folderId])
+  @@index([userId, isDeleted])
+  @@map("document_files")
+}
+
+// ========================================
+// TAX MANAGEMENT
+// ========================================
+
+model TaxFiling {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  taxYear        Int
+  formType       TaxFormType
+  status         TaxFilingStatus  @default(DRAFT)
+  
+  // ✅ เพิ่ม: สำหรับ ภ.ง.ด. 94 (ครึ่งปี)
+  period         String?          // "H1" หรือ "H2" (Half 1 or Half 2)
+  
+  totalIncome    Decimal?         @db.Decimal(12, 2)
+  totalDeduction Decimal?         @db.Decimal(12, 2)
+  taxAmount      Decimal?         @db.Decimal(12, 2)
+  
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  businessIncome   Decimal?       @db.Decimal(12, 2)
+  businessExpense  Decimal?       @db.Decimal(12, 2)
+  netIncome        Decimal?       @db.Decimal(12, 2)
+  
+  submittedAt    DateTime?
+  dueDate        DateTime?        // ✅ เพิ่ม: วันครบกำหนดยื่น
+  
+  notes          String?          @db.Text
+  
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  @@index([userId, taxYear])
+  @@index([userId, formType])
+  @@map("tax_filings")
+}
+
+model IncomeRecord {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        IncomeType
+  amount      Decimal       @db.Decimal(12, 2)
+  description String?       @db.Text
+  date        DateTime
+  taxYear     Int
+  
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  isBusinessIncome Boolean   @default(false)
+  expenseAmount    Decimal?  @db.Decimal(12, 2) // ค่าใช้จ่ายในการประกอบอาชีพ
+  netAmount        Decimal?  @db.Decimal(12, 2) // รายได้สุทธิ
+  
+  documentId  String?
+  document    DocumentFile? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([userId, taxYear])
+  @@index([userId, type])
+  @@map("income_records")
+}
+
+model DeductionRecord {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        DeductionType
+  amount      Decimal        @db.Decimal(12, 2)
+  description String?        @db.Text
+  date        DateTime
+  taxYear     Int
+  
+  documentId  String?
+  document    DocumentFile?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  @@index([userId, taxYear])
+  @@index([userId, type])
+  @@map("deduction_records")
+}
+
+// ========================================
+// AI SCENARIOS
+// ========================================
+
+model AIScenario {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  userPrompt  String   @db.Text
+  
+  currentAge        Int?
+  currentIncome     Decimal? @db.Decimal(12, 2)
+  currentSavings    Decimal? @db.Decimal(12, 2)
+  currentOccupation String?  @db.VarChar(120)
+  financialStability String? @db.VarChar(20)
+  
+  scenariosData Json
+  
+  recommendation    String  @db.Text
+  bestScenarioIndex Int?
+  whyBest           String? @db.Text
+  risks             String? @db.Text
+  
+  actionSteps Json?
+  
+  aiModel      String   @default("gpt-4")
+  tokenUsed    Int?
+  responseTime Int?
+  taxRulesUsed Json?
+  
+  selectedScenarioIndex Int?
+  isSaved      Boolean  @default(false)
+  userFeedback String?  @db.Text
+  rating       Int?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([userId, createdAt])
+  @@map("ai_scenarios")
+}

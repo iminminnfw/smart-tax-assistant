@@ -18,13 +18,14 @@
         "name": "next"
       }
     ],
-    "baseUrl": ".",             // ✅ เพิ่มเพื่อให้ paths ทำงานได้
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],       // ใช้เรียกทุกอย่างใต้ src/
-      "@app/*": ["./src/app/*"], 
-      "@auth/*": ["./src/app/api/auth/*"],  // ใช้เรียกไฟล์ auth ใน app/api/auth
-      "@lib/*": ["./src/lib/*"],
-      "@components/*": ["./src/components/*"]
+      "@/*": ["./src/*"],
+      "@/components/*": ["./src/components/*"],
+      "@/modules/*": ["./src/modules/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/app/*": ["./src/app/*"]
     }
   },
   "include": [

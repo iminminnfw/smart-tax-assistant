@@ -1,3 +1,4 @@
+// src/config/menuItems.ts
 import { 
   User, Wallet, Home, Target, Calendar, FileText 
 } from "lucide-react";

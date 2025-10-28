@@ -4,7 +4,9 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+
 generator client {
+  
   provider = "prisma-client-js"
 }
 
@@ -12,6 +14,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ========================================
+// ENUMS
+// ========================================
 
 enum TaxType {
   INDIVIDUAL
@@ -28,12 +34,61 @@ enum Language {
   EN
 }
 
+enum UserTokenType {
+  PASSWORD_RESET
+  PASSWORD_CHANGE
+  NEW_DEVICE_CONFIRM
+  EMAIL_VERIFY
+}
+
+enum TaxFilingStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum TaxFormType {
+  PND90
+  PND91
+  PND94
+}
+
+enum IncomeType {
+  SALARY
+  FREELANCE
+  BUSINESS
+  INVESTMENT
+  RENTAL
+  OTHER
+}
+
+enum DeductionType {
+  PERSONAL
+  SPOUSE
+  CHILD
+  PARENT
+  LIFE_INSURANCE
+  HEALTH_INSURANCE
+  PROVIDENT_FUND
+  RMF
+  SSF
+  DONATION
+  HOME_LOAN
+  OTHER
+}
+
+// ========================================
+// USER & AUTH
+// ========================================
+
 model User {
-  id           String    @id @default(cuid()) // Primary Key ที่เป็น Unique ID
-  name         String? // ชื่อ-นามสกุล (สามารถเป็นค่าว่างได้เผื่อกรณี Login ผ่าน Social)
+  id           String    @id @default(cuid())
+  name         String?
   firstName    String?   @db.VarChar(120)
   lastName     String?   @db.VarChar(160)
   email        String    @unique
+  password     String
+  phone        String?   @unique @db.VarChar(20)
+  
   dateOfBirth  DateTime?
   address      String?   @db.Text
   district     String?   @db.VarChar(100)
@@ -41,48 +96,40 @@ model User {
   postalCode   String?   @db.VarChar(10)
   occupation   String?   @db.VarChar(120)
   annualIncome Decimal?  @db.Decimal(12, 2)
+  
   language     Language  @default(TH)
   taxType      TaxType   @default(INDIVIDUAL)
-
-  // สำคัญ: ต้องเก็บรหัสผ่านที่ผ่านการเข้ารหัส (Hashed) แล้วเท่านั้น
-  // ห้ามเก็บรหัสผ่านแบบ Plain Text เด็ดขาด
-  password String
-  phone    String? @unique @db.VarChar(20)
-
-  emailVerified          DateTime? // วันเวลาที่ยืนยันอีเมล (ถ้ายังไม่ยืนยันจะเป็น null)
-  image                  String? // URL รูปโปรไฟล์ (เผื่ออนาคต)
+  
+  emailVerified          DateTime?
+  image                  String?
   notifyOnPasswordChange NotificationChannel @default(EMAIL)
   notifyEmail            Boolean             @default(true)
   notifySms              Boolean             @default(false)
   notifyTaxDeadlines     Boolean             @default(true)
   notifyReports          Boolean             @default(true)
-
-  // ตารางที่เกี่ยวข้อง (เผื่ออนาคตสำหรับการทำ Social Login)
-  accounts Account[]
-  sessions Session[]
-
-  // วันเวลาที่สร้างและอัปเดตข้อมูล
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  UserToken UserToken[]
-
-  folders DocumentFolder[]
-  files   DocumentFile[]
-
-  @@map("users") // กำหนดให้ตารางในฐานข้อมูลชื่อ "users"
+  
+  accounts   Account[]
+  sessions   Session[]
+  tokens     UserToken[]
+  
+  folders            DocumentFolder[]
+  files              DocumentFile[]
+  taxFilings         TaxFiling[]
+  incomeRecords      IncomeRecord[]
+  deductionRecords   DeductionRecord[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("users")
 }
 
-// --- โมเดลเสริมสำหรับการทำ Authentication ที่สมบูรณ์ ---
-// โมเดลเหล่านี้ได้รับแรงบันดาลใจจาก NextAuth.js ซึ่งเป็นมาตรฐานที่นิยม
-// และจะช่วยให้คุณต่อยอดระบบได้ง่ายในอนาคต
-
-// ตารางสำหรับจัดการ Social Logins (เช่น Google, Facebook)
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
-  provider          String // เช่น "google", "facebook"
-  providerAccountId String // ID ที่ได้จาก Provider
+  provider          String
+  providerAccountId String
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
@@ -90,29 +137,21 @@ model Account {
   scope             String?
   id_token          String? @db.Text
   session_state     String?
-
+  
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
 
-// ตารางสำหรับจัดการ Session ของผู้ใช้ (รองรับ "จดจำฉันไว้")
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   @@map("sessions")
-}
-
-enum UserTokenType {
-  PASSWORD_RESET
-  PASSWORD_CHANGE
-  NEW_DEVICE_CONFIRM
-  EMAIL_VERIFY
 }
 
 model UserToken {
@@ -124,40 +163,35 @@ model UserToken {
   usedAt    DateTime?
   createdAt DateTime      @default(now())
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
   @@index([userId, type])
   @@index([expires])
-  @@map("user_tokens") // ชื่อจริงใน DB
+  @@map("user_tokens")
 }
 
-model VerificationToken {
-  id        String   @id @default(cuid())
-  userId    String // FK ไปที่ User (ผูกกับบัญชีชัดเจน)
-  token     String   @unique // แนะนำเก็บเป็น hash
-  expires   DateTime
-  type      String // "EMAIL_VERIFY" | "PASSWORD_RESET"
-  createdAt DateTime @default(now())
-}
+
+// ========================================
+// DOCUMENTS
+// ========================================
 
 model DocumentFolder {
-  id     String @id @default(cuid())
-  name   String @db.VarChar(200)
-  color  String @default("#3B82F6")
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  parentId String? // รองรับ sub-folder
-  parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children DocumentFolder[] @relation("FolderHierarchy")
-
-  // Soft delete fields
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(200)
+  color     String   @default("#3B82F6")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  parentId  String?
+  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
-
+  
   files     DocumentFile[]
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
-
+  
   @@index([userId])
   @@index([parentId])
   @@index([userId, isDeleted])
@@ -165,32 +199,104 @@ model DocumentFolder {
 }
 
 model DocumentFile {
-  id         String          @id @default(cuid())
-  name       String          @db.VarChar(200)
-  content    String?         @db.Text // สำหรับไฟล์ที่สร้างเป็น text
-  fileUrl    String?         @db.Text // URL ไฟล์ที่อัปโหลด
-  fileName   String?         @db.VarChar(255) // ชื่อไฟล์เดิม
-  fileSize   Int? // ขนาดไฟล์ (bytes)
-  mimeType   String?         @db.VarChar(100) // ประเภทไฟล์ (image/png, application/pdf)
-  isUploaded Boolean         @default(false) // แยกแยะไฟล์ที่อัปโหลด vs สร้างเป็น text
-  type       String? // เช่น "TAX_FORM", "RECEIPT", "NOTE"
-  tags       String[]        @default([])
-
-  // Soft delete fields
+  id         String   @id @default(cuid())
+  name       String   @db.VarChar(200)
+  content    String?  @db.Text
+  fileUrl    String?  @db.Text
+  fileName   String?  @db.VarChar(255)
+  fileSize   Int?
+  mimeType   String?  @db.VarChar(100)
+  isUploaded Boolean  @default(false)
+  type       String?
+  tags       String[] @default([])
+  
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
-
-  folderId   String?
-  folder     DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-
+  
+  folderId  String?
+  folder    DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  
+  incomeRecords    IncomeRecord[]
+  deductionRecords DeductionRecord[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
   @@index([userId])
   @@index([folderId])
   @@index([userId, isDeleted])
   @@map("document_files")
+}
+
+// ========================================
+// TAX MANAGEMENT (✅ ใหม่!)
+// ========================================
+
+model TaxFiling {
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  taxYear        Int
+  formType       TaxFormType
+  status         TaxFilingStatus  @default(DRAFT)
+  
+  totalIncome    Decimal?         @db.Decimal(12, 2)
+  totalDeduction Decimal?         @db.Decimal(12, 2)
+  taxAmount      Decimal?         @db.Decimal(12, 2)
+  
+  submittedAt    DateTime?
+  
+  notes          String?          @db.Text
+  
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  @@index([userId, taxYear])
+  @@map("tax_filings")
+}
+
+model IncomeRecord {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        IncomeType
+  amount      Decimal       @db.Decimal(12, 2)
+  description String?       @db.Text
+  date        DateTime
+  taxYear     Int
+  
+  documentId  String?
+  document    DocumentFile? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  @@index([userId, taxYear])
+  @@map("income_records")
+}
+
+model DeductionRecord {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        DeductionType
+  amount      Decimal        @db.Decimal(12, 2)
+  description String?        @db.Text
+  date        DateTime
+  taxYear     Int
+  
+  documentId  String?
+  document    DocumentFile?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  @@index([userId, taxYear])
+  @@map("deduction_records")
 }

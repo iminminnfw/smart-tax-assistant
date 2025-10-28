@@ -2,9 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import prisma from "@/lib/prisma";
+import { uploadToS3, generateS3Key } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
@@ -43,13 +42,16 @@ export async function POST(req: NextRequest) {
       size: file.size
     }); // Debug log
 
+    // Convert file to Buffer
     const bytes = Buffer.from(await file.arrayBuffer());
-    const uploadDir = path.join(process.cwd(), "public", "uploads", userId);
-    await mkdir(uploadDir, { recursive: true });
-    const safe = file.name.replace(/[^\w.\-]+/g, "_");
-    const filename = `${Date.now()}_${safe}`;
-    await writeFile(path.join(uploadDir, filename), bytes);
-    const publicUrl = `/uploads/${userId}/${filename}`;
+
+    // Generate S3 key with organized folder structure
+    const s3Key = generateS3Key(userId, 'documents', file.name);
+
+    // Upload to S3 (private bucket with signed URL support)
+    const s3Result = await uploadToS3(bytes, s3Key, file.type || 'application/octet-stream');
+
+    console.log('S3 upload successful:', s3Result.key);
 
     // ⭐ ใช้ mimeType จาก file.type แต่ถ้าไม่มีก็เดาจากนามสกุล
     let mimeType = file.type;
@@ -78,20 +80,20 @@ export async function POST(req: NextRequest) {
         name: file.name,
         type,
         tags,
-        fileUrl: publicUrl,
+        fileUrl: s3Result.url,  // S3 URL (permanent, for database)
         fileName: file.name,
         fileSize: file.size,
-        mimeType: file.type || 'application/octet-stream',
+        mimeType: mimeType,
         isUploaded: true,
       },
     });
 
     console.log('Saved document:', doc); // Debug log
 
-    return NextResponse.json({ 
-      ok: true, 
-      id: doc.id, 
-      url: publicUrl, 
+    return NextResponse.json({
+      ok: true,
+      id: doc.id,
+      url: s3Result.signedUrl,  // Signed URL (temporary, for client preview)
       document: doc
     });
   } catch (err: any) {
