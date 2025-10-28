@@ -181,7 +181,7 @@ export default function TrashPage() {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push('/WelcomeHome')}
+              onClick={() => router.push('/document')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
               title="กลับหน้าหลัก"
             >

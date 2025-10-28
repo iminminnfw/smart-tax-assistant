@@ -311,23 +311,7 @@ export default function ProfileSettingsPage() {
                   </div>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-900">แบบฟอร์มที่สร้าง</span>
-                    </div>
-                    <span className="text-blue-600 font-semibold">3</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <CreditCard className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-900">การคำนวณ</span>
-                    </div>
-                    <span className="text-green-600 font-semibold">12</span>
-                  </div>
-                </div>
+                
               </div>
             </div>
 

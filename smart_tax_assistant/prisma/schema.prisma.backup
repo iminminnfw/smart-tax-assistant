@@ -1,12 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-
+// This is your Prisma schema file
 generator client {
-  
   provider = "prisma-client-js"
 }
 
@@ -21,6 +14,8 @@ datasource db {
 
 enum TaxType {
   INDIVIDUAL
+  BUSINESS
+  FREELANCE
 }
 
 enum NotificationChannel {
@@ -44,21 +39,57 @@ enum UserTokenType {
 enum TaxFilingStatus {
   DRAFT
   SUBMITTED
+  APPROVED
+  REJECTED
 }
 
 enum TaxFormType {
-  PND90
-  PND91
-  PND94
+  PND90  // ภ.ง.ด. 90 - ทั้งปี
+  PND91  // ภ.ง.ด. 91 - พนักงานบริษัท
+  PND94  // ภ.ง.ด. 94 - ครึ่งปี (สำหรับ ม.40(6) และ ม.40(8))
 }
 
+// ✅ เพิ่ม: ประเภทรายได้ตาม มาตรา 40
 enum IncomeType {
+  // มาตรา 40(1) - เงินเดือน ค่าจ้าง
   SALARY
-  FREELANCE
-  BUSINESS
-  INVESTMENT
-  RENTAL
-  OTHER
+  
+  // มาตรา 40(2) - ค่าจ้างทำของ
+  WAGES
+  
+  // มาตรา 40(3) - ค่าลิขสิทธิ์
+  COPYRIGHT
+  
+  // มาตรา 40(4) - ดอกเบี้ย
+  INTEREST
+  
+  // มาตรา 40(5) - เงินปันผล
+  DIVIDEND
+  
+  // ✅ มาตรา 40(6) - วิชาชีพอิสระ
+  PROFESSIONAL_LAW          // ทนายความ
+  PROFESSIONAL_MEDICAL      // แพทย์, ทันตแพทย์
+  PROFESSIONAL_ENGINEERING  // วิศวกร
+  PROFESSIONAL_ARCHITECTURE // สถาปนิก
+  PROFESSIONAL_ACCOUNTING   // บัญชี
+  PROFESSIONAL_ART          // จิตรกร, ประติมากร
+  PROFESSIONAL_OTHER        // อื่นๆ
+  
+  // มาตรา 40(7) - รับเหมาก่อสร้าง
+  CONTRACTOR
+  
+  // ✅ มาตรา 40(8) - ธุรกิจ พาณิชยกรรม
+  BUSINESS_FREELANCE        // Graphic Designer, Content Creator
+  BUSINESS_CONTRACTOR       // ผู้รับเหมา
+  BUSINESS_ONLINE_SELLING   // ขายของออนไลน์
+  BUSINESS_TRANSPORTATION   // ธุรกิจขนส่ง
+  BUSINESS_AGRICULTURE      // เกษตรกรรม
+  BUSINESS_OTHER            // ธุรกิจอื่นๆ
+  
+  // อื่นๆ
+  RENTAL     // ค่าเช่า
+  INVESTMENT // การลงทุน
+  OTHER      // อื่นๆ
 }
 
 enum DeductionType {
@@ -66,13 +97,39 @@ enum DeductionType {
   SPOUSE
   CHILD
   PARENT
+  
   LIFE_INSURANCE
   HEALTH_INSURANCE
+  PENSION_INSURANCE
+  
   PROVIDENT_FUND
   RMF
   SSF
+  
   DONATION
   HOME_LOAN
+  
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  BUSINESS_EXPENSE  // ค่าใช้จ่ายในการประกอบวิชาชีพ/ธุรกิจ
+  
+  OTHER
+}
+
+// ✅ เพิ่ม: ประเภทอาชีพ
+enum OccupationType {
+  // พนักงานบริษัท
+  EMPLOYEE
+  
+  // ม.40(6) - วิชาชีพอิสระ
+  PROFESSIONAL
+  
+  // ม.40(8) - ธุรกิจ/พาณิชยกรรม
+  BUSINESS_OWNER
+  
+  // อื่นๆ
+  FREELANCE
+  RETIRED
+  STUDENT
   OTHER
 }
 
@@ -86,7 +143,7 @@ model User {
   firstName    String?   @db.VarChar(120)
   lastName     String?   @db.VarChar(160)
   email        String    @unique
-  password     String
+  password     String?
   phone        String?   @unique @db.VarChar(20)
   
   dateOfBirth  DateTime?
@@ -94,8 +151,16 @@ model User {
   district     String?   @db.VarChar(100)
   province     String?   @db.VarChar(100)
   postalCode   String?   @db.VarChar(10)
-  occupation   String?   @db.VarChar(120)
-  annualIncome Decimal?  @db.Decimal(12, 2)
+  
+  occupation       String?         @db.VarChar(120)
+  occupationType   OccupationType? // ✅ เพิ่ม
+  annualIncome     Decimal?        @db.Decimal(12, 2)
+  
+  // ✅ เพิ่ม: สำหรับวิชาชีพอิสระ/ธุรกิจ
+  taxId            String?         @unique @db.VarChar(13) // เลขประจำตัวผู้เสียภาษี
+  businessName     String?         @db.VarChar(200)
+  businessType     String?         @db.VarChar(100)
+  businessAddress  String?         @db.Text
   
   language     Language  @default(TH)
   taxType      TaxType   @default(INDIVIDUAL)
@@ -108,6 +173,8 @@ model User {
   notifyTaxDeadlines     Boolean             @default(true)
   notifyReports          Boolean             @default(true)
   
+  profileCompleted Boolean @default(false)
+  
   accounts   Account[]
   sessions   Session[]
   tokens     UserToken[]
@@ -117,6 +184,7 @@ model User {
   taxFilings         TaxFiling[]
   incomeRecords      IncomeRecord[]
   deductionRecords   DeductionRecord[]
+  aiScenarios        AIScenario[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -168,7 +236,6 @@ model UserToken {
   @@index([expires])
   @@map("user_tokens")
 }
-
 
 // ========================================
 // DOCUMENTS
@@ -232,7 +299,7 @@ model DocumentFile {
 }
 
 // ========================================
-// TAX MANAGEMENT (✅ ใหม่!)
+// TAX MANAGEMENT
 // ========================================
 
 model TaxFiling {
@@ -244,11 +311,20 @@ model TaxFiling {
   formType       TaxFormType
   status         TaxFilingStatus  @default(DRAFT)
   
+  // ✅ เพิ่ม: สำหรับ ภ.ง.ด. 94 (ครึ่งปี)
+  period         String?          // "H1" หรือ "H2" (Half 1 or Half 2)
+  
   totalIncome    Decimal?         @db.Decimal(12, 2)
   totalDeduction Decimal?         @db.Decimal(12, 2)
   taxAmount      Decimal?         @db.Decimal(12, 2)
   
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  businessIncome   Decimal?       @db.Decimal(12, 2)
+  businessExpense  Decimal?       @db.Decimal(12, 2)
+  netIncome        Decimal?       @db.Decimal(12, 2)
+  
   submittedAt    DateTime?
+  dueDate        DateTime?        // ✅ เพิ่ม: วันครบกำหนดยื่น
   
   notes          String?          @db.Text
   
@@ -256,6 +332,7 @@ model TaxFiling {
   updatedAt      DateTime         @updatedAt
   
   @@index([userId, taxYear])
+  @@index([userId, formType])
   @@map("tax_filings")
 }
 
@@ -270,6 +347,11 @@ model IncomeRecord {
   date        DateTime
   taxYear     Int
   
+  // ✅ เพิ่ม: สำหรับ ม.40(6) และ ม.40(8)
+  isBusinessIncome Boolean   @default(false)
+  expenseAmount    Decimal?  @db.Decimal(12, 2) // ค่าใช้จ่ายในการประกอบอาชีพ
+  netAmount        Decimal?  @db.Decimal(12, 2) // รายได้สุทธิ
+  
   documentId  String?
   document    DocumentFile? @relation(fields: [documentId], references: [id], onDelete: SetNull)
   
@@ -277,6 +359,7 @@ model IncomeRecord {
   updatedAt   DateTime      @updatedAt
   
   @@index([userId, taxYear])
+  @@index([userId, type])
   @@map("income_records")
 }
 
@@ -298,5 +381,49 @@ model DeductionRecord {
   updatedAt   DateTime       @updatedAt
   
   @@index([userId, taxYear])
+  @@index([userId, type])
   @@map("deduction_records")
+}
+
+// ========================================
+// AI SCENARIOS
+// ========================================
+
+model AIScenario {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  userPrompt  String   @db.Text
+  
+  currentAge        Int?
+  currentIncome     Decimal? @db.Decimal(12, 2)
+  currentSavings    Decimal? @db.Decimal(12, 2)
+  currentOccupation String?  @db.VarChar(120)
+  financialStability String? @db.VarChar(20)
+  
+  scenariosData Json
+  
+  recommendation    String  @db.Text
+  bestScenarioIndex Int?
+  whyBest           String? @db.Text
+  risks             String? @db.Text
+  
+  actionSteps Json?
+  
+  aiModel      String   @default("gpt-4")
+  tokenUsed    Int?
+  responseTime Int?
+  taxRulesUsed Json?
+  
+  selectedScenarioIndex Int?
+  isSaved      Boolean  @default(false)
+  userFeedback String?  @db.Text
+  rating       Int?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([userId, createdAt])
+  @@map("ai_scenarios")
 }

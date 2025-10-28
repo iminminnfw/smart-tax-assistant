@@ -5,6 +5,7 @@ import { useRouter , useSearchParams} from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AppNavigation } from '@/components/AppNavigation';
 import FileUploadModal from '@/components/FileUploadModal/FileUploadModal';
+import RenameModal from '@/components/RenameModal';
 import {
   FolderPlus,
   Search,
@@ -23,6 +24,7 @@ import {
   Sparkles,
   Trash2,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react';
 
 interface DocumentFolder {
@@ -75,6 +77,7 @@ export default function DocumentPage() {
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showDeleteFolderConfirm, setShowDeleteFolderConfirm] = useState<string | null>(null); // ⭐ เพิ่ม state สำหรับลบโฟลเดอร์
+  const [renameItem, setRenameItem] = useState<{ id: string; name: string; type: 'file' | 'folder' } | null>(null);
   
   // Form states
   const [folderName, setFolderName] = useState('');
@@ -523,7 +526,7 @@ export default function DocumentPage() {
                     </div>
                     
                     <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 flex space-x-1">
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowColorPicker(showColorPicker === folder.id ? null : folder.id);
@@ -532,9 +535,20 @@ export default function DocumentPage() {
                       >
                         <Palette className="w-4 h-4" />
                       </button>
-                      
+
+                      {/* ⭐ เพิ่มปุ่มเปลี่ยนชื่อโฟลเดอร์ */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenameItem({ id: folder.id, name: folder.name, type: 'folder' });
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 hover:shadow-md rounded-xl transition-all duration-300"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+
                       {/* ⭐ เพิ่มปุ่มลบโฟลเดอร์ในการ์ด */}
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowDeleteFolderConfirm(folder.id);
@@ -595,7 +609,16 @@ export default function DocumentPage() {
                     </div>
                     
                     <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 flex space-x-2">
-                      <button 
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenameItem({ id: file.id, name: file.name, type: 'file' });
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 hover:shadow-md rounded-xl transition-all duration-300"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowDeleteConfirm(file.id);
@@ -914,6 +937,18 @@ export default function DocumentPage() {
         onUploaded={handleUploaded}
         folderId={selectedFolder?.id}
       />
+
+      {/* Rename Modal */}
+      {renameItem && (
+        <RenameModal
+          item={renameItem}
+          onClose={() => setRenameItem(null)}
+          onSuccess={() => {
+            setRenameItem(null);
+            fetchData(); // Refresh data after rename
+          }}
+        />
+      )}
       </div>
     </div>
   );
