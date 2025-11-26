@@ -21,6 +21,10 @@ type ParamsType = { params: Promise<{ id: string }> };
 export async function GET(req: NextRequest, { params }: ParamsType) {
   const { id } = await params;
 
+  // Get query parameter to check if download mode
+  const searchParams = req.nextUrl.searchParams;
+  const downloadMode = searchParams.get('download') === 'true';
+
   // 1️⃣ Check authentication
   const session = await getServerSession(authOptions);
   if (!session?.user) {
@@ -57,12 +61,15 @@ export async function GET(req: NextRequest, { params }: ParamsType) {
       return NextResponse.json({ error: "File URL is missing" }, { status: 404 });
     }
 
-    // 5️⃣ Generate signed URL (works for both S3 and local files)
+    // 5️⃣ Generate signed URL
     const fileNameForDownload = file.name || file.fileName || 'download';
+    const inline = !downloadMode; // If download mode, use attachment; otherwise inline
+
     const signedUrl = await getSignedUrlFromUrl(
       file.fileUrl,
       3600,
-      fileNameForDownload // ✨ ส่งชื่อไฟล์เข้าไปเป็นพารามิเตอร์ที่สาม
+      fileNameForDownload,
+      inline // true = preview (inline), false = download (attachment)
     ); // 1 hour expiration
 
     // 6️⃣ Return signed URL

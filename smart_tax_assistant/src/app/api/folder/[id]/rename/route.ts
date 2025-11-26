@@ -102,7 +102,7 @@ export async function PATCH(req: Request, { params }: ParamsType) {
           where: { isDeleted: false },
           orderBy: { createdAt: 'desc' },
         },
-        subfolders: {
+        children: {
           where: { isDeleted: false },
           orderBy: { createdAt: 'desc' },
         },

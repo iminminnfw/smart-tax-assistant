@@ -223,8 +223,8 @@ export async function uploadToS3(
 
     const url = getS3Url(key);
 
-    // Generate signed URL for immediate access (expires in 1 hour)
-    const signedUrl = await getSignedUrlForKey(key, 3600, fileName);
+    // Generate signed URL for immediate access (expires in 1 hour, inline for preview)
+    const signedUrl = await getSignedUrlForKey(key, 3600, fileName, true);
 
     console.log(`S3_UPLOAD_SUCCESS: ${key}`);
 
@@ -299,30 +299,38 @@ export async function deleteFromS3(key: string): Promise<void> {
  *
  * @param key - S3 key
  * @param expiresIn - URL expiration in seconds (default: 3600 = 1 hour)
+ * @param fileName - Filename for download
+ * @param inline - If true, opens in browser; if false, downloads file (default: true)
  * @returns Signed URL
  * @throws Error if generation fails
  *
  * @example
- * // For file preview
- * const signedUrl = await getSignedUrlForKey(doc.fileUrl, 3600);
+ * // For file preview (opens in browser)
+ * const signedUrl = await getSignedUrlForKey(doc.fileUrl, 3600, 'doc.pdf', true);
  * res.json({ previewUrl: signedUrl });
  *
- * // For download (longer expiration)
- * const downloadUrl = await getSignedUrlForKey(doc.fileUrl, 7200);
+ * // For download
+ * const downloadUrl = await getSignedUrlForKey(doc.fileUrl, 7200, 'doc.pdf', false);
  */
 export async function getSignedUrlForKey(
   key: string,
   expiresIn: number = 3600,
-  fileName: string
+  fileName: string,
+  inline: boolean = true
 ): Promise<string> {
   try {
     const client = getS3Client();
+
+    // Use inline for preview, attachment for download
+    const disposition = inline
+      ? `inline; filename="${fileName}"`
+      : `attachment; filename="${fileName}"`;
 
     // Use GetObjectCommand for generating download/view URLs
     const command = new GetObjectCommand({
       Bucket: s3Config.bucketName,
       Key: key,
-      ResponseContentDisposition: `attachment; filename="${fileName}"`,
+      ResponseContentDisposition: disposition,
     });
 
     const signedUrl = await getSignedUrl(client, command, { expiresIn });
@@ -339,16 +347,19 @@ export async function getSignedUrlForKey(
  *
  * @param url - Full S3 URL or local path
  * @param expiresIn - URL expiration in seconds (default: 3600)
+ * @param fileName - Filename for download
+ * @param inline - If true, opens in browser; if false, downloads file (default: true)
  * @returns Signed URL or original URL if not S3
  *
  * @example
- * const accessUrl = await getSignedUrlFromUrl(doc.fileUrl);
+ * const accessUrl = await getSignedUrlFromUrl(doc.fileUrl, 3600, 'doc.pdf', true);
  * res.json({ url: accessUrl });
  */
 export async function getSignedUrlFromUrl(
   url: string,
   expiresIn: number = 3600,
-  fileName: string
+  fileName: string,
+  inline: boolean = true
 ): Promise<string> {
   // If not an S3 URL, return as-is (backward compatibility with local files)
   if (!isS3Url(url)) {
@@ -360,7 +371,7 @@ export async function getSignedUrlFromUrl(
     throw new Error('Invalid S3 URL: Could not extract key');
   }
 
-  return getSignedUrlForKey(key, expiresIn, fileName);
+  return getSignedUrlForKey(key, expiresIn, fileName, inline);
 }
 
 // ==================== EXPORTS ====================

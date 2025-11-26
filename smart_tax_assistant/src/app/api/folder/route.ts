@@ -38,7 +38,9 @@ export async function POST(req: Request) {
     data: {
       name,
       color: color || '#3B82F6',
-      parentId,
+      ...(parentId && {
+        parent: { connect: { id: parentId } }
+      }),
       user: { connect: { email: session.user.email } },
     },
   });
