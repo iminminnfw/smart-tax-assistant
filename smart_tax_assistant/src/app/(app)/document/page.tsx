@@ -41,6 +41,8 @@ interface DocumentFolder {
   parentId: string | null;
   files: DocumentFile[];
   children: DocumentFolder[];
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,7 +78,9 @@ export default function DocumentPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<DocumentFolder | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [moveFileId, setMoveFileId] = useState<string | null>(null);
+  const [selectedTargetFolder, setSelectedTargetFolder] = useState<string | null>(null);
   // Modal states
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
@@ -344,6 +348,39 @@ export default function DocumentPage() {
       console.error('Error deleting folder:', error);
     }
   };
+
+  const handleMoveFile = async () => {
+    if (!moveFileId || selectedTargetFolder === undefined) return;
+
+    try {
+      const response = await fetch(`/api/document/${moveFileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: selectedTargetFolder }),
+      });
+      if (response.ok) {
+        await fetchDataWithoutReset();
+
+        setShowMoveModal(false);
+        setMoveFileId(null);
+        setSelectedTargetFolder(null);
+        setToastMessage('✅ ย้ายไฟล์เรียบร้อยแล้ว');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      } else {
+        console.error('Failed to move file');
+        setToastMessage('❌ ไม่สามารถย้ายไฟล์ได้');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error moving file:', error);
+      setToastMessage('❌ เกิดข้อผิดพลาด');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
 
   const deleteFile = async (fileId: string) => {
     try {
@@ -966,6 +1003,8 @@ export default function DocumentPage() {
                               <span>คัดลอกลิงก์</span>
                             </button>
 
+
+
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -975,6 +1014,22 @@ export default function DocumentPage() {
                             >
                               <Info className="w-4 h-4" />
                               <span>ดูรายละเอียด</span>
+                            </button>
+
+                            <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setMoveFileId(file.id);
+          setSelectedTargetFolder(file.folderId || null);
+          setShowMoveModal(true);
+          setShowMoreMenu(null);
+        }}
+        className="w-full text-left px-4 py-2 rounded-xl hover:bg-purple-50 text-purple-600 flex items-center space-x-3
+  transition-colors"
+      >
+        <Move className="w-4 h-4" />
+        <span>ย้ายไฟล์</span>
+
                             </button>
 
                             <hr className="my-2 border-gray-200" />
@@ -1122,7 +1177,7 @@ export default function DocumentPage() {
                   placeholder="ใส่ชื่อโฟลเดอร์..."
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-3">
                   เลือกสี
@@ -1157,6 +1212,92 @@ export default function DocumentPage() {
                 className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-2xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
                 สร้างโฟลเดอร์
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move File Modal */}
+      {showMoveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-96 max-w-lg shadow-xl">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <Move className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">ย้ายไฟล์</h3>
+                <p className="text-sm text-gray-600">เลือกโฟลเดอร์ปลายทาง</p>
+              </div>
+            </div>
+
+            {/* Folder List */}
+            <div className="max-h-96 overflow-y-auto mb-4">
+              {/* Root Option */}
+              <button
+                onClick={() => setSelectedTargetFolder(null)}
+                className={`w-full text-left px-4 py-3 rounded-lg mb-2 transition-all ${
+                  selectedTargetFolder === null
+                    ? 'bg-purple-100 border-2 border-purple-500'
+                    : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Home className="w-5 h-5 text-gray-600" />
+                  <div>
+                    <p className="font-medium text-gray-900">โฟลเดอร์หลัก</p>
+                    <p className="text-xs text-gray-500">เอกสารทั้งหมด</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Folder Options */}
+              {folders
+                .filter(f => !f.isDeleted)
+                .map((folder) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => setSelectedTargetFolder(folder.id)}
+                    className={`w-full text-left px-4 py-3 rounded-lg mb-2 transition-all ${
+                      selectedTargetFolder === folder.id
+                        ? 'bg-purple-100 border-2 border-purple-500'
+                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Folder
+                        className="w-5 h-5"
+                        style={{ color: folder.color }}
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900">{folder.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {files.filter(f => f.folderId === folder.id).length} ไฟล์
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setMoveFileId(null);
+                  setSelectedTargetFolder(null);
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 transition-all"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleMoveFile}
+                className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-all"
+              >
+                ย้ายไฟล์
               </button>
             </div>
           </div>
