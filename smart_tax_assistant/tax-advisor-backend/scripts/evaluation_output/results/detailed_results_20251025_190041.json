@@ -1,0 +1,1761 @@
+[
+  {
+    "test_case_id": 1,
+    "test_case_name": "รายได้ 600K - ความเสี่ยงกลาง",
+    "input": {
+      "gross_income": 600000,
+      "personal_deduction": 60000,
+      "spouse_deduction": 0,
+      "child_deduction": 0,
+      "parent_support": 0,
+      "disabled_support": 0,
+      "life_insurance": 50000,
+      "life_insurance_pension": 0,
+      "life_insurance_parents": 0,
+      "health_insurance": 15000,
+      "health_insurance_parents": 0,
+      "social_security": 9000,
+      "pension_insurance": 0,
+      "provident_fund": 50000,
+      "gpf": 0,
+      "pvd_teacher": 0,
+      "rmf": 0,
+      "thai_esg": 0,
+      "thai_esgx_new": 0,
+      "thai_esgx_ltf": 0,
+      "stock_investment": 0,
+      "easy_e_receipt": 0,
+      "home_loan_interest": 0,
+      "nsf": 0,
+      "donation_general": 0,
+      "donation_education": 0,
+      "donation_social_enterprise": 0,
+      "donation_political": 0,
+      "risk_tolerance": "medium"
+    },
+    "tax_result": {
+      "gross_income": 600000,
+      "taxable_income": 416000,
+      "tax_amount": 19100,
+      "effective_tax_rate": 3.18
+    },
+    "ai_response": {
+      "plans": [
+        {
+          "plan_id": "1",
+          "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+          "plan_type": "medium",
+          "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะ",
+          "total_investment": 60000,
+          "total_tax_saving": 6000,
+          "overall_risk": "medium",
+          "allocations": [
+            {
+              "category": "ประกันชีวิต",
+              "percentage": 50,
+              "risk_level": "low",
+              "pros": [
+                "ความคุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องจ่ายเบี้ยประกันต่อเนื่อง"
+              ],
+              "investment_amount": 30000,
+              "tax_saving": 3000
+            },
+            {
+              "category": "ประกันสุขภาพ",
+              "percentage": 30,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองค่ารักษาพยาบาล",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "เบี้ยประกันอาจเพิ่มขึ้น",
+                "ข้อจำกัดในการเคลม"
+              ],
+              "investment_amount": 18000,
+              "tax_saving": 1800
+            },
+            {
+              "category": "ประกันบำนาญ",
+              "percentage": 20,
+              "risk_level": "medium",
+              "pros": [
+                "มีรายได้หลังเกษียณ",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือจนครบกำหนด",
+                "ผลตอบแทนคงที่"
+              ],
+              "investment_amount": 12000,
+              "tax_saving": 1200
+            }
+          ]
+        },
+        {
+          "plan_id": "2",
+          "plan_name": "ทางเลือกที่ 2 - สมดุล",
+          "plan_type": "medium",
+          "description": "กระจายความเสี่ยง เน้น RMF + ThaiESG",
+          "total_investment": 100000,
+          "total_tax_saving": 10000,
+          "overall_risk": "medium",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 40,
+              "risk_level": "medium",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "การลงทุนระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "ความผันผวนของตลาด"
+              ],
+              "investment_amount": 40000,
+              "tax_saving": 4000
+            },
+            {
+              "category": "ThaiESG",
+              "percentage": 30,
+              "risk_level": "medium",
+              "pros": [
+                "ส่งเสริมการลงทุนยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือครองระยะยาว",
+                "ความเสี่ยงจากการลงทุน"
+              ],
+              "investment_amount": 30000,
+              "tax_saving": 3000
+            },
+            {
+              "category": "ประกันชีวิต",
+              "percentage": 20,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องจ่ายเบี้ยประกันต่อเนื่อง"
+              ],
+              "investment_amount": 20000,
+              "tax_saving": 2000
+            },
+            {
+              "category": "ประกันสุขภาพ",
+              "percentage": 10,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองค่ารักษาพยาบาล",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "เบี้ยประกันอาจเพิ่มขึ้น",
+                "ข้อจำกัดในการเคลม"
+              ],
+              "investment_amount": 10000,
+              "tax_saving": 1000
+            }
+          ]
+        },
+        {
+          "plan_id": "3",
+          "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด",
+          "plan_type": "medium",
+          "description": "เน้นลดหย่อนภาษีสูงสุด ใช้วงเงินเต็มที่",
+          "total_investment": 150000,
+          "total_tax_saving": 15000,
+          "overall_risk": "medium",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 50,
+              "risk_level": "medium",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "การลงทุนระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "ความผันผวนของตลาด"
+              ],
+              "investment_amount": 75000,
+              "tax_saving": 7500
+            },
+            {
+              "category": "ThaiESGX",
+              "percentage": 30,
+              "risk_level": "medium",
+              "pros": [
+                "ส่งเสริมการลงทุนยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือครองระยะยาว",
+                "ความเสี่ยงจากการลงทุน"
+              ],
+              "investment_amount": 45000,
+              "tax_saving": 4500
+            },
+            {
+              "category": "ประกันบำนาญ",
+              "percentage": 20,
+              "risk_level": "medium",
+              "pros": [
+                "มีรายได้หลังเกษียณ",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือจนครบกำหนด",
+                "ผลตอบแทนคงที่"
+              ],
+              "investment_amount": 30000,
+              "tax_saving": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "expected_plans": {
+      "plan_1": {
+        "plan_id": "1",
+        "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+        "plan_type": "medium",
+        "description": "เน้นความคุ้มครองและความปลอดภัย เหมาะกับผู้เริ่มต้นวางแผนภาษี",
+        "total_investment": 60000,
+        "total_tax_saving": 6000,
+        "overall_risk": "medium",
+        "allocations": [
+          {
+            "category": "ประกันชีวิตเพิ่มเติม",
+            "investment_amount": 20000,
+            "percentage": 33.33,
+            "tax_saving": 2000,
+            "risk_level": "low",
+            "pros": [
+              "มีความคุ้มครอง",
+              "จำเป็นสำหรับครอบครัว"
+            ],
+            "cons": [
+              "ผลตอบแทนต่ำ"
+            ]
+          },
+          {
+            "category": "RMF",
+            "investment_amount": 30000,
+            "percentage": 50.0,
+            "tax_saving": 3000,
+            "risk_level": "medium",
+            "pros": [
+              "ลดหย่อนภาษีได้",
+              "ผลตอบแทนดี"
+            ],
+            "cons": [
+              "ต้องถือ 5 ปี"
+            ]
+          },
+          {
+            "category": "ประกันสุขภาพเพิ่มเติม",
+            "investment_amount": 10000,
+            "percentage": 16.67,
+            "tax_saving": 1000,
+            "risk_level": "low",
+            "pros": [
+              "คุ้มครองสุขภาพ"
+            ],
+            "cons": [
+              "ไม่มีผลตอบแทน"
+            ]
+          }
+        ]
+      },
+      "plan_2": {
+        "plan_id": "2",
+        "plan_name": "ทางเลือกที่ 2 - สมดุล",
+        "plan_type": "medium",
+        "description": "กระจายความเสี่ยง เน้น RMF และกองทุน ESG",
+        "total_investment": 100000,
+        "total_tax_saving": 10000,
+        "overall_risk": "medium",
+        "allocations": [
+          {
+            "category": "RMF",
+            "investment_amount": 60000,
+            "percentage": 60.0,
+            "tax_saving": 6000,
+            "risk_level": "medium",
+            "pros": [
+              "ลดหย่อนภาษี 30%",
+              "ผลตอบแทนดี"
+            ],
+            "cons": [
+              "ต้องถือ 5 ปี"
+            ]
+          },
+          {
+            "category": "ThaiESG",
+            "investment_amount": 30000,
+            "percentage": 30.0,
+            "tax_saving": 3000,
+            "risk_level": "medium",
+            "pros": [
+              "ลดหย่อน 30%",
+              "ลงทุนยั่งยืน"
+            ],
+            "cons": [
+              "ต้องถือ 8 ปี"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 10000,
+            "percentage": 10.0,
+            "tax_saving": 1000,
+            "risk_level": "low",
+            "pros": [
+              "รับประกันผลตอบแทน"
+            ],
+            "cons": [
+              "ผูกพันระยะยาว"
+            ]
+          }
+        ]
+      },
+      "plan_3": {
+        "plan_id": "3",
+        "plan_name": "ทางเลือกที่ 3 - เติบโตสูงสุด",
+        "plan_type": "medium",
+        "description": "ใช้วงเงินลดหย่อนสูงสุด เน้นการลงทุนระยะยาว",
+        "total_investment": 150000,
+        "total_tax_saving": 15000,
+        "overall_risk": "medium",
+        "allocations": [
+          {
+            "category": "RMF",
+            "investment_amount": 90000,
+            "percentage": 60.0,
+            "tax_saving": 9000,
+            "risk_level": "medium",
+            "pros": [
+              "ลดหย่อนสูง",
+              "ผลตอบแทนดี"
+            ],
+            "cons": [
+              "ต้องถือจนอายุ 55"
+            ]
+          },
+          {
+            "category": "ThaiESG",
+            "investment_amount": 40000,
+            "percentage": 26.67,
+            "tax_saving": 2000,
+            "risk_level": "medium",
+            "pros": [
+              "ลดหย่อน 30%",
+              "ESG"
+            ],
+            "cons": [
+              "ต้องถือ 8 ปี"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 20000,
+            "percentage": 13.33,
+            "tax_saving": 1000,
+            "risk_level": "low",
+            "pros": [
+              "รับประกันผลตอบแทน",
+              "เหมาะเกษียณ"
+            ],
+            "cons": [
+              "ผูกพันยาว"
+            ]
+          }
+        ]
+      }
+    },
+    "evaluation_results": {
+      "overall_metrics": {
+        "expected_plan_count": 3,
+        "actual_plan_count": 3,
+        "has_all_plans": true,
+        "text_metrics": {
+          "avg_rouge1_precision": 0.8888888888888888,
+          "avg_rouge1_recall": 0.8888888888888888,
+          "avg_rouge1_f1": 0.8888888888888888,
+          "avg_rouge2_precision": 0.0,
+          "avg_rouge2_recall": 0.0,
+          "avg_rouge2_f1": 0.0,
+          "avg_rougeL_precision": 0.8888888888888888,
+          "avg_rougeL_recall": 0.8888888888888888,
+          "avg_rougeL_f1": 0.8888888888888888,
+          "avg_bleu1": 0.7878824124942961,
+          "avg_bleu2": 0.6931673984209193,
+          "avg_bleu3": 0.6280266027756604,
+          "avg_bleu4": 0.5751525240731392,
+          "avg_bertscore_precision": 0.907234768072764,
+          "avg_bertscore_recall": 0.8745963176091512,
+          "avg_bertscore_f1": 0.8904642860094706,
+          "avg_avg_allocation_text_similarity": 0.3333333333333333
+        },
+        "avg_numeric_accuracy": 100.0
+      },
+      "plan_metrics": {
+        "plan_1": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.6814506851874793,
+            "bleu2": 0.6238513498013287,
+            "bleu3": 0.5814552337042198,
+            "bleu4": 0.5346518078557698,
+            "bertscore_precision": 0.8868999481201172,
+            "bertscore_recall": 0.8240182399749756,
+            "bertscore_f1": 0.8543035387992859,
+            "avg_allocation_text_similarity": 0.0
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 60000,
+              "actual": 60000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 6000,
+              "actual": 6000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 50.0,
+                "tax_saving_accuracy": 50.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 60.0,
+                "tax_saving_accuracy": 60.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 80.0,
+                "tax_saving_accuracy": 80.0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 63.333333333333336,
+            "average_tax_saving_accuracy": 63.333333333333336
+          }
+        },
+        "plan_2": {
+          "text_metrics": {
+            "rouge1_precision": 0.6666666666666666,
+            "rouge1_recall": 0.6666666666666666,
+            "rouge1_f1": 0.6666666666666666,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 0.6666666666666666,
+            "rougeL_recall": 0.6666666666666666,
+            "rougeL_f1": 0.6666666666666666,
+            "bleu1": 0.8488632189620754,
+            "bleu2": 0.7914396813063577,
+            "bleu3": 0.7503533808334887,
+            "bleu4": 0.7062089121690315,
+            "bertscore_precision": 0.9400003552436829,
+            "bertscore_recall": 0.91481614112854,
+            "bertscore_f1": 0.9272372722625732,
+            "avg_allocation_text_similarity": 0.6666666666666666
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 100000,
+              "actual": 100000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 10000,
+              "actual": 10000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 4,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 66.66666666666667,
+                "tax_saving_accuracy": 66.66666666666667,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 100.0,
+                "tax_saving_accuracy": 100.0,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 0,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 55.555555555555564,
+            "average_tax_saving_accuracy": 55.555555555555564
+          }
+        },
+        "plan_3": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.8333333333333334,
+            "bleu2": 0.6642111641550715,
+            "bleu3": 0.5522711937892727,
+            "bleu4": 0.48459685219461657,
+            "bertscore_precision": 0.8948040008544922,
+            "bertscore_recall": 0.884954571723938,
+            "bertscore_f1": 0.8898520469665527,
+            "avg_allocation_text_similarity": 0.3333333333333333
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 150000,
+              "actual": 150000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 15000,
+              "actual": 15000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 83.33333333333334,
+                "tax_saving_accuracy": 83.33333333333334,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 87.5,
+                "tax_saving_accuracy": 0,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 50.0,
+                "tax_saving_accuracy": 0,
+                "category_match": true
+              }
+            ],
+            "average_investment_accuracy": 73.61111111111111,
+            "average_tax_saving_accuracy": 27.777777777777782
+          }
+        }
+      }
+    },
+    "raw_response_preview": "```json\n{\n  \"plans\": [\n    {\n      \"plan_id\": \"1\",\n      \"plan_name\": \"ทางเลือกที่ 1 - เน้นประกัน\",\n      \"plan_type\": \"medium\",\n      \"description\": \"เน้นความคุ้มครอง เงินลงทุนพอเหมาะ\",\n      \"total_investment\": 60000,\n      \"total_tax_saving\": 6000,\n      \"overall_risk\": \"medium\",\n      \"allocatio"
+  },
+  {
+    "test_case_id": 2,
+    "test_case_name": "รายได้ 1.5M - ความเสี่ยงสูง",
+    "input": {
+      "gross_income": 1500000,
+      "personal_deduction": 60000,
+      "spouse_deduction": 0,
+      "child_deduction": 0,
+      "parent_support": 0,
+      "disabled_support": 0,
+      "life_insurance": 100000,
+      "life_insurance_pension": 10000,
+      "life_insurance_parents": 0,
+      "health_insurance": 25000,
+      "health_insurance_parents": 0,
+      "social_security": 0,
+      "pension_insurance": 0,
+      "provident_fund": 150000,
+      "gpf": 0,
+      "pvd_teacher": 0,
+      "rmf": 0,
+      "thai_esg": 0,
+      "thai_esgx_new": 0,
+      "thai_esgx_ltf": 0,
+      "stock_investment": 0,
+      "easy_e_receipt": 0,
+      "home_loan_interest": 0,
+      "nsf": 0,
+      "donation_general": 0,
+      "donation_education": 0,
+      "donation_social_enterprise": 0,
+      "donation_political": 0,
+      "risk_tolerance": "high"
+    },
+    "tax_result": {
+      "gross_income": 1500000,
+      "taxable_income": 1155000,
+      "tax_amount": 153750,
+      "effective_tax_rate": 10.25
+    },
+    "ai_response": {
+      "plans": [
+        {
+          "plan_id": "1",
+          "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+          "plan_type": "high",
+          "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะ",
+          "total_investment": 300000,
+          "total_tax_saving": 74999,
+          "overall_risk": "high",
+          "allocations": [
+            {
+              "category": "ประกันบำนาญ",
+              "percentage": 66.67,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้สูง"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องถือจนครบกำหนด"
+              ],
+              "investment_amount": 200010,
+              "tax_saving": 50002
+            },
+            {
+              "category": "ประกันชีวิต",
+              "percentage": 33.33,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องจ่ายเบี้ยประกันต่อเนื่อง"
+              ],
+              "investment_amount": 99990,
+              "tax_saving": 24997
+            }
+          ]
+        },
+        {
+          "plan_id": "2",
+          "plan_name": "ทางเลือกที่ 2 - สมดุล",
+          "plan_type": "high",
+          "description": "กระจายความเสี่ยง เน้น RMF + ThaiESG",
+          "total_investment": 500000,
+          "total_tax_saving": 125000,
+          "overall_risk": "high",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 60,
+              "risk_level": "medium",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "เหมาะสำหรับการลงทุนระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "ต้องลงทุนต่อเนื่องทุกปี"
+              ],
+              "investment_amount": 300000,
+              "tax_saving": 75000
+            },
+            {
+              "category": "ThaiESG",
+              "percentage": 40,
+              "risk_level": "high",
+              "pros": [
+                "สนับสนุนธุรกิจที่ยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ความเสี่ยงสูง",
+                "ต้องถือครองนาน"
+              ],
+              "investment_amount": 200000,
+              "tax_saving": 50000
+            }
+          ]
+        },
+        {
+          "plan_id": "3",
+          "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด",
+          "plan_type": "high",
+          "description": "เน้นลดหย่อนภาษีสูงสุด ใช้วงเงินเต็มที่",
+          "total_investment": 800000,
+          "total_tax_saving": 200000,
+          "overall_risk": "high",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 37.5,
+              "risk_level": "medium",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "เหมาะสำหรับการลงทุนระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "ต้องลงทุนต่อเนื่องทุกปี"
+              ],
+              "investment_amount": 300000,
+              "tax_saving": 75000
+            },
+            {
+              "category": "ThaiESG",
+              "percentage": 37.5,
+              "risk_level": "high",
+              "pros": [
+                "สนับสนุนธุรกิจที่ยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ความเสี่ยงสูง",
+                "ต้องถือครองนาน"
+              ],
+              "investment_amount": 300000,
+              "tax_saving": 75000
+            },
+            {
+              "category": "ThaiESGX",
+              "percentage": 25,
+              "risk_level": "high",
+              "pros": [
+                "เน้นการเติบโต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ความเสี่ยงสูง",
+                "ต้องถือครองนาน"
+              ],
+              "investment_amount": 200000,
+              "tax_saving": 50000
+            }
+          ]
+        }
+      ]
+    },
+    "expected_plans": {
+      "plan_1": {
+        "plan_id": "1",
+        "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+        "plan_type": "high",
+        "description": "เน้นประกันและความปลอดภัย เงินลงทุนพอเหมาะ",
+        "total_investment": 300000,
+        "total_tax_saving": 45000,
+        "overall_risk": "high",
+        "allocations": [
+          {
+            "category": "RMF",
+            "investment_amount": 200000,
+            "percentage": 66.67,
+            "tax_saving": 30000,
+            "risk_level": "high",
+            "pros": [
+              "ลดหย่อนสูง",
+              "ผลตอบแทนดี"
+            ],
+            "cons": [
+              "ต้องถือยาว"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 80000,
+            "percentage": 26.67,
+            "tax_saving": 12000,
+            "risk_level": "low",
+            "pros": [
+              "รับประกันผลตอบแทน"
+            ],
+            "cons": [
+              "ผูกพันยาว"
+            ]
+          },
+          {
+            "category": "Easy e-Receipt",
+            "investment_amount": 20000,
+            "percentage": 6.67,
+            "tax_saving": 3000,
+            "risk_level": "low",
+            "pros": [
+              "ลดหย่อนง่าย"
+            ],
+            "cons": [
+              "วงเงินจำกัด"
+            ]
+          }
+        ]
+      },
+      "plan_2": {
+        "plan_id": "2",
+        "plan_name": "ทางเลือกที่ 2 - สมดุล",
+        "plan_type": "high",
+        "description": "กระจายความเสี่ยง เน้น RMF + ThaiESG + บริจาค",
+        "total_investment": 500000,
+        "total_tax_saving": 82500,
+        "overall_risk": "high",
+        "allocations": [
+          {
+            "category": "RMF",
+            "investment_amount": 300000,
+            "percentage": 60.0,
+            "tax_saving": 45000,
+            "risk_level": "high",
+            "pros": [
+              "ลดหย่อน 30%",
+              "ผลตอบแทนดี"
+            ],
+            "cons": [
+              "ต้องถือยาว"
+            ]
+          },
+          {
+            "category": "ThaiESG",
+            "investment_amount": 150000,
+            "percentage": 30.0,
+            "tax_saving": 22500,
+            "risk_level": "high",
+            "pros": [
+              "ลดหย่อน 30%",
+              "ESG"
+            ],
+            "cons": [
+              "ต้องถือ 8 ปี"
+            ]
+          },
+          {
+            "category": "บริจาคการศึกษา",
+            "investment_amount": 50000,
+            "percentage": 10.0,
+            "tax_saving": 15000,
+            "risk_level": "low",
+            "pros": [
+              "นับ 2 เท่า",
+              "ทำความดี"
+            ],
+            "cons": [
+              "ไม่ได้คืน"
+            ]
+          }
+        ]
+      },
+      "plan_3": {
+        "plan_id": "3",
+        "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด",
+        "plan_type": "high",
+        "description": "ใช้วงเงินลดหย่อนเต็มที่ เน้นผลตอบแทนสูงสุด",
+        "total_investment": 800000,
+        "total_tax_saving": 127500,
+        "overall_risk": "high",
+        "allocations": [
+          {
+            "category": "RMF",
+            "investment_amount": 450000,
+            "percentage": 56.25,
+            "tax_saving": 67500,
+            "risk_level": "high",
+            "pros": [
+              "ลดหย่อนสูงสุด",
+              "หุ้นเติบโต"
+            ],
+            "cons": [
+              "ความเสี่ยงสูง"
+            ]
+          },
+          {
+            "category": "ThaiESG",
+            "investment_amount": 200000,
+            "percentage": 25.0,
+            "tax_saving": 30000,
+            "risk_level": "high",
+            "pros": [
+              "ลดหย่อน 30%",
+              "ยั่งยืน"
+            ],
+            "cons": [
+              "ต้องถือยาว"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 100000,
+            "percentage": 12.5,
+            "tax_saving": 15000,
+            "risk_level": "low",
+            "pros": [
+              "รับประกัน",
+              "เกษียณ"
+            ],
+            "cons": [
+              "ผูกพัน"
+            ]
+          },
+          {
+            "category": "บริจาคการศึกษา",
+            "investment_amount": 50000,
+            "percentage": 6.25,
+            "tax_saving": 15000,
+            "risk_level": "low",
+            "pros": [
+              "นับ 2 เท่า"
+            ],
+            "cons": [
+              "ไม่คืน"
+            ]
+          }
+        ]
+      }
+    },
+    "evaluation_results": {
+      "overall_metrics": {
+        "expected_plan_count": 3,
+        "actual_plan_count": 3,
+        "has_all_plans": true,
+        "text_metrics": {
+          "avg_rouge1_precision": 1.0,
+          "avg_rouge1_recall": 1.0,
+          "avg_rouge1_f1": 1.0,
+          "avg_rouge2_precision": 0.3333333333333333,
+          "avg_rouge2_recall": 0.3333333333333333,
+          "avg_rouge2_f1": 0.3333333333333333,
+          "avg_rougeL_precision": 1.0,
+          "avg_rougeL_recall": 1.0,
+          "avg_rougeL_f1": 1.0,
+          "avg_bleu1": 0.8588628697795541,
+          "avg_bleu2": 0.804207891306711,
+          "avg_bleu3": 0.7537440552653386,
+          "avg_bleu4": 0.7191423417320703,
+          "avg_bertscore_precision": 0.9403360883394877,
+          "avg_bertscore_recall": 0.913837194442749,
+          "avg_bertscore_f1": 0.9268183708190918,
+          "avg_avg_allocation_text_similarity": 0.5555555555555555
+        },
+        "avg_numeric_accuracy": 70.82627649039414
+      },
+      "plan_metrics": {
+        "plan_1": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.8219864299617914,
+            "bleu2": 0.7859693580599799,
+            "bleu3": 0.7712164463519497,
+            "bleu4": 0.7576374421266845,
+            "bertscore_precision": 0.9102476239204407,
+            "bertscore_recall": 0.8862119913101196,
+            "bertscore_f1": 0.8980689644813538,
+            "avg_allocation_text_similarity": 0.0
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 300000,
+              "actual": 300000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 45000,
+              "actual": 74999,
+              "accuracy": 33.33555555555555,
+              "within_tolerance": false,
+              "error_percentage": 66.66444444444444
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 2,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 99.995,
+                "tax_saving_accuracy": 33.32666666666667,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 75.01249999999999,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 87.50375,
+            "average_tax_saving_accuracy": 16.663333333333334
+          }
+        },
+        "plan_2": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 1.0,
+            "rouge2_recall": 1.0,
+            "rouge2_f1": 1.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.8101577349324267,
+            "bleu2": 0.8101577349324267,
+            "bleu3": 0.7941106728488383,
+            "bleu4": 0.771772609673657,
+            "bertscore_precision": 0.9801033735275269,
+            "bertscore_recall": 0.9309000968933105,
+            "bertscore_f1": 0.9548683166503906,
+            "avg_allocation_text_similarity": 1.0
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 500000,
+              "actual": 500000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 82500,
+              "actual": 125000,
+              "accuracy": 48.484848484848484,
+              "within_tolerance": false,
+              "error_percentage": 51.515151515151516
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 2,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 100.0,
+                "tax_saving_accuracy": 33.333333333333336,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 66.66666666666667,
+                "tax_saving_accuracy": 0,
+                "category_match": true
+              }
+            ],
+            "average_investment_accuracy": 83.33333333333334,
+            "average_tax_saving_accuracy": 16.666666666666668
+          }
+        },
+        "plan_3": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.9444444444444444,
+            "bleu2": 0.816496580927726,
+            "bleu3": 0.6959050465952277,
+            "bleu4": 0.6280169733958691,
+            "bertscore_precision": 0.9306572675704956,
+            "bertscore_recall": 0.9243994951248169,
+            "bertscore_f1": 0.927517831325531,
+            "avg_allocation_text_similarity": 0.6666666666666666
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 800000,
+              "actual": 800000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 127500,
+              "actual": 200000,
+              "accuracy": 43.13725490196079,
+              "within_tolerance": false,
+              "error_percentage": 56.86274509803921
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 4,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 66.66666666666667,
+                "tax_saving_accuracy": 88.88888888888889,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 50.0,
+                "tax_saving_accuracy": 0,
+                "category_match": true
+              },
+              {
+                "investment_accuracy": 0,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 38.88888888888889,
+            "average_tax_saving_accuracy": 29.62962962962963
+          }
+        }
+      }
+    },
+    "raw_response_preview": "```json\n{\n  \"plans\": [\n    {\n      \"plan_id\": \"1\",\n      \"plan_name\": \"ทางเลือกที่ 1 - เน้นประกัน\",\n      \"plan_type\": \"high\",\n      \"description\": \"เน้นความคุ้มครอง เงินลงทุนพอเหมาะ\",\n      \"total_investment\": 300000,\n      \"total_tax_saving\": 75000,\n      \"overall_risk\": \"high\",\n      \"allocations"
+  },
+  {
+    "test_case_id": 3,
+    "test_case_name": "รายได้ 360K - ความเสี่ยงต่ำ",
+    "input": {
+      "gross_income": 360000,
+      "personal_deduction": 60000,
+      "spouse_deduction": 0,
+      "child_deduction": 0,
+      "parent_support": 0,
+      "disabled_support": 0,
+      "life_insurance": 20000,
+      "life_insurance_pension": 0,
+      "life_insurance_parents": 0,
+      "health_insurance": 10000,
+      "health_insurance_parents": 0,
+      "social_security": 9000,
+      "pension_insurance": 0,
+      "provident_fund": 30000,
+      "gpf": 0,
+      "pvd_teacher": 0,
+      "rmf": 0,
+      "thai_esg": 0,
+      "thai_esgx_new": 0,
+      "thai_esgx_ltf": 0,
+      "stock_investment": 0,
+      "easy_e_receipt": 0,
+      "home_loan_interest": 0,
+      "nsf": 0,
+      "donation_general": 0,
+      "donation_education": 0,
+      "donation_social_enterprise": 0,
+      "donation_political": 0,
+      "risk_tolerance": "low"
+    },
+    "tax_result": {
+      "gross_income": 360000,
+      "taxable_income": 231000,
+      "tax_amount": 4050,
+      "effective_tax_rate": 1.12
+    },
+    "ai_response": {
+      "plans": [
+        {
+          "plan_id": "1",
+          "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+          "plan_type": "low",
+          "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะ",
+          "total_investment": 40000,
+          "total_tax_saving": 2000,
+          "overall_risk": "low",
+          "allocations": [
+            {
+              "category": "ประกันชีวิต",
+              "percentage": 50,
+              "risk_level": "low",
+              "pros": [
+                "ความคุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องจ่ายเบี้ยประกันต่อเนื่อง"
+              ],
+              "investment_amount": 20000,
+              "tax_saving": 1000
+            },
+            {
+              "category": "ประกันสุขภาพ",
+              "percentage": 25,
+              "risk_level": "low",
+              "pros": [
+                "คุ้มครองค่ารักษาพยาบาล",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ค่าเบี้ยสูง",
+                "ต้องตรวจสุขภาพก่อนสมัคร"
+              ],
+              "investment_amount": 10000,
+              "tax_saving": 500
+            },
+            {
+              "category": "ประกันบำนาญ",
+              "percentage": 25,
+              "risk_level": "low",
+              "pros": [
+                "มีรายได้หลังเกษียณ",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือยาว",
+                "ผลตอบแทนไม่สูง"
+              ],
+              "investment_amount": 10000,
+              "tax_saving": 500
+            }
+          ]
+        },
+        {
+          "plan_id": "2",
+          "plan_name": "ทางเลือกที่ 2 - สมดุล",
+          "plan_type": "low",
+          "description": "กระจายความเสี่ยง เน้น RMF + ThaiESG",
+          "total_investment": 60000,
+          "total_tax_saving": 3000,
+          "overall_risk": "low",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 40,
+              "risk_level": "low",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "เป็นการออมระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "มีความเสี่ยงจากตลาดหุ้น"
+              ],
+              "investment_amount": 24000,
+              "tax_saving": 1200
+            },
+            {
+              "category": "ThaiESG",
+              "percentage": 30,
+              "risk_level": "low",
+              "pros": [
+                "ลงทุนในธุรกิจยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือยาว",
+                "ผลตอบแทนอาจไม่แน่นอน"
+              ],
+              "investment_amount": 18000,
+              "tax_saving": 900
+            },
+            {
+              "category": "ประกันชีวิต",
+              "percentage": 30,
+              "risk_level": "low",
+              "pros": [
+                "ความคุ้มครองชีวิต",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ผลตอบแทนต่ำ",
+                "ต้องจ่ายเบี้ยประกันต่อเนื่อง"
+              ],
+              "investment_amount": 18000,
+              "tax_saving": 900
+            }
+          ]
+        },
+        {
+          "plan_id": "3",
+          "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด",
+          "plan_type": "low",
+          "description": "เน้นลดหย่อนภาษีสูงสุด ใช้วงเงินเต็มที่",
+          "total_investment": 80000,
+          "total_tax_saving": 4000,
+          "overall_risk": "low",
+          "allocations": [
+            {
+              "category": "RMF",
+              "percentage": 50,
+              "risk_level": "low",
+              "pros": [
+                "ลดหย่อนภาษีได้สูง",
+                "เป็นการออมระยะยาว"
+              ],
+              "cons": [
+                "ต้องถือจนอายุ 55 ปี",
+                "มีความเสี่ยงจากตลาดหุ้น"
+              ],
+              "investment_amount": 40000,
+              "tax_saving": 2000
+            },
+            {
+              "category": "ThaiESGX",
+              "percentage": 30,
+              "risk_level": "low",
+              "pros": [
+                "ลงทุนในธุรกิจยั่งยืน",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือยาว",
+                "ผลตอบแทนอาจไม่แน่นอน"
+              ],
+              "investment_amount": 24000,
+              "tax_saving": 1200
+            },
+            {
+              "category": "ประกันบำนาญ",
+              "percentage": 20,
+              "risk_level": "low",
+              "pros": [
+                "มีรายได้หลังเกษียณ",
+                "ลดหย่อนภาษีได้"
+              ],
+              "cons": [
+                "ต้องถือยาว",
+                "ผลตอบแทนไม่สูง"
+              ],
+              "investment_amount": 16000,
+              "tax_saving": 800
+            }
+          ]
+        }
+      ]
+    },
+    "expected_plans": {
+      "plan_1": {
+        "plan_id": "1",
+        "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+        "plan_type": "low",
+        "description": "เน้นความคุ้มครองและความปลอดภัยสูงสุด",
+        "total_investment": 40000,
+        "total_tax_saving": 2000,
+        "overall_risk": "low",
+        "allocations": [
+          {
+            "category": "ประกันชีวิตเพิ่มเติม",
+            "investment_amount": 20000,
+            "percentage": 50.0,
+            "tax_saving": 1000,
+            "risk_level": "low",
+            "pros": [
+              "คุ้มครองครอบครัว",
+              "จำเป็น"
+            ],
+            "cons": [
+              "ไม่มีผลตอบแทน"
+            ]
+          },
+          {
+            "category": "ประกันสุขภาพเพิ่มเติม",
+            "investment_amount": 10000,
+            "percentage": 25.0,
+            "tax_saving": 500,
+            "risk_level": "low",
+            "pros": [
+              "คุ้มครองสุขภาพ"
+            ],
+            "cons": [
+              "ไม่มีผลตอบแทน"
+            ]
+          },
+          {
+            "category": "กอช.",
+            "investment_amount": 10000,
+            "percentage": 25.0,
+            "tax_saving": 500,
+            "risk_level": "low",
+            "pros": [
+              "ปลอดภัย",
+              "ลดหย่อนได้"
+            ],
+            "cons": [
+              "ผลตอบแทนต่ำ"
+            ]
+          }
+        ]
+      },
+      "plan_2": {
+        "plan_id": "2",
+        "plan_name": "ทางเลือกที่ 2 - สมดุล",
+        "plan_type": "low",
+        "description": "กระจายระหว่างประกันและการออม",
+        "total_investment": 60000,
+        "total_tax_saving": 3000,
+        "overall_risk": "low",
+        "allocations": [
+          {
+            "category": "RMF ตราสารหนี้",
+            "investment_amount": 30000,
+            "percentage": 50.0,
+            "tax_saving": 1500,
+            "risk_level": "low",
+            "pros": [
+              "ลดหย่อนได้",
+              "ปลอดภัย"
+            ],
+            "cons": [
+              "ต้องถือยาว"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 20000,
+            "percentage": 33.33,
+            "tax_saving": 200,
+            "risk_level": "low",
+            "pros": [
+              "รับประกัน",
+              "เกษียณ"
+            ],
+            "cons": [
+              "ผูกพัน"
+            ]
+          },
+          {
+            "category": "กอช.",
+            "investment_amount": 10000,
+            "percentage": 16.67,
+            "tax_saving": 100,
+            "risk_level": "low",
+            "pros": [
+              "ปลอดภัยสูง"
+            ],
+            "cons": [
+              "ดอกต่ำ"
+            ]
+          }
+        ]
+      },
+      "plan_3": {
+        "plan_id": "3",
+        "plan_name": "ทางเลือกที่ 3 - ออมสูงสุด",
+        "plan_type": "low",
+        "description": "เน้นการออมและลดหย่อนภาษี",
+        "total_investment": 80000,
+        "total_tax_saving": 4000,
+        "overall_risk": "low",
+        "allocations": [
+          {
+            "category": "RMF ตราสารหนี้",
+            "investment_amount": 50000,
+            "percentage": 62.5,
+            "tax_saving": 2500,
+            "risk_level": "low",
+            "pros": [
+              "ลดหย่อน",
+              "ปลอดภัย"
+            ],
+            "cons": [
+              "ถือยาว"
+            ]
+          },
+          {
+            "category": "ประกันบำนาญ",
+            "investment_amount": 20000,
+            "percentage": 25.0,
+            "tax_saving": 200,
+            "risk_level": "low",
+            "pros": [
+              "รับประกัน"
+            ],
+            "cons": [
+              "ผูกพัน"
+            ]
+          },
+          {
+            "category": "กอช.",
+            "investment_amount": 10000,
+            "percentage": 12.5,
+            "tax_saving": 100,
+            "risk_level": "low",
+            "pros": [
+              "ปลอดภัย"
+            ],
+            "cons": [
+              "ดอกต่ำ"
+            ]
+          }
+        ]
+      }
+    },
+    "evaluation_results": {
+      "overall_metrics": {
+        "expected_plan_count": 3,
+        "actual_plan_count": 3,
+        "has_all_plans": true,
+        "text_metrics": {
+          "avg_rouge1_precision": 0.7777777777777777,
+          "avg_rouge1_recall": 1.0,
+          "avg_rouge1_f1": 0.8333333333333334,
+          "avg_rouge2_precision": 0.0,
+          "avg_rouge2_recall": 0.0,
+          "avg_rouge2_f1": 0.0,
+          "avg_rougeL_precision": 0.7777777777777777,
+          "avg_rougeL_recall": 1.0,
+          "avg_rougeL_f1": 0.8333333333333334,
+          "avg_bleu1": 0.6684941520467835,
+          "avg_bleu2": 0.6052217596039463,
+          "avg_bleu3": 0.5613511910358753,
+          "avg_bleu4": 0.518286384848611,
+          "avg_bertscore_precision": 0.8415751258532206,
+          "avg_bertscore_recall": 0.852424422899882,
+          "avg_bertscore_f1": 0.8469515840212504,
+          "avg_avg_allocation_text_similarity": 0.2222222222222222
+        },
+        "avg_numeric_accuracy": 100.0
+      },
+      "plan_metrics": {
+        "plan_1": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.8125,
+            "bleu2": 0.7719024117939607,
+            "bleu3": 0.7285660986216245,
+            "bleu4": 0.6739047062564734,
+            "bertscore_precision": 0.8823621273040771,
+            "bertscore_recall": 0.8840430378913879,
+            "bertscore_f1": 0.8832018375396729,
+            "avg_allocation_text_similarity": 0.0
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 40000,
+              "actual": 40000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 2000,
+              "actual": 2000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 100.0,
+                "tax_saving_accuracy": 100.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 100.0,
+                "tax_saving_accuracy": 100.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 100.0,
+                "tax_saving_accuracy": 100.0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 100.0,
+            "average_tax_saving_accuracy": 100.0
+          }
+        },
+        "plan_2": {
+          "text_metrics": {
+            "rouge1_precision": 0.3333333333333333,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 0.5,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 0.3333333333333333,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 0.5,
+            "bleu1": 0.5263157894736842,
+            "bleu2": 0.4836508334066744,
+            "bleu3": 0.46198225019093964,
+            "bleu4": 0.435949382480739,
+            "bertscore_precision": 0.7937313914299011,
+            "bertscore_recall": 0.8081751465797424,
+            "bertscore_f1": 0.800888180732727,
+            "avg_allocation_text_similarity": 0.3333333333333333
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 60000,
+              "actual": 60000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 3000,
+              "actual": 3000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 80.0,
+                "tax_saving_accuracy": 80.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 90.0,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 19.999999999999996,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 63.333333333333336,
+            "average_tax_saving_accuracy": 26.666666666666668
+          }
+        },
+        "plan_3": {
+          "text_metrics": {
+            "rouge1_precision": 1.0,
+            "rouge1_recall": 1.0,
+            "rouge1_f1": 1.0,
+            "rouge2_precision": 0.0,
+            "rouge2_recall": 0.0,
+            "rouge2_f1": 0.0,
+            "rougeL_precision": 1.0,
+            "rougeL_recall": 1.0,
+            "rougeL_f1": 1.0,
+            "bleu1": 0.6666666666666666,
+            "bleu2": 0.5601120336112039,
+            "bleu3": 0.49350522429506183,
+            "bleu4": 0.4450050658086207,
+            "bertscore_precision": 0.8486318588256836,
+            "bertscore_recall": 0.8650550842285156,
+            "bertscore_f1": 0.8567647337913513,
+            "avg_allocation_text_similarity": 0.3333333333333333
+          },
+          "numeric_metrics": {
+            "total_investment": {
+              "expected": 80000,
+              "actual": 80000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            },
+            "total_tax_saving": {
+              "expected": 4000,
+              "actual": 4000,
+              "accuracy": 100.0,
+              "within_tolerance": true,
+              "error_percentage": 0.0
+            }
+          },
+          "structural_metrics": {
+            "expected_allocation_count": 3,
+            "actual_allocation_count": 3,
+            "has_correct_structure": true
+          },
+          "allocation_metrics": {
+            "individual_scores": [
+              {
+                "investment_accuracy": 80.0,
+                "tax_saving_accuracy": 80.0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 80.0,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              },
+              {
+                "investment_accuracy": 40.0,
+                "tax_saving_accuracy": 0,
+                "category_match": false
+              }
+            ],
+            "average_investment_accuracy": 66.66666666666667,
+            "average_tax_saving_accuracy": 26.666666666666668
+          }
+        }
+      }
+    },
+    "raw_response_preview": "```json\n{\n  \"plans\": [\n    {\n      \"plan_id\": \"1\",\n      \"plan_name\": \"ทางเลือกที่ 1 - เน้นประกัน\",\n      \"plan_type\": \"low\",\n      \"description\": \"เน้นความคุ้มครอง เงินลงทุนพอเหมาะ\",\n      \"total_investment\": 40000,\n      \"total_tax_saving\": 2000,\n      \"overall_risk\": \"low\",\n      \"allocations\": ["
+  }
+]
