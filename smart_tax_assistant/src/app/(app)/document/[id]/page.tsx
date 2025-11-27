@@ -152,7 +152,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               <Link
-                href="/document"
+                href={doc.folder ? `/document?folder=${doc.folder.id}` : '/document'}
                 className="p-3 bg-white hover:bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
