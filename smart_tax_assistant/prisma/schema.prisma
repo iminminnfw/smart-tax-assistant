@@ -1,12 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-
 generator client {
-  
   provider = "prisma-client-js"
 }
 
@@ -15,9 +7,211 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========================================
-// ENUMS
-// ========================================
+model User {
+  id                     String              @id @default(cuid())
+  name                   String?
+  firstName              String?             @db.VarChar(120)
+  lastName               String?             @db.VarChar(160)
+  email                  String              @unique
+  password               String
+  phone                  String?             @unique @db.VarChar(20)
+  dateOfBirth            DateTime?
+  address                String?
+  district               String?             @db.VarChar(100)
+  province               String?             @db.VarChar(100)
+  postalCode             String?             @db.VarChar(10)
+  occupation             String?             @db.VarChar(120)
+  annualIncome           Decimal?            @db.Decimal(12, 2)
+  language               Language            @default(TH)
+  taxType                TaxType             @default(INDIVIDUAL)
+  emailVerified          DateTime?
+  image                  String?
+  notifyOnPasswordChange NotificationChannel @default(EMAIL)
+  notifyEmail            Boolean             @default(true)
+  notifySms              Boolean             @default(false)
+  notifyTaxDeadlines     Boolean             @default(true)
+  notifyReports          Boolean             @default(true)
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  accounts               Account[]
+  deductionRecords       DeductionRecord[]
+  files                  DocumentFile[]
+  folders                DocumentFolder[]
+  incomeRecords          IncomeRecord[]
+  sessions               Session[]
+  taxFilings             TaxFiling[]
+  tokens                 UserToken[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model UserToken {
+  id        String        @id @default(cuid())
+  userId    String
+  type      UserTokenType
+  tokenHash String        @unique
+  expires   DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([expires])
+  @@map("user_tokens")
+}
+
+model OTP {
+  id          String     @id @default(cuid())
+  userId      String?
+  email       String
+  otpCode     String     @db.VarChar(6)
+  purpose     OTPPurpose
+  expiresAt   DateTime
+  verified    Boolean    @default(false)
+  verifiedAt  DateTime?
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([email, purpose])
+  @@index([expiresAt])
+  @@index([userId])
+  @@map("otps")
+}
+
+model DocumentFolder {
+  id        String           @id @default(cuid())
+  name      String           @db.VarChar(200)
+  color     String           @default("#3B82F6")
+  userId    String
+  parentId  String?
+  isDeleted Boolean          @default(false)
+  deletedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  files     DocumentFile[]
+  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children  DocumentFolder[] @relation("FolderHierarchy")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([parentId])
+  @@index([userId, isDeleted])
+  @@map("document_folders")
+}
+
+model DocumentFile {
+  id               String            @id @default(cuid())
+  name             String            @db.VarChar(200)
+  content          String?
+  fileUrl          String?
+  fileName         String?           @db.VarChar(255)
+  fileSize         Int?
+  mimeType         String?           @db.VarChar(100)
+  isUploaded       Boolean           @default(false)
+  type             String?
+  tags             String[]          @default([])
+  isDeleted        Boolean           @default(false)
+  deletedAt        DateTime?
+  folderId         String?
+  userId           String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deductionRecords DeductionRecord[]
+  folder           DocumentFolder?   @relation(fields: [folderId], references: [id])
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incomeRecords    IncomeRecord[]
+
+  @@index([userId])
+  @@index([folderId])
+  @@index([userId, isDeleted])
+  @@map("document_files")
+}
+
+model TaxFiling {
+  id             String          @id @default(cuid())
+  userId         String
+  taxYear        Int
+  formType       TaxFormType
+  status         TaxFilingStatus @default(DRAFT)
+  totalIncome    Decimal?        @db.Decimal(12, 2)
+  totalDeduction Decimal?        @db.Decimal(12, 2)
+  taxAmount      Decimal?        @db.Decimal(12, 2)
+  submittedAt    DateTime?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taxYear])
+  @@map("tax_filings")
+}
+
+model IncomeRecord {
+  id          String        @id @default(cuid())
+  userId      String
+  type        IncomeType
+  amount      Decimal       @db.Decimal(12, 2)
+  description String?
+  date        DateTime
+  taxYear     Int
+  documentId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  document    DocumentFile? @relation(fields: [documentId], references: [id])
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taxYear])
+  @@map("income_records")
+}
+
+model DeductionRecord {
+  id          String        @id @default(cuid())
+  userId      String
+  type        DeductionType
+  amount      Decimal       @db.Decimal(12, 2)
+  description String?
+  date        DateTime
+  taxYear     Int
+  documentId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  document    DocumentFile? @relation(fields: [documentId], references: [id])
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, taxYear])
+  @@map("deduction_records")
+}
 
 enum TaxType {
   INDIVIDUAL
@@ -39,6 +233,12 @@ enum UserTokenType {
   PASSWORD_CHANGE
   NEW_DEVICE_CONFIRM
   EMAIL_VERIFY
+}
+
+enum OTPPurpose {
+  EMAIL_VERIFICATION
+  LOGIN_MFA
+  PASSWORD_RESET
 }
 
 enum TaxFilingStatus {
@@ -74,229 +274,4 @@ enum DeductionType {
   DONATION
   HOME_LOAN
   OTHER
-}
-
-// ========================================
-// USER & AUTH
-// ========================================
-
-model User {
-  id           String    @id @default(cuid())
-  name         String?
-  firstName    String?   @db.VarChar(120)
-  lastName     String?   @db.VarChar(160)
-  email        String    @unique
-  password     String
-  phone        String?   @unique @db.VarChar(20)
-  
-  dateOfBirth  DateTime?
-  address      String?   @db.Text
-  district     String?   @db.VarChar(100)
-  province     String?   @db.VarChar(100)
-  postalCode   String?   @db.VarChar(10)
-  occupation   String?   @db.VarChar(120)
-  annualIncome Decimal?  @db.Decimal(12, 2)
-  
-  language     Language  @default(TH)
-  taxType      TaxType   @default(INDIVIDUAL)
-  
-  emailVerified          DateTime?
-  image                  String?
-  notifyOnPasswordChange NotificationChannel @default(EMAIL)
-  notifyEmail            Boolean             @default(true)
-  notifySms              Boolean             @default(false)
-  notifyTaxDeadlines     Boolean             @default(true)
-  notifyReports          Boolean             @default(true)
-  
-  accounts   Account[]
-  sessions   Session[]
-  tokens     UserToken[]
-  
-  folders            DocumentFolder[]
-  files              DocumentFile[]
-  taxFilings         TaxFiling[]
-  incomeRecords      IncomeRecord[]
-  deductionRecords   DeductionRecord[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@map("users")
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("sessions")
-}
-
-model UserToken {
-  id        String        @id @default(cuid())
-  userId    String
-  type      UserTokenType
-  tokenHash String        @unique
-  expires   DateTime
-  usedAt    DateTime?
-  createdAt DateTime      @default(now())
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId, type])
-  @@index([expires])
-  @@map("user_tokens")
-}
-
-
-// ========================================
-// DOCUMENTS
-// ========================================
-
-model DocumentFolder {
-  id        String   @id @default(cuid())
-  name      String   @db.VarChar(200)
-  color     String   @default("#3B82F6")
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  parentId  String?
-  parent    DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children  DocumentFolder[] @relation("FolderHierarchy")
-  
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
-  
-  files     DocumentFile[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-  
-  @@index([userId])
-  @@index([parentId])
-  @@index([userId, isDeleted])
-  @@map("document_folders")
-}
-
-model DocumentFile {
-  id         String   @id @default(cuid())
-  name       String   @db.VarChar(200)
-  content    String?  @db.Text
-  fileUrl    String?  @db.Text
-  fileName   String?  @db.VarChar(255)
-  fileSize   Int?
-  mimeType   String?  @db.VarChar(100)
-  isUploaded Boolean  @default(false)
-  type       String?
-  tags       String[] @default([])
-  
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
-  
-  folderId  String?
-  folder    DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  incomeRecords    IncomeRecord[]
-  deductionRecords DeductionRecord[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([userId])
-  @@index([folderId])
-  @@index([userId, isDeleted])
-  @@map("document_files")
-}
-
-// ========================================
-// TAX MANAGEMENT (✅ ใหม่!)
-// ========================================
-
-model TaxFiling {
-  id             String           @id @default(cuid())
-  userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  taxYear        Int
-  formType       TaxFormType
-  status         TaxFilingStatus  @default(DRAFT)
-  
-  totalIncome    Decimal?         @db.Decimal(12, 2)
-  totalDeduction Decimal?         @db.Decimal(12, 2)
-  taxAmount      Decimal?         @db.Decimal(12, 2)
-  
-  submittedAt    DateTime?
-  
-  notes          String?          @db.Text
-  
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  
-  @@index([userId, taxYear])
-  @@map("tax_filings")
-}
-
-model IncomeRecord {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type        IncomeType
-  amount      Decimal       @db.Decimal(12, 2)
-  description String?       @db.Text
-  date        DateTime
-  taxYear     Int
-  
-  documentId  String?
-  document    DocumentFile? @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  @@index([userId, taxYear])
-  @@map("income_records")
-}
-
-model DeductionRecord {
-  id          String         @id @default(cuid())
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type        DeductionType
-  amount      Decimal        @db.Decimal(12, 2)
-  description String?        @db.Text
-  date        DateTime
-  taxYear     Int
-  
-  documentId  String?
-  document    DocumentFile?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
-  
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  
-  @@index([userId, taxYear])
-  @@map("deduction_records")
 }
