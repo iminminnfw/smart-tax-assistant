@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o"
     openai_temperature: float = 0.7
     
+    
     # Qdrant Configuration
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection_name: str = "tax_knowledge"

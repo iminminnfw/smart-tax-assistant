@@ -31,7 +31,8 @@ interface Scenario {
   riskLabel: string;
   actions: {
     rmf: number;
-    ssf: number;
+    thai_esg: number;  // ✅ เปลี่ยนจาก SSF เป็น ThaiESG (ปี 2568)
+    thai_esgx: number; // ✅ เพิ่ม ThaiESGX
     insurance: number;
     pension: number;
   };
@@ -52,11 +53,12 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ปานกลาง',
     actions: {
       rmf: 300000,
-      ssf: 200000,
+      thai_esg: 200000,  // ✅ เปลี่ยนจาก SSF เป็น ThaiESG
+      thai_esgx: 100000, // ✅ เพิ่ม ThaiESGX
       insurance: 100000,
       pension: 0
     },
-    explanation: 'คุณอยู่ในอัตราภาษี 25% การลงทุนสูงสุดจะให้ผลประโยชน์มากที่สุด ตามกฎ RMF สามารถหักได้ถึง 30% ของรายได้ และ SSF อนุญาต ฿200,000 รวมกับประกันชีวิตจะช่วยลดภาษีสูงสุดพร้อมเหลือเงินสดพอเพียง',
+    explanation: 'คุณอยู่ในอัตราภาษี 25% การลงทุนสูงสุดจะให้ผลประโยชน์มากที่สุด ตามกฎ RMF สามารถหักได้ถึง 30% ของรายได้ ThaiESG/ThaiESGX (แทน SSF ปี 2568) รวมกับประกันชีวิตจะช่วยลดภาษีสูงสุดพร้อมเหลือเงินสดพอเพียง',
     pros: [
       'ลดภาษีได้มากที่สุด ฿87,500',
       'สร้างเงินออมระยะยาวสูง',
@@ -79,7 +81,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ต่ำ',
     actions: {
       rmf: 200000,
-      ssf: 100000,
+      thai_esg: 100000,
+      thai_esgx: 50000,
       insurance: 50000,
       pension: 0
     },
@@ -105,7 +108,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ต่ำมาก',
     actions: {
       rmf: 100000,
-      ssf: 50000,
+      thai_esg: 50000,
+      thai_esgx: 0,
       insurance: 30000,
       pension: 0
     },
@@ -132,7 +136,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ต่ำ',
     actions: {
       rmf: 100000,
-      ssf: 50000,
+      thai_esg: 50000,
+      thai_esgx: 0,
       insurance: 150000,
       pension: 0
     },
@@ -158,7 +163,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ปานกลาง',
     actions: {
       rmf: 300000,
-      ssf: 150000,
+      thai_esg: 150000,
+      thai_esgx: 0,
       insurance: 50000,
       pension: 100000
     },
@@ -184,7 +190,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ต่ำมาก',
     actions: {
       rmf: 50000,
-      ssf: 50000,
+      thai_esg: 50000,
+      thai_esgx: 0,
       insurance: 30000,
       pension: 0
     },
@@ -210,7 +217,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'ต่ำ',
     actions: {
       rmf: 100000,
-      ssf: 50000,
+      thai_esg: 50000,
+      thai_esgx: 0,
       insurance: 40000,
       pension: 0
     },
@@ -236,7 +244,8 @@ const DEMO_SCENARIOS: Scenario[] = [
     riskLabel: 'สูง',
     actions: {
       rmf: 300000,
-      ssf: 200000,
+      thai_esg: 200000,
+      thai_esgx: 100000,
       insurance: 200000,
       pension: 100000
     },
@@ -589,10 +598,16 @@ export default function AIOptimizerPage() {
                         <span className="font-medium">฿{scenario.actions.rmf.toLocaleString()}</span>
                       </div>
                     )}
-                    {scenario.actions.ssf > 0 && (
+                    {scenario.actions.thai_esg > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">• SSF</span>
-                        <span className="font-medium">฿{scenario.actions.ssf.toLocaleString()}</span>
+                        <span className="text-gray-600">• ThaiESG</span>
+                        <span className="font-medium">฿{scenario.actions.thai_esg.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {scenario.actions.thai_esgx > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">• ThaiESGX</span>
+                        <span className="font-medium">฿{scenario.actions.thai_esgx.toLocaleString()}</span>
                       </div>
                     )}
                     {scenario.actions.insurance > 0 && (
@@ -688,7 +703,7 @@ export default function AIOptimizerPage() {
                               <p className="font-medium text-gray-800 text-sm">เดือนนี้:</p>
                               <p className="text-xs text-gray-600">
                                 {scenario.actions.rmf > 0 && "เปิดบัญชี RMF ที่ธนาคาร/หลักทรัพย์ • "}
-                                {scenario.actions.ssf > 0 && "เปิดบัญชี SSF • "}
+                                {(scenario.actions.thai_esg > 0 || scenario.actions.thai_esgx > 0) && "เปิดบัญชี ThaiESG/ThaiESGX • "}
                                 เลือกกองทุนที่เหมาะสม
                               </p>
                             </div>
@@ -702,7 +717,8 @@ export default function AIOptimizerPage() {
                               <p className="font-medium text-gray-800 text-sm">เดือนหน้า:</p>
                               <p className="text-xs text-gray-600">
                                 {scenario.actions.rmf > 0 && `โอนเงินเข้า RMF ฿${scenario.actions.rmf.toLocaleString()} • `}
-                                {scenario.actions.ssf > 0 && `โอนเงินเข้า SSF ฿${scenario.actions.ssf.toLocaleString()}`}
+                                {scenario.actions.thai_esg > 0 && `โอนเงินเข้า ThaiESG ฿${scenario.actions.thai_esg.toLocaleString()} • `}
+                                {scenario.actions.thai_esgx > 0 && `โอนเงินเข้า ThaiESGX ฿${scenario.actions.thai_esgx.toLocaleString()}`}
                               </p>
                             </div>
                           </div>
