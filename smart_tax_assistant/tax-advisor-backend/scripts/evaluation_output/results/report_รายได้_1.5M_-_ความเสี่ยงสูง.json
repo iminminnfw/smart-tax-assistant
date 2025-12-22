@@ -1,0 +1,371 @@
+{
+  "overall_metrics": {
+    "expected_plan_count": 3,
+    "actual_plan_count": 3,
+    "has_all_plans": true,
+    "text_metrics": {
+      "avg_rouge1_precision": 0.7451338105382855,
+      "avg_rouge1_recall": 0.635374957000344,
+      "avg_rouge1_f1": 0.6815575103425332,
+      "avg_rouge2_precision": 0.5990773237193676,
+      "avg_rouge2_recall": 0.5130501897844176,
+      "avg_rouge2_f1": 0.549275165032226,
+      "avg_rougeL_precision": 0.6670498176522273,
+      "avg_rougeL_recall": 0.5741843825249399,
+      "avg_rougeL_f1": 0.6132641426096485,
+      "avg_bleu1": 0.6070068686957989,
+      "avg_bleu2": 0.5451369875402915,
+      "avg_bleu3": 0.5034306307121351,
+      "avg_bleu4": 0.46710686558907916,
+      "avg_bertscore_precision": 0.8620449900627136,
+      "avg_bertscore_recall": 0.8327720363934835,
+      "avg_bertscore_f1": 0.8471057812372843,
+      "avg_keyword_match_ratio": 0.9166666666666666
+    },
+    "multi_level_metrics": {
+      "avg_desc_rouge1_precision": 1.0,
+      "avg_desc_rouge1_recall": 1.0,
+      "avg_desc_rouge1_f1": 1.0,
+      "avg_desc_rouge2_precision": 1.0,
+      "avg_desc_rouge2_recall": 1.0,
+      "avg_desc_rouge2_f1": 1.0,
+      "avg_desc_rougeL_precision": 1.0,
+      "avg_desc_rougeL_recall": 1.0,
+      "avg_desc_rougeL_f1": 1.0,
+      "avg_desc_bleu1": 1.0,
+      "avg_desc_bleu2": 1.0,
+      "avg_desc_bleu3": 1.0,
+      "avg_desc_bleu4": 1.0,
+      "avg_desc_bertscore_precision": 0.999999980131785,
+      "avg_desc_bertscore_recall": 0.999999980131785,
+      "avg_desc_bertscore_f1": 0.999999980131785,
+      "avg_keyword_coverage_ratio": 0.9166666666666666,
+      "avg_keywords_matched": 3.6666666666666665,
+      "avg_keywords_total": 4.0,
+      "avg_semantic_bertscore_precision": 0.6834791700045267,
+      "avg_semantic_bertscore_recall": 0.8483575979868571,
+      "avg_semantic_bertscore_f1": 0.7570359905560812,
+      "avg_keypoint_coverage_ratio": 0.8888888888888888,
+      "avg_keypoints_covered": 2.6666666666666665,
+      "avg_keypoints_total": 3.0,
+      "avg_keypoint_avg_score": 0.8888888888888888
+    },
+    "avg_numeric_accuracy": 100.0
+  },
+  "plan_metrics": {
+    "plan_1": {
+      "text_metrics": {
+        "rouge1_precision": 0.6987951807228916,
+        "rouge1_recall": 0.5087719298245614,
+        "rouge1_f1": 0.5888324873096447,
+        "rouge2_precision": 0.4634146341463415,
+        "rouge2_recall": 0.336283185840708,
+        "rouge2_f1": 0.38974358974358975,
+        "rougeL_precision": 0.5301204819277109,
+        "rougeL_recall": 0.38596491228070173,
+        "rougeL_f1": 0.4467005076142132,
+        "bleu1": 0.48099828558561764,
+        "bleu2": 0.3916998903289955,
+        "bleu3": 0.32609208591264677,
+        "bleu4": 0.2728421884735303,
+        "bertscore_precision": 0.842298686504364,
+        "bertscore_recall": 0.8112825155258179,
+        "bertscore_f1": 0.8264997601509094,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 300000,
+          "actual": 300000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 75000,
+          "actual": 75000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 0.9999999403953552,
+        "desc_bertscore_recall": 0.9999999403953552,
+        "desc_bertscore_f1": 0.9999999403953552,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 4,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.6850494146347046,
+        "semantic_bertscore_recall": 0.8425197601318359,
+        "semantic_bertscore_f1": 0.7556681632995605,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    },
+    "plan_2": {
+      "text_metrics": {
+        "rouge1_precision": 0.8163265306122449,
+        "rouge1_recall": 0.64,
+        "rouge1_f1": 0.7174887892376681,
+        "rouge2_precision": 0.7422680412371134,
+        "rouge2_recall": 0.5806451612903226,
+        "rouge2_f1": 0.65158371040724,
+        "rougeL_precision": 0.7857142857142857,
+        "rougeL_recall": 0.616,
+        "rougeL_f1": 0.6905829596412556,
+        "bleu1": 0.6197426002220585,
+        "bleu2": 0.5909622988022394,
+        "bleu3": 0.5714822670476288,
+        "bleu4": 0.5524700449892257,
+        "bertscore_precision": 0.8869645595550537,
+        "bertscore_recall": 0.8424401879310608,
+        "bertscore_f1": 0.8641293048858643,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 500000,
+          "actual": 500000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 125000,
+          "actual": 125000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 4,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.7008551955223083,
+        "semantic_bertscore_recall": 0.8765839338302612,
+        "semantic_bertscore_f1": 0.7789314389228821,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    },
+    "plan_3": {
+      "text_metrics": {
+        "rouge1_precision": 0.7202797202797203,
+        "rouge1_recall": 0.7573529411764706,
+        "rouge1_f1": 0.7383512544802867,
+        "rouge2_precision": 0.5915492957746479,
+        "rouge2_recall": 0.6222222222222222,
+        "rouge2_f1": 0.6064981949458482,
+        "rougeL_precision": 0.6853146853146853,
+        "rougeL_recall": 0.7205882352941176,
+        "rougeL_f1": 0.7025089605734767,
+        "bleu1": 0.7202797202797203,
+        "bleu2": 0.6527487734896397,
+        "bleu3": 0.6127175391761296,
+        "bleu4": 0.5760083633044816,
+        "bertscore_precision": 0.8568717241287231,
+        "bertscore_recall": 0.8445934057235718,
+        "bertscore_f1": 0.8506882786750793,
+        "keyword_match_ratio": 0.75
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 800000,
+          "actual": 800000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 200000,
+          "actual": 200000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 3,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 0.75,
+        "keywords_matched": 3,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.6645328998565674,
+        "semantic_bertscore_recall": 0.8259690999984741,
+        "semantic_bertscore_f1": 0.7365083694458008,
+        "keypoint_coverage_ratio": 0.6666666666666666,
+        "keypoints_covered": 2,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 0.6666666666666666
+      }
+    }
+  },
+  "legal_compliance": {
+    "checks": [
+      {
+        "is_legal": false,
+        "violations": [
+          {
+            "category": "ประกันบำนาญ",
+            "allocation_index": 0,
+            "recommended_amount": 200010,
+            "legal_max": 200000,
+            "excess": 10,
+            "violation_percentage": 0.005,
+            "reason": "เกินขีดจำกัด 15% ของรายได้ (225,000) หรือ 200,000 บาท",
+            "law_reference": "tax_deductions_update280168.pdf, Page 2, Item 13"
+          }
+        ],
+        "warnings": [],
+        "legal_compliance_score": 0,
+        "totals": {
+          "pension_insurance": 200010,
+          "rmf": 0,
+          "thai_esg": 0,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 200000,
+          "rmf": 450000,
+          "thai_esg": 300000,
+          "thai_esgx": 300000,
+          "pvd": 225000,
+          "gpf": 450000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 1500000,
+          "total_violations": 1,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 300000,
+          "thai_esg": 200000,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 200000,
+          "rmf": 450000,
+          "thai_esg": 300000,
+          "thai_esgx": 300000,
+          "pvd": 225000,
+          "gpf": 450000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 1500000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 300000,
+          "thai_esg": 500000,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 200000,
+          "rmf": 450000,
+          "thai_esg": 300000,
+          "thai_esgx": 300000,
+          "pvd": 225000,
+          "gpf": 450000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 1500000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      }
+    ],
+    "has_violations": true,
+    "overall_score": 0
+  }
+}

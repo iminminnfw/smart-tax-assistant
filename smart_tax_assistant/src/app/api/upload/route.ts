@@ -49,7 +49,13 @@ export async function POST(req: NextRequest) {
     const s3Key = generateS3Key(userId, 'documents', file.name);
 
     // Upload to S3 (private bucket with signed URL support)
-    const s3Result = await uploadToS3(bytes, s3Key, file.type || 'application/octet-stream');
+    // Pass original filename for proper display (supports Thai/Unicode)
+    const s3Result = await uploadToS3(
+      bytes,
+      s3Key,
+      file.type || 'application/octet-stream',
+      file.name  // Original filename for Content-Disposition
+    );
 
     console.log('S3 upload successful:', s3Result.key);
 

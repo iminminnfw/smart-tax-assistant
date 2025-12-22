@@ -1,6 +1,6 @@
 // src/config/menuItems.ts
-import { 
-  User, Wallet, Home, Target, Calendar, FileText 
+import {
+  User, Wallet, Home, Target, Calendar, FileText, Calculator
 } from "lucide-react";
 
 export const menuItems = [
@@ -38,6 +38,13 @@ export const menuItems = [
     label: 'ปฏิทินภาษี',
     color: 'text-red-600 bg-red-100',
     description: 'กำหนดการยื่นภาษีและนับถอยหลัง',
+  },
+  {
+    href: '/tax-deduction-calculator',
+    icon: Calculator,
+    label: 'คำนวณการลดหย่อนภาษี',
+    color: 'text-pink-600 bg-pink-100',
+    description: 'AI แนะนำแผนลงทุนและประหยัดภาษี',
   },
   {
     href: '/document',   // 👈 เปลี่ยน path จาก /chat → /document
