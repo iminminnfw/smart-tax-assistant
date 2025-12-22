@@ -96,19 +96,22 @@ function getS3Client(): S3Client {
 
 /**
  * Sanitize filename to prevent S3 key issues
- * - Remove special characters
- * - Replace spaces with underscores
- * - Keep alphanumeric, dots, hyphens, underscores
+ * - Supports Thai and Unicode characters
+ * - Replace unsafe characters with underscores
+ * - Keep alphanumeric (including Thai), dots, hyphens, underscores
  *
  * @param filename - Original filename
- * @returns Sanitized filename
+ * @returns Sanitized filename safe for S3
  */
 function sanitizeFilename(filename: string): string {
-  // Keep only safe characters: alphanumeric, dot, hyphen, underscore
-  const safe = filename.replace(/[^\w.\-]+/g, '_');
+  // Replace unsafe characters but preserve Unicode (Thai, etc.)
+  // Remove: / \ : * ? " < > | and control characters
+  const safe = filename
+    .replace(/[\/\\:*?"<>|\x00-\x1F\x7F]/g, '_')
+    .replace(/\s+/g, '_'); // Replace spaces with underscores
 
-  // Remove leading/trailing underscores
-  return safe.replace(/^_+|_+$/g, '');
+  // Remove leading/trailing underscores and dots
+  return safe.replace(/^[._]+|[._]+$/g, '');
 }
 
 /**
@@ -140,8 +143,10 @@ export function generateS3Key(
  *   "https://bucket.s3.region.amazonaws.com/documents/user/file.pdf"
  *   -> "documents/user/file.pdf"
  *
+ * Handles URL-encoded keys (e.g., Thai characters)
+ *
  * @param url - Full S3 URL or local path
- * @returns S3 key or null if not S3 URL
+ * @returns S3 key (decoded) or null if not S3 URL
  */
 export function extractS3Key(url: string): string | null {
   if (!url) return null;
@@ -152,9 +157,13 @@ export function extractS3Key(url: string): string | null {
   try {
     // Parse URL and extract pathname (everything after domain)
     const urlObj = new URL(url);
-    // Remove leading slash
-    return urlObj.pathname.substring(1);
-  } catch {
+    // Remove leading slash and decode URI components
+    const encodedKey = urlObj.pathname.substring(1);
+
+    // Decode URL encoding (e.g., %E0%B8%9B -> ป)
+    return decodeURIComponent(encodedKey);
+  } catch (error) {
+    console.error('Failed to extract/decode S3 key:', error);
     return null;
   }
 }
@@ -177,11 +186,18 @@ export function isS3Url(url: string): boolean {
  * Get base S3 URL for a key
  * Used for database storage (not for direct access since bucket is private)
  *
- * @param key - S3 key
- * @returns Full S3 URL
+ * Properly encodes keys with special characters (Thai, spaces, etc.)
+ *
+ * @param key - S3 key (unencoded UTF-8)
+ * @returns Full S3 URL (with properly encoded key)
  */
 function getS3Url(key: string): string {
-  return `https://${s3Config.bucketName}.s3.${s3Config.region}.amazonaws.com/${key}`;
+  // Split key into parts and encode each part to handle Thai characters
+  const parts = key.split('/');
+  const encodedParts = parts.map(part => encodeURIComponent(part));
+  const encodedKey = encodedParts.join('/');
+
+  return `https://${s3Config.bucketName}.s3.${s3Config.region}.amazonaws.com/${encodedKey}`;
 }
 
 // ==================== UPLOAD OPERATIONS ====================
@@ -206,7 +222,7 @@ export async function uploadToS3(
   buffer: Buffer,
   key: string,
   contentType: string,
-  fileName: string
+  fileName?: string
 ): Promise<UploadResult> {
   try {
     const client = getS3Client();
@@ -224,7 +240,9 @@ export async function uploadToS3(
     const url = getS3Url(key);
 
     // Generate signed URL for immediate access (expires in 1 hour, inline for preview)
-    const signedUrl = await getSignedUrlForKey(key, 3600, fileName, true);
+    // Use provided fileName or extract from key
+    const displayName = fileName || key.split('/').pop() || 'download';
+    const signedUrl = await getSignedUrlForKey(key, 3600, displayName, true);
 
     console.log(`S3_UPLOAD_SUCCESS: ${key}`);
 
@@ -294,23 +312,37 @@ export async function deleteFromS3(key: string): Promise<void> {
 // ==================== SIGNED URL GENERATION ====================
 
 /**
+ * Encode filename for Content-Disposition header (RFC 2231)
+ * Supports Thai and Unicode characters
+ *
+ * @param filename - Original filename
+ * @returns Encoded filename string for Content-Disposition
+ */
+function encodeRFC2231(filename: string): string {
+  // Encode filename using percent-encoding
+  const encoded = encodeURIComponent(filename);
+  // RFC 2231 format: filename*=UTF-8''encoded_filename
+  return `UTF-8''${encoded}`;
+}
+
+/**
  * Generate temporary signed URL for private file access
  * Required for private S3 buckets to allow client access
  *
  * @param key - S3 key
  * @param expiresIn - URL expiration in seconds (default: 3600 = 1 hour)
- * @param fileName - Filename for download
+ * @param fileName - Filename for download (supports Thai/Unicode)
  * @param inline - If true, opens in browser; if false, downloads file (default: true)
  * @returns Signed URL
  * @throws Error if generation fails
  *
  * @example
  * // For file preview (opens in browser)
- * const signedUrl = await getSignedUrlForKey(doc.fileUrl, 3600, 'doc.pdf', true);
+ * const signedUrl = await getSignedUrlForKey(doc.fileUrl, 3600, 'เอกสาร.pdf', true);
  * res.json({ previewUrl: signedUrl });
  *
  * // For download
- * const downloadUrl = await getSignedUrlForKey(doc.fileUrl, 7200, 'doc.pdf', false);
+ * const downloadUrl = await getSignedUrlForKey(doc.fileUrl, 7200, 'เอกสาร.pdf', false);
  */
 export async function getSignedUrlForKey(
   key: string,
@@ -321,10 +353,10 @@ export async function getSignedUrlForKey(
   try {
     const client = getS3Client();
 
-    // Use inline for preview, attachment for download
-    const disposition = inline
-      ? `inline; filename="${fileName}"`
-      : `attachment; filename="${fileName}"`;
+    // Support Thai/Unicode filenames with RFC 2231 encoding
+    const encodedFilename = encodeRFC2231(fileName);
+    const type = inline ? 'inline' : 'attachment';
+    const disposition = `${type}; filename*=${encodedFilename}`;
 
     // Use GetObjectCommand for generating download/view URLs
     const command = new GetObjectCommand({

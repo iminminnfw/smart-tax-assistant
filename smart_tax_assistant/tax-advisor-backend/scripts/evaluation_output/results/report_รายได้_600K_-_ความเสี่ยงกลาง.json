@@ -1,0 +1,371 @@
+{
+  "overall_metrics": {
+    "expected_plan_count": 3,
+    "actual_plan_count": 3,
+    "has_all_plans": true,
+    "text_metrics": {
+      "avg_rouge1_precision": 0.8743987421041989,
+      "avg_rouge1_recall": 0.5654080078604765,
+      "avg_rouge1_f1": 0.6864988389125207,
+      "avg_rouge2_precision": 0.7687590187590189,
+      "avg_rouge2_recall": 0.49457233763803105,
+      "avg_rouge2_f1": 0.6016809116809116,
+      "avg_rougeL_precision": 0.8153434315083583,
+      "avg_rougeL_recall": 0.5265988700564972,
+      "avg_rougeL_f1": 0.6396746685235281,
+      "avg_bleu1": 0.5059855165212298,
+      "avg_bleu2": 0.4740448481863841,
+      "avg_bleu3": 0.453245698434058,
+      "avg_bleu4": 0.4349660618251237,
+      "avg_bertscore_precision": 0.8776683807373047,
+      "avg_bertscore_recall": 0.8392884532610575,
+      "avg_bertscore_f1": 0.858037014802297,
+      "avg_keyword_match_ratio": 1.0
+    },
+    "multi_level_metrics": {
+      "avg_desc_rouge1_precision": 1.0,
+      "avg_desc_rouge1_recall": 1.0,
+      "avg_desc_rouge1_f1": 1.0,
+      "avg_desc_rouge2_precision": 1.0,
+      "avg_desc_rouge2_recall": 1.0,
+      "avg_desc_rouge2_f1": 1.0,
+      "avg_desc_rougeL_precision": 1.0,
+      "avg_desc_rougeL_recall": 1.0,
+      "avg_desc_rougeL_f1": 1.0,
+      "avg_desc_bleu1": 1.0,
+      "avg_desc_bleu2": 1.0,
+      "avg_desc_bleu3": 1.0,
+      "avg_desc_bleu4": 1.0,
+      "avg_desc_bertscore_precision": 0.9999999403953552,
+      "avg_desc_bertscore_recall": 0.9999999403953552,
+      "avg_desc_bertscore_f1": 0.9999999403953552,
+      "avg_keyword_coverage_ratio": 1.0,
+      "avg_keywords_matched": 4.0,
+      "avg_keywords_total": 4.0,
+      "avg_semantic_bertscore_precision": 0.7020362814267477,
+      "avg_semantic_bertscore_recall": 0.8501473069190979,
+      "avg_semantic_bertscore_f1": 0.7690061330795288,
+      "avg_keypoint_coverage_ratio": 1.0,
+      "avg_keypoints_covered": 3.0,
+      "avg_keypoints_total": 3.0,
+      "avg_keypoint_avg_score": 1.0
+    },
+    "avg_numeric_accuracy": 100.0
+  },
+  "plan_metrics": {
+    "plan_1": {
+      "text_metrics": {
+        "rouge1_precision": 0.9452054794520548,
+        "rouge1_recall": 0.5847457627118644,
+        "rouge1_f1": 0.7225130890052356,
+        "rouge2_precision": 0.875,
+        "rouge2_recall": 0.5384615384615384,
+        "rouge2_f1": 0.6666666666666667,
+        "rougeL_precision": 0.9178082191780822,
+        "rougeL_recall": 0.5677966101694916,
+        "rougeL_f1": 0.7015706806282723,
+        "bleu1": 0.5102822409487993,
+        "bleu2": 0.49096594072513633,
+        "bleu3": 0.4770198437876672,
+        "bleu4": 0.46278830182090586,
+        "bertscore_precision": 0.8782041072845459,
+        "bertscore_recall": 0.832030177116394,
+        "bertscore_f1": 0.8544938564300537,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 60000,
+          "actual": 60000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 6000,
+          "actual": 6000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 4,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.7050151228904724,
+        "semantic_bertscore_recall": 0.84168541431427,
+        "semantic_bertscore_f1": 0.7673120498657227,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    },
+    "plan_2": {
+      "text_metrics": {
+        "rouge1_precision": 0.8352941176470589,
+        "rouge1_recall": 0.568,
+        "rouge1_f1": 0.6761904761904761,
+        "rouge2_precision": 0.7380952380952381,
+        "rouge2_recall": 0.5,
+        "rouge2_f1": 0.5961538461538461,
+        "rougeL_precision": 0.7529411764705882,
+        "rougeL_recall": 0.512,
+        "rougeL_f1": 0.6095238095238096,
+        "bleu1": 0.5217537139766998,
+        "bleu2": 0.49045824456032067,
+        "bleu3": 0.467645228313422,
+        "bleu4": 0.44765036119101576,
+        "bertscore_precision": 0.8780320286750793,
+        "bertscore_recall": 0.8395312428474426,
+        "bertscore_f1": 0.8583500981330872,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 100000,
+          "actual": 100000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 10000,
+          "actual": 10000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 4,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.6873722076416016,
+        "semantic_bertscore_recall": 0.8382331728935242,
+        "semantic_bertscore_f1": 0.7553436756134033,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    },
+    "plan_3": {
+      "text_metrics": {
+        "rouge1_precision": 0.8426966292134831,
+        "rouge1_recall": 0.5434782608695652,
+        "rouge1_f1": 0.6607929515418502,
+        "rouge2_precision": 0.6931818181818182,
+        "rouge2_recall": 0.44525547445255476,
+        "rouge2_f1": 0.5422222222222223,
+        "rougeL_precision": 0.7752808988764045,
+        "rougeL_recall": 0.5,
+        "rougeL_f1": 0.6079295154185023,
+        "bleu1": 0.4859205946381901,
+        "bleu2": 0.44071035927369523,
+        "bleu3": 0.4150720232010847,
+        "bleu4": 0.39445952246344945,
+        "bertscore_precision": 0.8767690062522888,
+        "bertscore_recall": 0.8463039398193359,
+        "bertscore_f1": 0.86126708984375,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 150000,
+          "actual": 150000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 15000,
+          "actual": 15000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 0.9999998211860657,
+        "desc_bertscore_recall": 0.9999998211860657,
+        "desc_bertscore_f1": 0.9999998211860657,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 4,
+        "keywords_total": 4,
+        "semantic_bertscore_precision": 0.713721513748169,
+        "semantic_bertscore_recall": 0.8705233335494995,
+        "semantic_bertscore_f1": 0.7843626737594604,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    }
+  },
+  "legal_compliance": {
+    "checks": [
+      {
+        "is_legal": false,
+        "violations": [
+          {
+            "category": "ประกันสุขภาพ",
+            "allocation_index": 1,
+            "recommended_amount": 30000,
+            "legal_max": 25000,
+            "excess": 5000,
+            "violation_percentage": 20.0,
+            "reason": "เกินขีดจำกัด 25,000 บาท",
+            "law_reference": "tax_deductions_update280168.pdf, Page 1, Item 9"
+          }
+        ],
+        "warnings": [],
+        "legal_compliance_score": 0,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 0,
+          "thai_esg": 0,
+          "life_insurance": 30000,
+          "health_insurance": 30000
+        },
+        "limits": {
+          "pension_insurance": 90000,
+          "rmf": 180000,
+          "thai_esg": 180000,
+          "thai_esgx": 180000,
+          "pvd": 90000,
+          "gpf": 180000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 600000,
+          "total_violations": 1,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 50000,
+          "thai_esg": 50000,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 90000,
+          "rmf": 180000,
+          "thai_esg": 180000,
+          "thai_esgx": 180000,
+          "pvd": 90000,
+          "gpf": 180000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 600000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 90000,
+          "thai_esg": 60000,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 90000,
+          "rmf": 180000,
+          "thai_esg": 180000,
+          "thai_esgx": 180000,
+          "pvd": 90000,
+          "gpf": 180000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 600000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      }
+    ],
+    "has_violations": true,
+    "overall_score": 0
+  }
+}

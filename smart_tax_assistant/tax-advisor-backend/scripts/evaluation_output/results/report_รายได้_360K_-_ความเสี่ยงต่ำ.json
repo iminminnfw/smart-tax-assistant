@@ -1,0 +1,360 @@
+{
+  "overall_metrics": {
+    "expected_plan_count": 3,
+    "actual_plan_count": 3,
+    "has_all_plans": true,
+    "text_metrics": {
+      "avg_rouge1_precision": 0.880661013263753,
+      "avg_rouge1_recall": 0.5868435621902494,
+      "avg_rouge1_f1": 0.7021752560860891,
+      "avg_rouge2_precision": 0.7594228844228844,
+      "avg_rouge2_recall": 0.500984200984201,
+      "avg_rouge2_f1": 0.601912449098313,
+      "avg_rougeL_precision": 0.8111154598825832,
+      "avg_rougeL_recall": 0.5394237449626308,
+      "avg_rougeL_f1": 0.6460195316842617,
+      "avg_bleu1": 0.5310512109476644,
+      "avg_bleu2": 0.49078867306352825,
+      "avg_bleu3": 0.465141069829948,
+      "avg_bleu4": 0.4425616750884251,
+      "avg_bertscore_precision": 0.8909358183542887,
+      "avg_bertscore_recall": 0.8560455441474915,
+      "avg_bertscore_f1": 0.8729897340138754,
+      "avg_keyword_match_ratio": 0.7777777777777777
+    },
+    "multi_level_metrics": {
+      "avg_desc_rouge1_precision": 1.0,
+      "avg_desc_rouge1_recall": 1.0,
+      "avg_desc_rouge1_f1": 1.0,
+      "avg_desc_rouge2_precision": 1.0,
+      "avg_desc_rouge2_recall": 1.0,
+      "avg_desc_rouge2_f1": 1.0,
+      "avg_desc_rougeL_precision": 1.0,
+      "avg_desc_rougeL_recall": 1.0,
+      "avg_desc_rougeL_f1": 1.0,
+      "avg_desc_bleu1": 1.0,
+      "avg_desc_bleu2": 1.0,
+      "avg_desc_bleu3": 1.0,
+      "avg_desc_bleu4": 1.0,
+      "avg_desc_bertscore_precision": 0.999999980131785,
+      "avg_desc_bertscore_recall": 0.999999980131785,
+      "avg_desc_bertscore_f1": 0.999999980131785,
+      "avg_keyword_coverage_ratio": 0.7777777777777777,
+      "avg_keywords_matched": 2.3333333333333335,
+      "avg_keywords_total": 3.0,
+      "avg_semantic_bertscore_precision": 0.6978037158648173,
+      "avg_semantic_bertscore_recall": 0.8502593040466309,
+      "avg_semantic_bertscore_f1": 0.7663155595461527,
+      "avg_keypoint_coverage_ratio": 0.7777777777777777,
+      "avg_keypoints_covered": 2.3333333333333335,
+      "avg_keypoints_total": 3.0,
+      "avg_keypoint_avg_score": 0.7777777777777777
+    },
+    "avg_numeric_accuracy": 100.0
+  },
+  "plan_metrics": {
+    "plan_1": {
+      "text_metrics": {
+        "rouge1_precision": 0.9866666666666667,
+        "rouge1_recall": 0.6271186440677966,
+        "rouge1_f1": 0.7668393782383419,
+        "rouge2_precision": 0.9054054054054054,
+        "rouge2_recall": 0.5726495726495726,
+        "rouge2_f1": 0.7015706806282722,
+        "rougeL_precision": 0.9733333333333334,
+        "rougeL_recall": 0.6186440677966102,
+        "rougeL_f1": 0.7564766839378239,
+        "bleu1": 0.5561282456608893,
+        "bleu2": 0.532735044637435,
+        "bleu3": 0.5118011609957543,
+        "bleu4": 0.4897981876966917,
+        "bertscore_precision": 0.9281638860702515,
+        "bertscore_recall": 0.8764716982841492,
+        "bertscore_f1": 0.9015775322914124,
+        "keyword_match_ratio": 0.6666666666666666
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 40000,
+          "actual": 40000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 2000,
+          "actual": 2000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 0.6666666666666666,
+        "keywords_matched": 2,
+        "keywords_total": 3,
+        "semantic_bertscore_precision": 0.7177367210388184,
+        "semantic_bertscore_recall": 0.8358004093170166,
+        "semantic_bertscore_f1": 0.7722823023796082,
+        "keypoint_coverage_ratio": 1.0,
+        "keypoints_covered": 3,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 1.0
+      }
+    },
+    "plan_2": {
+      "text_metrics": {
+        "rouge1_precision": 0.9315068493150684,
+        "rouge1_recall": 0.5619834710743802,
+        "rouge1_f1": 0.7010309278350514,
+        "rouge2_precision": 0.8055555555555556,
+        "rouge2_recall": 0.48333333333333334,
+        "rouge2_f1": 0.6041666666666667,
+        "rougeL_precision": 0.821917808219178,
+        "rougeL_recall": 0.49586776859504134,
+        "rougeL_f1": 0.618556701030928,
+        "bleu1": 0.4826391613181678,
+        "bleu2": 0.4488252483928135,
+        "bleu3": 0.4279324285034736,
+        "bleu4": 0.4120778431836151,
+        "bertscore_precision": 0.8768286108970642,
+        "bertscore_recall": 0.8259119987487793,
+        "bertscore_f1": 0.8506090044975281,
+        "keyword_match_ratio": 1.0
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 60000,
+          "actual": 60000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 3000,
+          "actual": 3000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 2,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 1.0,
+        "desc_bertscore_recall": 1.0,
+        "desc_bertscore_f1": 1.0,
+        "keyword_coverage_ratio": 1.0,
+        "keywords_matched": 3,
+        "keywords_total": 3,
+        "semantic_bertscore_precision": 0.6968457102775574,
+        "semantic_bertscore_recall": 0.8602710962295532,
+        "semantic_bertscore_f1": 0.7699823379516602,
+        "keypoint_coverage_ratio": 0.6666666666666666,
+        "keypoints_covered": 2,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 0.6666666666666666
+      }
+    },
+    "plan_3": {
+      "text_metrics": {
+        "rouge1_precision": 0.7238095238095238,
+        "rouge1_recall": 0.5714285714285714,
+        "rouge1_f1": 0.638655462184874,
+        "rouge2_precision": 0.5673076923076923,
+        "rouge2_recall": 0.44696969696969696,
+        "rouge2_f1": 0.5,
+        "rougeL_precision": 0.638095238095238,
+        "rougeL_recall": 0.5037593984962406,
+        "rougeL_f1": 0.5630252100840336,
+        "bleu1": 0.5543862258639362,
+        "bleu2": 0.49080572616033624,
+        "bleu3": 0.45568961999061597,
+        "bleu4": 0.4258089943849683,
+        "bertscore_precision": 0.8678149580955505,
+        "bertscore_recall": 0.8657529354095459,
+        "bertscore_f1": 0.8667826652526855,
+        "keyword_match_ratio": 0.6666666666666666
+      },
+      "numeric_metrics": {
+        "total_investment": {
+          "expected": 80000,
+          "actual": 80000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        },
+        "total_tax_saving": {
+          "expected": 4000,
+          "actual": 4000,
+          "accuracy": 100.0,
+          "within_tolerance": true,
+          "error_percentage": 0.0
+        }
+      },
+      "structural_metrics": {
+        "expected_allocation_count": 0,
+        "actual_allocation_count": 3,
+        "has_correct_structure": true
+      },
+      "multi_level_metrics": {
+        "desc_rouge1_precision": 1.0,
+        "desc_rouge1_recall": 1.0,
+        "desc_rouge1_f1": 1.0,
+        "desc_rouge2_precision": 1.0,
+        "desc_rouge2_recall": 1.0,
+        "desc_rouge2_f1": 1.0,
+        "desc_rougeL_precision": 1.0,
+        "desc_rougeL_recall": 1.0,
+        "desc_rougeL_f1": 1.0,
+        "desc_bleu1": 1.0,
+        "desc_bleu2": 1.0,
+        "desc_bleu3": 1.0,
+        "desc_bleu4": 1.0,
+        "desc_bertscore_precision": 0.9999999403953552,
+        "desc_bertscore_recall": 0.9999999403953552,
+        "desc_bertscore_f1": 0.9999999403953552,
+        "keyword_coverage_ratio": 0.6666666666666666,
+        "keywords_matched": 2,
+        "keywords_total": 3,
+        "semantic_bertscore_precision": 0.6788287162780762,
+        "semantic_bertscore_recall": 0.8547064065933228,
+        "semantic_bertscore_f1": 0.7566820383071899,
+        "keypoint_coverage_ratio": 0.6666666666666666,
+        "keypoints_covered": 2,
+        "keypoints_total": 3,
+        "keypoint_avg_score": 0.6666666666666666
+      }
+    }
+  },
+  "legal_compliance": {
+    "checks": [
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 0,
+          "thai_esg": 0,
+          "life_insurance": 20000,
+          "health_insurance": 20000
+        },
+        "limits": {
+          "pension_insurance": 54000,
+          "rmf": 108000,
+          "thai_esg": 108000,
+          "thai_esgx": 108000,
+          "pvd": 54000,
+          "gpf": 108000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 360000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 30000,
+          "thai_esg": 30000,
+          "life_insurance": 0,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 54000,
+          "rmf": 108000,
+          "thai_esg": 108000,
+          "thai_esgx": 108000,
+          "pvd": 54000,
+          "gpf": 108000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 360000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      },
+      {
+        "is_legal": true,
+        "violations": [],
+        "warnings": [],
+        "legal_compliance_score": 100,
+        "totals": {
+          "pension_insurance": 0,
+          "rmf": 32000,
+          "thai_esg": 32000,
+          "life_insurance": 16000,
+          "health_insurance": 0
+        },
+        "limits": {
+          "pension_insurance": 54000,
+          "rmf": 108000,
+          "thai_esg": 108000,
+          "thai_esgx": 108000,
+          "pvd": 54000,
+          "gpf": 108000,
+          "life_insurance": 100000,
+          "health_insurance": 25000,
+          "combined_insurance": 125000
+        },
+        "details": {
+          "gross_income": 360000,
+          "total_violations": 0,
+          "total_warnings": 0
+        }
+      }
+    ],
+    "has_violations": false,
+    "overall_score": 100
+  }
+}
