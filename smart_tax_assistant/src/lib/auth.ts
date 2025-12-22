@@ -3,6 +3,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { verifyOTP, OTPPurpose } from "@/lib/otp";
 
 export const authOptions: NextAuthOptions = {
 
@@ -12,6 +13,8 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
+        otpCode: { label: "OTP Code", type: "text" },
+        skipOtp: { label: "Skip OTP", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
@@ -24,6 +27,26 @@ export const authOptions: NextAuthOptions = {
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
         if (!isValid) return null;
+
+        // ตรวจสอบว่ายืนยันอีเมลแล้วหรือยัง
+        if (!user.emailVerified) {
+          throw new Error("EMAIL_NOT_VERIFIED");
+        }
+
+        // ตรวจสอบ OTP (optional - เฉพาะเมื่อมี otpCode ส่งมา)
+        if (credentials.otpCode) {
+          // ถ้ามี OTP code ส่งมา ให้ยืนยัน OTP
+          const otpResult = await verifyOTP({
+            email: credentials.email,
+            otpCode: credentials.otpCode,
+            purpose: OTPPurpose.LOGIN_MFA,
+          });
+
+          if (!otpResult.success) {
+            throw new Error(`OTP_INVALID: ${otpResult.error}`);
+          }
+        }
+        // ถ้าไม่มี otpCode ส่งมา ก็ให้ผ่านได้เลย (ไม่บังคับ MFA)
 
         // ส่งข้อมูล user กลับไปใน session
         return {
