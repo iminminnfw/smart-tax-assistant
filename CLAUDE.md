@@ -1,1 +1,0 @@
-# if you want run this pls use npm run dev
