@@ -1,0 +1,809 @@
+"""
+AI Tax Advisor Engine
+Uses LLM (OpenAI/Anthropic) for intelligent tax optimization recommendations
+
+Features:
+- Natural language goal parsing
+- Personalized scenario generation
+- Explainable AI recommendations
+- Profile-based analysis
+"""
+
+import os
+import json
+import logging
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass
+from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+# Try to import OpenAI
+try:
+    from openai import AsyncOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logger.warning("OpenAI package not installed. Install with: pip install openai")
+
+# Try to import Anthropic
+try:
+    import anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+    logger.warning("Anthropic package not installed. Install with: pip install anthropic")
+
+
+class GoalType(str, Enum):
+    """Types of financial goals"""
+    TAX_SAVING = "tax_saving"
+    CASH_FLOW = "cash_flow"
+    RETIREMENT = "retirement"
+    LIFE_EVENT = "life_event"
+    HYBRID = "hybrid"
+
+
+class Priority(str, Enum):
+    """Investment priority"""
+    AGGRESSIVE = "aggressive"
+    BALANCED = "balanced"
+    CONSERVATIVE = "conservative"
+
+
+@dataclass
+class UserProfile:
+    """User's financial profile for AI analysis"""
+    age: int
+    annual_income: float
+    monthly_expenses: float
+    existing_savings: float
+    emergency_fund: float
+    risk_tolerance: str  # conservative, moderate, aggressive
+    occupation: str
+    marital_status: str
+    dependents: int
+
+    # Existing tax deductions
+    existing_rmf: float = 0
+    existing_ssf: float = 0
+    existing_thai_esg: float = 0
+    existing_insurance: float = 0
+
+    def to_dict(self) -> Dict:
+        return {
+            'age': self.age,
+            'annual_income': self.annual_income,
+            'monthly_expenses': self.monthly_expenses,
+            'existing_savings': self.existing_savings,
+            'emergency_fund': self.emergency_fund,
+            'risk_tolerance': self.risk_tolerance,
+            'occupation': self.occupation,
+            'marital_status': self.marital_status,
+            'dependents': self.dependents,
+            'existing_deductions': {
+                'rmf': self.existing_rmf,
+                'ssf': self.existing_ssf,
+                'thai_esg': self.existing_thai_esg,
+                'insurance': self.existing_insurance
+            }
+        }
+
+
+@dataclass
+class ParsedGoal:
+    """Structured goal parsed from natural language"""
+    goal_type: GoalType
+    target_amount: Optional[float]
+    deadline: Optional[str]
+    constraints: List[Dict]
+    priority: Priority
+    raw_input: str
+
+
+@dataclass
+class TaxScenario:
+    """A tax optimization scenario"""
+    id: int
+    name: str
+    description: str
+
+    # Financial details
+    rmf_investment: float
+    ssf_investment: float
+    thai_esg_investment: float
+    total_investment: float
+
+    # Results
+    tax_saved: float
+    cash_remaining: float
+    risk_level: int  # 1-10
+
+    # Recommended funds
+    recommended_funds: List[Dict]
+
+    # AI explanation
+    explanation: str
+    pros: List[str]
+    cons: List[str]
+
+    # Confidence and suitability
+    confidence: float  # 0-100
+    suitability_score: float  # 0-100
+
+
+class AITaxAdvisor:
+    """
+    AI-powered Tax Advisor using LLM
+
+    Supports OpenAI (GPT-4) and Anthropic (Claude) as backends.
+
+    Usage:
+        advisor = AITaxAdvisor()
+        goal = await advisor.parse_goal("อยากประหยัดภาษี 80,000 บาท", profile)
+        scenarios = await advisor.generate_scenarios(profile, goal, funds)
+    """
+
+    # System prompts
+    SYSTEM_PROMPT_GOAL_PARSER = """คุณเป็น AI ผู้เชี่ยวชาญด้านภาษีไทย ทำหน้าที่แปลงเป้าหมายทางการเงินของผู้ใช้
+จากภาษาธรรมชาติเป็นรูปแบบที่มีโครงสร้าง
+
+กรุณาวิเคราะห์เป้าหมายและตอบเป็น JSON ที่มี:
+- goal_type: "tax_saving" | "cash_flow" | "retirement" | "life_event" | "hybrid"
+- target_amount: จำนวนเงินเป้าหมาย (null ถ้าไม่ระบุ)
+- deadline: วันที่ครบกำหนด เช่น "2025-12" (null ถ้าไม่ระบุ)
+- constraints: รายการข้อจำกัด เช่น [{"type": "minimum_cash", "amount": 1000000}]
+- priority: "aggressive" | "balanced" | "conservative"
+- summary: สรุปเป้าหมายสั้นๆ
+
+ตอบเป็น JSON เท่านั้น ไม่ต้องมีข้อความอื่น"""
+
+    SYSTEM_PROMPT_SCENARIO_GEN = """คุณเป็น AI Financial Advisor ผู้เชี่ยวชาญด้านภาษีและการลงทุนในประเทศไทย
+
+หน้าที่ของคุณ:
+1. วิเคราะห์โปรไฟล์ทางการเงินของผู้ใช้
+2. เข้าใจเป้าหมายที่ผู้ใช้ต้องการ
+3. สร้าง 3 สถานการณ์การลงทุนที่เหมาะสม
+
+กฎภาษีไทย 2567-2568:
+- RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท
+- SSF: ลดหย่อนได้สูงสุด 200,000 บาท (รวม SSF+RMF ไม่เกิน 500,000)
+- ThaiESG: ลดหย่อนได้สูงสุด 300,000 บาท (ถึงปี 2575)
+
+อัตราภาษี:
+- 0-150,000: 0%
+- 150,001-300,000: 5%
+- 300,001-500,000: 10%
+- 500,001-750,000: 15%
+- 750,001-1,000,000: 20%
+- 1,000,001-2,000,000: 25%
+- 2,000,001-5,000,000: 30%
+- 5,000,001+: 35%
+
+ตอบเป็น JSON array ของ 3 scenarios โดยแต่ละ scenario มี:
+- id, name, description
+- rmf_investment, ssf_investment, thai_esg_investment, total_investment
+- tax_saved, cash_remaining, risk_level (1-10)
+- explanation (อธิบายเหตุผลแบบเข้าใจง่าย)
+- pros (ข้อดี array)
+- cons (ข้อเสีย array)
+- confidence (0-100)
+- suitability_score (0-100)
+
+ตอบเป็น JSON เท่านั้น"""
+
+    def __init__(
+        self,
+        provider: str = "openai",
+        api_key: Optional[str] = None,
+        model: Optional[str] = None
+    ):
+        """
+        Initialize AI Tax Advisor
+
+        Args:
+            provider: "openai" or "anthropic"
+            api_key: API key (or use env var)
+            model: Model to use (default: gpt-4o or claude-3-5-sonnet)
+        """
+        self.provider = provider
+
+        if provider == "openai":
+            if not OPENAI_AVAILABLE:
+                raise ImportError("OpenAI package not installed")
+
+            self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+            if not self.api_key:
+                raise ValueError("OPENAI_API_KEY not set")
+
+            self.model = model or "gpt-4o"
+            self.client = AsyncOpenAI(api_key=self.api_key)
+
+        elif provider == "anthropic":
+            if not ANTHROPIC_AVAILABLE:
+                raise ImportError("Anthropic package not installed")
+
+            self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+            if not self.api_key:
+                raise ValueError("ANTHROPIC_API_KEY not set")
+
+            self.model = model or "claude-3-5-sonnet-20241022"
+            self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
+
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        logger.info(f"AI Tax Advisor initialized (provider={provider}, model={self.model})")
+
+    async def _call_llm(
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.7
+    ) -> str:
+        """
+        Call the LLM and return response
+
+        Args:
+            system_prompt: System instructions
+            user_message: User's input
+            temperature: Randomness (0-1)
+
+        Returns:
+            LLM response text
+        """
+        try:
+            if self.provider == "openai":
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    temperature=temperature,
+                    response_format={"type": "json_object"}
+                )
+                return response.choices[0].message.content
+
+            elif self.provider == "anthropic":
+                response = await self.client.messages.create(
+                    model=self.model,
+                    max_tokens=4096,
+                    system=system_prompt,
+                    messages=[
+                        {"role": "user", "content": user_message}
+                    ]
+                )
+                return response.content[0].text
+
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            raise
+
+    # ============================================================
+    # Goal Parsing
+    # ============================================================
+
+    async def parse_goal(
+        self,
+        user_input: str,
+        profile: UserProfile
+    ) -> ParsedGoal:
+        """
+        Parse natural language goal into structured format
+
+        Args:
+            user_input: User's goal in natural language
+            profile: User's financial profile
+
+        Returns:
+            ParsedGoal object
+        """
+        logger.info(f"Parsing goal: {user_input[:50]}...")
+
+        prompt = f"""
+โปรไฟล์ผู้ใช้:
+- อายุ: {profile.age} ปี
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ค่าใช้จ่าย/เดือน: ฿{profile.monthly_expenses:,.0f}
+- เงินออม: ฿{profile.existing_savings:,.0f}
+- เงินสำรองฉุกเฉิน: ฿{profile.emergency_fund:,.0f}
+- ความเสี่ยงที่รับได้: {profile.risk_tolerance}
+- สถานะ: {profile.marital_status}, บุตร {profile.dependents} คน
+
+ลดหย่อนที่ใช้แล้ว:
+- RMF: ฿{profile.existing_rmf:,.0f}
+- SSF: ฿{profile.existing_ssf:,.0f}
+- ThaiESG: ฿{profile.existing_thai_esg:,.0f}
+
+เป้าหมายของผู้ใช้: "{user_input}"
+
+กรุณาวิเคราะห์และแปลงเป้าหมายนี้เป็น JSON
+"""
+
+        response = await self._call_llm(
+            self.SYSTEM_PROMPT_GOAL_PARSER,
+            prompt,
+            temperature=0.3
+        )
+
+        try:
+            data = json.loads(response)
+
+            return ParsedGoal(
+                goal_type=GoalType(data.get('goal_type', 'tax_saving')),
+                target_amount=data.get('target_amount'),
+                deadline=data.get('deadline'),
+                constraints=data.get('constraints', []),
+                priority=Priority(data.get('priority', 'balanced')),
+                raw_input=user_input
+            )
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse goal response: {e}")
+            # Return default
+            return ParsedGoal(
+                goal_type=GoalType.TAX_SAVING,
+                target_amount=None,
+                deadline=None,
+                constraints=[],
+                priority=Priority.BALANCED,
+                raw_input=user_input
+            )
+
+    # ============================================================
+    # Scenario Generation
+    # ============================================================
+
+    async def generate_scenarios(
+        self,
+        profile: UserProfile,
+        goal: ParsedGoal,
+        available_funds: Optional[List[Dict]] = None
+    ) -> List[TaxScenario]:
+        """
+        Generate personalized tax optimization scenarios
+
+        Args:
+            profile: User's financial profile
+            goal: Parsed goal
+            available_funds: List of available tax funds
+
+        Returns:
+            List of 3 TaxScenario objects
+        """
+        logger.info("Generating tax scenarios...")
+
+        # Calculate available budget
+        annual_savings = (profile.annual_income / 12 - profile.monthly_expenses) * 12
+        available_budget = max(0, annual_savings - 100000)  # Keep 100K buffer
+
+        # Calculate remaining quota
+        rmf_limit = min(profile.annual_income * 0.30, 500000)
+        rmf_remaining = max(0, rmf_limit - profile.existing_rmf)
+        ssf_remaining = max(0, 200000 - profile.existing_ssf)
+        thai_esg_remaining = max(0, 300000 - profile.existing_thai_esg)
+
+        # Fund info for context
+        fund_info = ""
+        if available_funds:
+            fund_info = "\n\nกองทุนที่แนะนำ (จาก SEC API):\n"
+            for fund in available_funds[:10]:
+                fund_info += f"- {fund.get('fund_code')}: {fund.get('fund_name_th')} (ความเสี่ยง: {fund.get('risk_level')})\n"
+
+        prompt = f"""
+โปรไฟล์ผู้ใช้:
+- อายุ: {profile.age} ปี
+- อาชีพ: {profile.occupation}
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ค่าใช้จ่าย/เดือน: ฿{profile.monthly_expenses:,.0f}
+- เงินออมที่มี: ฿{profile.existing_savings:,.0f}
+- เงินสำรองฉุกเฉิน: ฿{profile.emergency_fund:,.0f}
+- ความเสี่ยงที่รับได้: {profile.risk_tolerance}
+- สถานะสมรส: {profile.marital_status}
+- บุตร/ผู้อุปการะ: {profile.dependents} คน
+
+สิทธิลดหย่อนคงเหลือ:
+- RMF: ฿{rmf_remaining:,.0f} (จากทั้งหมด ฿{rmf_limit:,.0f})
+- SSF: ฿{ssf_remaining:,.0f} (จากทั้งหมด ฿200,000)
+- ThaiESG: ฿{thai_esg_remaining:,.0f} (จากทั้งหมด ฿300,000)
+
+งบประมาณที่สามารถลงทุนได้: ประมาณ ฿{available_budget:,.0f}/ปี
+
+เป้าหมาย:
+- ประเภท: {goal.goal_type.value}
+- จำนวนเงินเป้าหมาย: {f'฿{goal.target_amount:,.0f}' if goal.target_amount else 'ไม่ระบุ'}
+- กำหนดเวลา: {goal.deadline or 'ไม่ระบุ'}
+- ข้อจำกัด: {goal.constraints}
+- ลำดับความสำคัญ: {goal.priority.value}
+- คำบอกของผู้ใช้: "{goal.raw_input}"
+{fund_info}
+
+กรุณาสร้าง 3 สถานการณ์ที่ตอบโจทย์ผู้ใช้:
+1. สถานการณ์แนะนำสูงสุด (ตอบโจทย์ทุกเป้าหมาย)
+2. สถานการณ์ทางเลือก (เน้นด้านใดด้านหนึ่งมากกว่า)
+3. สถานการณ์อนุรักษ์นิยม (ความเสี่ยงต่ำสุด)
+
+ตอบเป็น JSON array
+"""
+
+        response = await self._call_llm(
+            self.SYSTEM_PROMPT_SCENARIO_GEN,
+            prompt,
+            temperature=0.7
+        )
+
+        try:
+            # Parse response
+            data = json.loads(response)
+
+            # Handle if response is wrapped
+            if isinstance(data, dict) and 'scenarios' in data:
+                scenarios_data = data['scenarios']
+            elif isinstance(data, list):
+                scenarios_data = data
+            else:
+                scenarios_data = [data]
+
+            scenarios = []
+            for i, s in enumerate(scenarios_data[:3], 1):
+                scenario = TaxScenario(
+                    id=s.get('id', i),
+                    name=s.get('name', f'สถานการณ์ {i}'),
+                    description=s.get('description', ''),
+                    rmf_investment=float(s.get('rmf_investment', 0)),
+                    ssf_investment=float(s.get('ssf_investment', 0)),
+                    thai_esg_investment=float(s.get('thai_esg_investment', 0)),
+                    total_investment=float(s.get('total_investment', 0)),
+                    tax_saved=float(s.get('tax_saved', 0)),
+                    cash_remaining=float(s.get('cash_remaining', available_budget)),
+                    risk_level=int(s.get('risk_level', 5)),
+                    recommended_funds=s.get('recommended_funds', []),
+                    explanation=s.get('explanation', ''),
+                    pros=s.get('pros', []),
+                    cons=s.get('cons', []),
+                    confidence=float(s.get('confidence', 80)),
+                    suitability_score=float(s.get('suitability_score', 75))
+                )
+                scenarios.append(scenario)
+
+            logger.info(f"Generated {len(scenarios)} scenarios")
+            return scenarios
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse scenarios: {e}")
+            # Return fallback scenarios
+            return self._generate_fallback_scenarios(profile, goal)
+
+    def _generate_fallback_scenarios(
+        self,
+        profile: UserProfile,
+        goal: ParsedGoal
+    ) -> List[TaxScenario]:
+        """Generate fallback scenarios if AI fails"""
+
+        rmf_limit = min(profile.annual_income * 0.30, 500000)
+        available = (profile.annual_income / 12 - profile.monthly_expenses) * 12 * 0.5
+
+        return [
+            TaxScenario(
+                id=1,
+                name="แผนสมดุล",
+                description="สมดุลระหว่างการประหยัดภาษีและเงินสดคงเหลือ",
+                rmf_investment=min(available * 0.5, rmf_limit),
+                ssf_investment=0,
+                thai_esg_investment=min(available * 0.3, 300000),
+                total_investment=available * 0.8,
+                tax_saved=available * 0.8 * 0.25,
+                cash_remaining=profile.existing_savings + available * 0.2,
+                risk_level=5,
+                recommended_funds=[],
+                explanation="แผนนี้เน้นความสมดุลระหว่างการลดหย่อนภาษีและการรักษาสภาพคล่อง",
+                pros=["สมดุลดี", "ความเสี่ยงปานกลาง"],
+                cons=["ไม่ได้ประหยัดภาษีสูงสุด"],
+                confidence=70,
+                suitability_score=75
+            ),
+            TaxScenario(
+                id=2,
+                name="แผนประหยัดภาษีสูงสุด",
+                description="เน้นลดหย่อนภาษีให้มากที่สุด",
+                rmf_investment=rmf_limit,
+                ssf_investment=0,
+                thai_esg_investment=300000,
+                total_investment=rmf_limit + 300000,
+                tax_saved=(rmf_limit + 300000) * 0.25,
+                cash_remaining=profile.existing_savings,
+                risk_level=7,
+                recommended_funds=[],
+                explanation="แผนนี้เน้นใช้สิทธิลดหย่อนให้เต็มที่",
+                pros=["ประหยัดภาษีสูงสุด"],
+                cons=["เงินสดเหลือน้อย"],
+                confidence=70,
+                suitability_score=65
+            ),
+            TaxScenario(
+                id=3,
+                name="แผนอนุรักษ์นิยม",
+                description="เน้นรักษาเงินสดและความปลอดภัย",
+                rmf_investment=min(available * 0.3, rmf_limit),
+                ssf_investment=0,
+                thai_esg_investment=min(available * 0.2, 100000),
+                total_investment=available * 0.5,
+                tax_saved=available * 0.5 * 0.25,
+                cash_remaining=profile.existing_savings + available * 0.5,
+                risk_level=3,
+                recommended_funds=[],
+                explanation="แผนนี้เน้นความปลอดภัยและสภาพคล่องสูง",
+                pros=["เงินสดเหลือเยอะ", "ความเสี่ยงต่ำ"],
+                cons=["ประหยัดภาษีได้น้อย"],
+                confidence=70,
+                suitability_score=70
+            )
+        ]
+
+    # ============================================================
+    # Profile Analysis
+    # ============================================================
+
+    async def analyze_profile(self, profile: UserProfile) -> Dict[str, Any]:
+        """
+        Analyze user's financial profile and provide insights
+
+        Args:
+            profile: User's financial profile
+
+        Returns:
+            Analysis with insights and recommendations
+        """
+        logger.info("Analyzing user profile...")
+
+        # Calculate basic metrics
+        monthly_income = profile.annual_income / 12
+        savings_rate = (monthly_income - profile.monthly_expenses) / monthly_income * 100
+        emergency_months = profile.emergency_fund / profile.monthly_expenses
+
+        # Tax bracket
+        from .tax_fund_service import TaxFundService
+        tax_service = TaxFundService(None)  # Just for calculations
+        tax_info = tax_service.calculate_tax_bracket(profile.annual_income)
+
+        # Deduction limits
+        limits = tax_service.calculate_deduction_limits(profile.annual_income)
+
+        # Used deductions
+        total_used = profile.existing_rmf + profile.existing_ssf + profile.existing_thai_esg
+
+        # Remaining quota
+        remaining = {
+            'rmf': max(0, limits['rmf_max'] - profile.existing_rmf),
+            'ssf': max(0, limits['ssf_max'] - profile.existing_ssf),
+            'thai_esg': max(0, limits['thai_esg_max'] - profile.existing_thai_esg)
+        }
+        total_remaining = sum(remaining.values())
+
+        # Calculate potential savings
+        potential_savings = total_remaining * tax_info['marginal_rate']
+
+        return {
+            'profile_summary': {
+                'age': profile.age,
+                'years_to_retirement': max(0, 60 - profile.age),
+                'annual_income': profile.annual_income,
+                'monthly_income': monthly_income,
+                'monthly_expenses': profile.monthly_expenses,
+                'savings_rate_percent': round(savings_rate, 1),
+                'emergency_fund_months': round(emergency_months, 1),
+                'risk_tolerance': profile.risk_tolerance
+            },
+            'tax_info': {
+                'marginal_rate': tax_info['marginal_rate'],
+                'marginal_rate_percent': tax_info['marginal_rate_percent'],
+                'total_tax_before_deductions': tax_info['total_tax'],
+                'effective_rate_percent': round(tax_info['effective_rate'] * 100, 2)
+            },
+            'deduction_status': {
+                'used': {
+                    'rmf': profile.existing_rmf,
+                    'ssf': profile.existing_ssf,
+                    'thai_esg': profile.existing_thai_esg,
+                    'total': total_used
+                },
+                'remaining': remaining,
+                'total_remaining': total_remaining,
+                'limits': limits
+            },
+            'opportunity': {
+                'max_additional_deduction': total_remaining,
+                'potential_tax_savings': potential_savings,
+                'effective_return_percent': round(tax_info['marginal_rate_percent'], 1)
+            },
+            'insights': self._generate_insights(
+                profile, savings_rate, emergency_months, tax_info
+            ),
+            'warnings': self._generate_warnings(
+                profile, savings_rate, emergency_months
+            )
+        }
+
+    def _generate_insights(
+        self,
+        profile: UserProfile,
+        savings_rate: float,
+        emergency_months: float,
+        tax_info: Dict
+    ) -> List[str]:
+        """Generate insights from profile analysis"""
+        insights = []
+
+        # Age-based insights
+        years_to_retire = 60 - profile.age
+        if years_to_retire > 20:
+            insights.append(f"คุณมีเวลาลงทุนอีก {years_to_retire} ปี สามารถรับความเสี่ยงได้มากกว่า")
+        elif years_to_retire > 10:
+            insights.append(f"เหลือเวลาก่อนเกษียณ {years_to_retire} ปี ควรเริ่มวางแผน RMF อย่างจริงจัง")
+        else:
+            insights.append(f"ใกล้เกษียณแล้ว ควรเน้นกองทุนที่ความเสี่ยงต่ำ")
+
+        # Tax rate insight
+        if tax_info['marginal_rate_percent'] >= 25:
+            insights.append(
+                f"อัตราภาษีส่วนเพิ่มของคุณ {tax_info['marginal_rate_percent']:.0f}% "
+                "การลดหย่อนจะได้คืนเยอะมาก"
+            )
+
+        # Savings rate insight
+        if savings_rate >= 30:
+            insights.append("อัตราการออมของคุณดีมาก สามารถลงทุนลดหย่อนภาษีได้เต็มที่")
+        elif savings_rate >= 20:
+            insights.append("อัตราการออมอยู่ในเกณฑ์ดี มีโอกาสลดหย่อนภาษีได้พอสมควร")
+
+        # Risk profile insight
+        if profile.risk_tolerance == 'aggressive' and profile.age < 40:
+            insights.append("โปรไฟล์ความเสี่ยงสูงเหมาะกับกองทุนหุ้นที่ให้ผลตอบแทนดี")
+        elif profile.risk_tolerance == 'conservative':
+            insights.append("ควรเน้นกองทุนตราสารหนี้หรือกองทุนผสมที่ผันผวนต่ำ")
+
+        return insights
+
+    def _generate_warnings(
+        self,
+        profile: UserProfile,
+        savings_rate: float,
+        emergency_months: float
+    ) -> List[str]:
+        """Generate warnings from profile analysis"""
+        warnings = []
+
+        # Emergency fund warning
+        if emergency_months < 3:
+            warnings.append(
+                f"เงินสำรองฉุกเฉินมีแค่ {emergency_months:.1f} เดือน "
+                "ควรเก็บให้ได้อย่างน้อย 6 เดือนก่อนลงทุนเต็มที่"
+            )
+        elif emergency_months < 6:
+            warnings.append(
+                f"เงินสำรองฉุกเฉิน {emergency_months:.1f} เดือน "
+                "อาจต้องการเพิ่มอีกเล็กน้อย"
+            )
+
+        # Savings rate warning
+        if savings_rate < 10:
+            warnings.append("อัตราการออมต่ำกว่า 10% ควรพิจารณาลดค่าใช้จ่ายก่อน")
+
+        # Dependents warning
+        if profile.dependents > 0 and profile.existing_savings < 500000:
+            warnings.append(
+                f"มีผู้อุปการะ {profile.dependents} คน "
+                "ควรมีเงินสำรองมากกว่านี้ก่อนลงทุนระยะยาว"
+            )
+
+        return warnings
+
+
+# ============================================================
+# Factory Function
+# ============================================================
+
+def create_ai_advisor(
+    provider: Optional[str] = None,
+    api_key: Optional[str] = None
+) -> AITaxAdvisor:
+    """
+    Create AI Tax Advisor with best available provider
+
+    Args:
+        provider: Force specific provider
+        api_key: API key to use
+
+    Returns:
+        AITaxAdvisor instance
+    """
+    if provider:
+        return AITaxAdvisor(provider=provider, api_key=api_key)
+
+    # Auto-detect best provider
+    if os.getenv("OPENAI_API_KEY"):
+        return AITaxAdvisor(provider="openai")
+    elif os.getenv("ANTHROPIC_API_KEY"):
+        return AITaxAdvisor(provider="anthropic")
+    else:
+        raise ValueError(
+            "No API key found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY"
+        )
+
+
+# ============================================================
+# Example Usage
+# ============================================================
+
+async def example_usage():
+    """Example of how to use AITaxAdvisor"""
+
+    # Create advisor
+    advisor = create_ai_advisor()
+
+    # Sample profile
+    profile = UserProfile(
+        age=32,
+        annual_income=1_200_000,
+        monthly_expenses=40_000,
+        existing_savings=500_000,
+        emergency_fund=150_000,
+        risk_tolerance="moderate",
+        occupation="employee",
+        marital_status="single",
+        dependents=0,
+        existing_rmf=0,
+        existing_ssf=0,
+        existing_thai_esg=0
+    )
+
+    try:
+        # Analyze profile
+        print("=" * 60)
+        print("Profile Analysis")
+        print("=" * 60)
+
+        analysis = await advisor.analyze_profile(profile)
+        print(json.dumps(analysis, indent=2, ensure_ascii=False))
+
+        # Parse goal
+        print("\n" + "=" * 60)
+        print("Parse Goal")
+        print("=" * 60)
+
+        goal = await advisor.parse_goal(
+            "อยากประหยัดภาษีสัก 80,000 บาท แต่ต้องมีเงินเหลือไว้ดาวน์บ้าน 1 ล้านปลายปีหน้า",
+            profile
+        )
+        print(f"Goal type: {goal.goal_type}")
+        print(f"Target: {goal.target_amount}")
+        print(f"Priority: {goal.priority}")
+
+        # Generate scenarios
+        print("\n" + "=" * 60)
+        print("Generate Scenarios")
+        print("=" * 60)
+
+        scenarios = await advisor.generate_scenarios(profile, goal)
+        for s in scenarios:
+            print(f"\n{s.name}")
+            print(f"  Investment: ฿{s.total_investment:,.0f}")
+            print(f"  Tax saved: ฿{s.tax_saved:,.0f}")
+            print(f"  Explanation: {s.explanation[:100]}...")
+
+    except Exception as e:
+        logger.error(f"Example failed: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    asyncio.run(example_usage())

@@ -240,10 +240,10 @@ export default function ProfileSettingsPage() {
   // Loading state
   if (status === 'loading' || isLoadingProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-gray-600">กำลังโหลด...</p>
+          <p className="text-slate-600">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -256,7 +256,7 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       {/* Navigation Component */}
       <AppNavigation />
 
@@ -266,20 +266,20 @@ export default function ProfileSettingsPage() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center space-x-3 mb-4">
-              <Link href="/WelcomeHome" className="text-gray-400 hover:text-gray-600">
+              <Link href="/WelcomeHome" className="text-slate-400 hover:text-slate-600">
                 <Home className="w-5 h-5" />
               </Link>
-              <span className="text-gray-400">/</span>
-              <span className="font-medium text-gray-900">จัดการบัญชีผู้ใช้</span>
+              <span className="text-slate-400">/</span>
+              <span className="font-medium text-slate-800">จัดการบัญชีผู้ใช้</span>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">จัดการบัญชีผู้ใช้</h1>
-            <p className="text-gray-600">จัดการข้อมูลส่วนตัว การตั้งค่าภาษี และความปลอดภัย</p>
+            <h1 className="text-2xl font-semibold text-slate-800 mb-2">จัดการบัญชีผู้ใช้</h1>
+            <p className="text-slate-600">จัดการข้อมูลส่วนตัว การตั้งค่าภาษี และความปลอดภัย</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Profile Sidebar */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 sticky top-24">
+              <div className="bg-white rounded-xl p-6 border border-slate-200 sticky top-24">
                 {/* Profile Image */}
                 <div className="flex flex-col items-center mb-6">
                   <div className="relative">
@@ -287,31 +287,31 @@ export default function ProfileSettingsPage() {
                       <img
                         src={user.image}
                         alt={user.name}
-                        className="w-24 h-24 rounded-full object-cover border-4 border-gray-100"
+                        className="w-24 h-24 rounded-full object-cover border-4 border-slate-100"
                       />
                     ) : (
-                      <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center">
                         <User className="w-12 h-12 text-white" />
                       </div>
                     )}
-                    <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg">
+                    <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
                       <Camera className="w-4 h-4 text-white" />
                     </button>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900">{user.name}</h3>
-                  <p className="text-sm text-gray-500">{user.email}</p>
-                  <div className="flex items-center space-x-2 mt-2 text-sm text-gray-500">
+                  <h3 className="text-lg font-semibold text-slate-800 mt-3">{user.name}</h3>
+                  <p className="text-sm text-slate-500">{user.email}</p>
+                  <div className="flex items-center space-x-2 mt-2 text-sm text-slate-500">
                     <Calendar className="w-4 h-4" />
                     <span>
-                      สมาชิกตั้งแต่ {userData.meta?.createdAt 
-                        ? new Date(userData.meta.createdAt).toLocaleDateString('th-TH') 
+                      สมาชิกตั้งแต่ {userData.meta?.createdAt
+                        ? new Date(userData.meta.createdAt).toLocaleDateString('th-TH')
                         : 'เมษายน 2024'
                       }
                     </span>
                   </div>
                 </div>
 
-                
+
               </div>
             </div>
 
@@ -327,15 +327,15 @@ export default function ProfileSettingsPage() {
               )}
 
               {/* Personal Information */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">ข้อมูลส่วนตัว</h2>
-                    <p className="text-gray-500">จัดการข้อมูลส่วนตัวพื้นฐานของคุณ</p>
+                    <h2 className="text-lg font-semibold text-slate-800">ข้อมูลส่วนตัว</h2>
+                    <p className="text-sm text-slate-500">จัดการข้อมูลส่วนตัวพื้นฐานของคุณ</p>
                   </div>
                   <button
                     onClick={() => setIsEditing(!isEditing)}
-                    className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>{isEditing ? 'ยกเลิก' : 'แก้ไข'}</span>
@@ -344,18 +344,18 @@ export default function ProfileSettingsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       ชื่อจริง
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
                         value={userData.personalInfo.firstName}
                         onChange={(e) => updatePersonalInfo('firstName', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isEditing ? 'bg-white' : 'bg-slate-50'
                         }`}
                         placeholder="กรอกชื่อจริง"
                       />
@@ -363,18 +363,18 @@ export default function ProfileSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       นามสกุล
                     </label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
                         value={userData.personalInfo.lastName}
                         onChange={(e) => updatePersonalInfo('lastName', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isEditing ? 'bg-white' : 'bg-slate-50'
                         }`}
                         placeholder="กรอกนามสกุล"
                       />
@@ -382,35 +382,35 @@ export default function ProfileSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       อีเมล
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="email"
                         value={userData.personalInfo.email}
                         onChange={(e) => updatePersonalInfo('email', e.target.value)}
                         disabled={true} // Email shouldn't be editable here
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg bg-gray-50"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg bg-slate-50"
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">ไม่สามารถแก้ไขอีเมลได้</p>
+                    <p className="text-xs text-slate-500 mt-1">ไม่สามารถแก้ไขอีเมลได้</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       เบอร์โทรศัพท์
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="tel"
                         value={userData.personalInfo.phone}
                         onChange={(e) => updatePersonalInfo('phone', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isEditing ? 'bg-white' : 'bg-slate-50'
                         }`}
                         placeholder="กรอกเบอร์โทรศัพท์"
                       />
@@ -418,18 +418,18 @@ export default function ProfileSettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       วันเกิด
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="date"
                         value={userData.personalInfo.dateOfBirth}
                         onChange={(e) => updatePersonalInfo('dateOfBirth', e.target.value)}
                         disabled={!isEditing}
-                        className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isEditing ? 'bg-white' : 'bg-gray-50'
+                        className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isEditing ? 'bg-white' : 'bg-slate-50'
                         }`}
                       />
                     </div>
@@ -437,18 +437,18 @@ export default function ProfileSettingsPage() {
                 </div>
 
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
                     ที่อยู่
                   </label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                    <MapPin className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
                     <textarea
                       value={userData.personalInfo.address}
                       onChange={(e) => updatePersonalInfo('address', e.target.value)}
                       disabled={!isEditing}
                       rows={3}
-                      className={`w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isEditing ? 'bg-white' : 'bg-gray-50'
+                      className={`w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditing ? 'bg-white' : 'bg-slate-50'
                       }`}
                       placeholder="กรอกที่อยู่ปัจจุบัน"
                     />
@@ -457,7 +457,7 @@ export default function ProfileSettingsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       อำเภอ/เขต
                     </label>
                     <input
@@ -465,14 +465,14 @@ export default function ProfileSettingsPage() {
                       value={userData.personalInfo.district}
                       onChange={(e) => updatePersonalInfo('district', e.target.value)}
                       disabled={!isEditing}
-                      className={`w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isEditing ? 'bg-white' : 'bg-gray-50'
+                      className={`w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditing ? 'bg-white' : 'bg-slate-50'
                       }`}
                       placeholder="อำเภอ/เขต"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       จังหวัด
                     </label>
                     <input
@@ -480,14 +480,14 @@ export default function ProfileSettingsPage() {
                       value={userData.personalInfo.province}
                       onChange={(e) => updatePersonalInfo('province', e.target.value)}
                       disabled={!isEditing}
-                      className={`w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isEditing ? 'bg-white' : 'bg-gray-50'
+                      className={`w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditing ? 'bg-white' : 'bg-slate-50'
                       }`}
                       placeholder="จังหวัด"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       รหัสไปรษณีย์
                     </label>
                     <input
@@ -495,8 +495,8 @@ export default function ProfileSettingsPage() {
                       value={userData.personalInfo.postalCode}
                       onChange={(e) => updatePersonalInfo('postalCode', e.target.value)}
                       disabled={!isEditing}
-                      className={`w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isEditing ? 'bg-white' : 'bg-gray-50'
+                      className={`w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditing ? 'bg-white' : 'bg-slate-50'
                       }`}
                       placeholder="รหัสไปรษณีย์"
                       maxLength={5}
@@ -506,40 +506,40 @@ export default function ProfileSettingsPage() {
               </div>
 
               {/* Tax Information */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">ข้อมูลภาษี</h2>
-                    <p className="text-gray-500">ข้อมูลพื้นฐานสำหรับการคำนวณภาษี</p>
+                    <h2 className="text-lg font-semibold text-slate-800">ข้อมูลภาษี</h2>
+                    <p className="text-sm text-slate-500">ข้อมูลพื้นฐานสำหรับการคำนวณภาษี</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       อาชีพ
                     </label>
                     <div className="relative">
-                      <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Briefcase className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
                         value={userData.taxInfo.occupation}
                         onChange={(e) => updateTaxInfo('occupation', e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="อาชีพปัจจุบัน"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       รายได้ต่อปี (บาท)
                     </label>
                     <input
                       type="number"
                       value={userData.taxInfo.annualIncome}
                       onChange={(e) => updateTaxInfo('annualIncome', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0.00"
                       min="0"
                     />
@@ -547,11 +547,11 @@ export default function ProfileSettingsPage() {
                 </div>
 
                 <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
                     ประเภทการยื่นภาษี
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <label className="flex items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                       <input
                         type="radio"
                         name="taxType"
@@ -561,8 +561,8 @@ export default function ProfileSettingsPage() {
                         className="text-blue-600"
                       />
                       <div className="ml-3">
-                        <p className="font-medium text-gray-900">บุคคลธรรมดา</p>
-                        <p className="text-sm text-gray-500">ยื่นภาษีเป็นรายบุคคล</p>
+                        <p className="font-medium text-slate-800">บุคคลธรรมดา</p>
+                        <p className="text-sm text-slate-500">ยื่นภาษีเป็นรายบุคคล</p>
                       </div>
                     </label>
                   </div>
@@ -570,32 +570,32 @@ export default function ProfileSettingsPage() {
               </div>
 
               {/* Security Settings */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">ความปลอดภัย</h2>
-                    <p className="text-gray-500">จัดการรหัสผ่านและการรักษาความปลอดภัย</p>
+                    <h2 className="text-lg font-semibold text-slate-800">ความปลอดภัย</h2>
+                    <p className="text-sm text-slate-500">จัดการรหัสผ่านและการรักษาความปลอดภัย</p>
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
                       รหัสผ่านปัจจุบัน
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full pl-10 pr-12 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="รหัสผ่านปัจจุบัน"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -604,42 +604,42 @@ export default function ProfileSettingsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
                         รหัสผ่านใหม่
                       </label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           type="password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="รหัสผ่านใหม่"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
                         ยืนยันรหัสผ่านใหม่
                       </label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           type="password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="ยืนยันรหัสผ่านใหม่"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <button 
+                  <button
                     onClick={handleChangePassword}
                     disabled={loadingChangePass || !currentPassword || !newPassword || !confirmPassword}
-                    className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                   >
                     {loadingChangePass ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -658,45 +658,45 @@ export default function ProfileSettingsPage() {
                 </div>
 
                 {/* Two-Factor Authentication */}
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <div className="mt-8 pt-6 border-t border-slate-200">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
                     การยืนยันตัวตน 2 ขั้นตอน
                   </h3>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Smartphone className="w-5 h-5 text-gray-600" />
+                      <Smartphone className="w-5 h-5 text-slate-600" />
                       <div>
-                        <p className="font-medium text-gray-900">SMS Authentication</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="font-medium text-slate-800">SMS Authentication</p>
+                        <p className="text-sm text-slate-500">
                           รับรหัสยืนยันทาง SMS เมื่อเข้าสู่ระบบ
                         </p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" className="sr-only peer" defaultChecked={false} />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                 </div>
               </div>
 
               {/* Notification Preferences */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-xl p-6 border border-slate-200">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">การแจ้งเตือน</h2>
-                    <p className="text-gray-500">จัดการประเภทการแจ้งเตือนที่ต้องการรับ</p>
+                    <h2 className="text-lg font-semibold text-slate-800">การแจ้งเตือน</h2>
+                    <p className="text-sm text-slate-500">จัดการประเภทการแจ้งเตือนที่ต้องการรับ</p>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   {/* Email Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Mail className="w-5 h-5 text-gray-600" />
+                      <Mail className="w-5 h-5 text-slate-600" />
                       <div>
-                        <p className="font-medium text-gray-900">การแจ้งเตือนทางอีเมล</p>
-                        <p className="text-sm text-gray-500">รับข่าวสารและการแจ้งเตือนทางอีเมล</p>
+                        <p className="font-medium text-slate-800">การแจ้งเตือนทางอีเมล</p>
+                        <p className="text-sm text-slate-500">รับข่าวสารและการแจ้งเตือนทางอีเมล</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -706,17 +706,17 @@ export default function ProfileSettingsPage() {
                         checked={userData.preferences.notifications.email}
                         onChange={(e) => updateNotificationPreference('email', e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
                   {/* SMS Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Smartphone className="w-5 h-5 text-gray-600" />
+                      <Smartphone className="w-5 h-5 text-slate-600" />
                       <div>
-                        <p className="font-medium text-gray-900">การแจ้งเตือนทาง SMS</p>
-                        <p className="text-sm text-gray-500">รับข้อความแจ้งเตือนทางโทรศัพท์</p>
+                        <p className="font-medium text-slate-800">การแจ้งเตือนทาง SMS</p>
+                        <p className="text-sm text-slate-500">รับข้อความแจ้งเตือนทางโทรศัพท์</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -726,17 +726,17 @@ export default function ProfileSettingsPage() {
                         checked={userData.preferences.notifications.sms}
                         onChange={(e) => updateNotificationPreference('sms', e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
                   {/* Tax Deadline Reminders */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-gray-600" />
+                      <Calendar className="w-5 h-5 text-slate-600" />
                       <div>
-                        <p className="font-medium text-gray-900">เตือนกำหนดยื่นภาษี</p>
-                        <p className="text-sm text-gray-500">แจ้งเตือนก่อนครบกำหนดยื่นภาษี</p>
+                        <p className="font-medium text-slate-800">เตือนกำหนดยื่นภาษี</p>
+                        <p className="text-sm text-slate-500">แจ้งเตือนก่อนครบกำหนดยื่นภาษี</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -746,17 +746,17 @@ export default function ProfileSettingsPage() {
                         checked={userData.preferences.notifications.taxDeadlines}
                         onChange={(e) => updateNotificationPreference('taxDeadlines', e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
                   {/* Report Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <BarChart3 className="w-5 h-5 text-gray-600" />
+                      <BarChart3 className="w-5 h-5 text-slate-600" />
                       <div>
-                        <p className="font-medium text-gray-900">รายงานผลการคำนวณ</p>
-                        <p className="text-sm text-gray-500">แจ้งเตือนเมื่อมีรายงานใหม่</p>
+                        <p className="font-medium text-slate-800">รายงานผลการคำนวณ</p>
+                        <p className="text-sm text-slate-500">แจ้งเตือนเมื่อมีรายงานใหม่</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -766,27 +766,27 @@ export default function ProfileSettingsPage() {
                         checked={userData.preferences.notifications.reports}
                         onChange={(e) => updateNotificationPreference('reports', e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                 </div>
               </div>
 
               {/* Save Button */}
-              <div className="flex justify-end space-x-4 pt-6">
-                <button 
+              <div className="flex justify-end space-x-3 pt-6">
+                <button
                   onClick={() => {
                     // Reset to original data if needed
                     setIsEditing(false);
                   }}
-                  className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="bg-white text-slate-700 px-5 py-2.5 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors text-sm font-medium"
                 >
                   ยกเลิก
                 </button>
-                <button 
+                <button
                   onClick={handleSaveProfile}
                   disabled={isSaving}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                 >
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

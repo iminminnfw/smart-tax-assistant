@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: ParamsP) {
 export async function PATCH(req: Request, { params }: ParamsP) {
   const { id } = await params;
   
-  // ⭐ เพิ่ม authentication check
+  //  เพิ่ม authentication check
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: ParamsP) {
   const updated = await prisma.documentFolder.update({
     where: { 
       id,
-      user: { email: session.user.email } // ⭐ ตรวจสอบว่าเป็นเจ้าของ
+      user: { email: session.user.email } // ตรวจสอบว่าเป็นเจ้าของ
     },
     data: { name: body.name, color: body.color },
   });

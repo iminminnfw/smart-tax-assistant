@@ -509,7 +509,7 @@ export default function DocumentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">กำลังโหลดเอกสารของคุณ...</p>
@@ -522,7 +522,7 @@ export default function DocumentPage() {
     <div className="min-h-screen bg-gray-50">
       <AppNavigation />
 
-      <div className="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+      <div className="bg-slate-50 min-h-screen">
         <div className="flex">
           {/* Main Content */}
           <div className="flex-1 p-8">
@@ -573,7 +573,7 @@ export default function DocumentPage() {
                 </div>
 
                 <div className="flex items-center space-x-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
                     <FileText className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -595,7 +595,7 @@ export default function DocumentPage() {
                   <>
                     <button
                       onClick={handleGoBack}
-                      className="group relative px-5 py-2.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
                     >
                       <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                         <Home className="w-4 h-4" />
@@ -606,7 +606,7 @@ export default function DocumentPage() {
                     {/* ⭐ เพิ่มปุ่มลบโฟลเดอร์ */}
                     <button
                       onClick={() => setShowDeleteFolderConfirm(selectedFolder.id)}
-                      className="group relative px-5 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
                     >
                       <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                         <Trash2 className="w-4 h-4" />
@@ -619,7 +619,7 @@ export default function DocumentPage() {
                     {/* Trash Button - Only show on main page */}
                     <button
                       onClick={() => router.push('/trash')}
-                      className="group relative px-5 py-2.5 bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                      className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
                       title="ถังขยะ"
                     >
                       <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
@@ -632,7 +632,7 @@ export default function DocumentPage() {
 
                 <button
                   onClick={() => setShowCreateFolder(true)}
-                  className="group relative px-5 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
                 >
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                     <FolderPlus className="w-4 h-4" />
@@ -642,7 +642,7 @@ export default function DocumentPage() {
 
                 <button
                   onClick={() => setShowFileUpload(true)}
-                  className="group relative px-5 py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2 hover:scale-105"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
                 >
                   <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
                     <Upload className="w-4 h-4" />
@@ -662,7 +662,7 @@ export default function DocumentPage() {
                     placeholder="ค้นหาเอกสารและโฟลเดอร์..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-96 pl-12 pr-6 py-3 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-sm hover:shadow-md transition-all duration-300"
+                    className="w-96 pl-12 pr-6 py-3 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 shadow-sm hover:shadow-md transition-all duration-300"
                   />
                 </div>
 
@@ -673,7 +673,7 @@ export default function DocumentPage() {
                       setShowFilterMenu(!showFilterMenu);
                       setShowSortMenu(false);
                     }}
-                    className={`p-3 rounded-2xl transition-all duration-300 ${
+                    className={`p-3 rounded-lg transition-all duration-300 ${
                       showFilterMenu || filterType !== 'all'
                         ? 'bg-blue-500 text-white shadow-md'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-white hover:shadow-md'
@@ -684,7 +684,7 @@ export default function DocumentPage() {
 
                   {/* Filter Dropdown */}
                   {showFilterMenu && (
-                    <div className="absolute top-14 right-0 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 z-20 w-64">
+                    <div className="absolute top-14 right-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 z-20 w-64">
                       <h3 className="font-bold text-gray-800 mb-3">กรองตามประเภท</h3>
                       <div className="space-y-2">
                         {[
@@ -722,7 +722,7 @@ export default function DocumentPage() {
                       setShowSortMenu(!showSortMenu);
                       setShowFilterMenu(false);
                     }}
-                    className={`p-3 rounded-2xl transition-all duration-300 ${
+                    className={`p-3 rounded-lg transition-all duration-300 ${
                       showSortMenu
                         ? 'bg-blue-500 text-white shadow-md'
                         : 'text-gray-500 hover:text-gray-700 hover:bg-white hover:shadow-md'
@@ -733,7 +733,7 @@ export default function DocumentPage() {
 
                   {/* Sort Dropdown */}
                   {showSortMenu && (
-                    <div className="absolute top-14 right-0 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 z-20 w-64">
+                    <div className="absolute top-14 right-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 z-20 w-64">
                       <h3 className="font-bold text-gray-800 mb-3">เรียงตาม</h3>
                       <div className="space-y-2 mb-4">
                         {[
@@ -789,7 +789,7 @@ export default function DocumentPage() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-lg border border-gray-200/50">
+              <div className="flex items-center gap-1 bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-sm border border-gray-200/50">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-2.5 rounded-full transition-all duration-300 ${
@@ -830,7 +830,7 @@ export default function DocumentPage() {
                 className="group relative transform hover:scale-105 transition-all duration-300"
               >
                 <div
-                  className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 cursor-pointer"
+                  className="bg-white rounded-xl p-6 shadow-sm hover:shadow-sm transition-all duration-500 border border-gray-100 cursor-pointer"
                   style={{
                     background: `linear-gradient(135deg, ${folder.color}08, ${folder.color}15)`,
                     borderLeft: `6px solid ${folder.color}`,
@@ -842,7 +842,7 @@ export default function DocumentPage() {
 
                   <div className="flex items-center justify-between mb-4">
                     <div
-                      className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-md transform group-hover:rotate-12 transition-transform duration-300"
+                      className="w-14 h-14 rounded-lg flex items-center justify-center shadow-md transform group-hover:rotate-12 transition-transform duration-300"
                       style={{ backgroundColor: `${folder.color}20` }}
                     >
                       <Folder
@@ -902,7 +902,7 @@ export default function DocumentPage() {
                   
                   {showColorPicker === folder.id && (
                     <div
-                      className="absolute top-16 right-0 bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 z-30"
+                      className="absolute top-16 right-0 bg-white rounded-lg shadow-sm border border-gray-200 p-4 z-30"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <p className="text-sm font-medium text-gray-700 mb-3">เลือกสี</p>
@@ -914,7 +914,7 @@ export default function DocumentPage() {
                               e.stopPropagation();
                               updateFolderColor(folder.id, color);
                             }}
-                            className="w-8 h-8 rounded-2xl border-2 border-gray-200 hover:scale-125 hover:shadow-lg transition-all duration-300 transform"
+                            className="w-8 h-8 rounded-lg border-2 border-gray-200 hover:scale-125 hover:shadow-sm transition-all duration-300 transform"
                             style={{ backgroundColor: color }}
                           />
                         ))}
@@ -932,11 +932,11 @@ export default function DocumentPage() {
                 className="group relative transform hover:scale-105 transition-all duration-300"
               >
                 <div
-                  className="bg-white rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all duration-500 border border-gray-100 cursor-pointer"
+                  className="bg-white rounded-xl p-6 shadow-sm hover:shadow-sm transition-all duration-500 border border-gray-100 cursor-pointer"
                   onClick={() => router.push(`/document/${file.id}`)}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center shadow-md transform group-hover:rotate-12 transition-transform duration-300">
+                    <div className="w-14 h-14 bg-slate-100 rounded-lg flex items-center justify-center shadow-md transform group-hover:rotate-12 transition-transform duration-300">
                       {getFileIcon(file)}
                     </div>
 
@@ -978,7 +978,7 @@ export default function DocumentPage() {
                         {/* Dropdown Menu */}
                         {showMoreMenu === file.id && (
                           <div
-                            className="absolute top-12 right-0 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-30 w-56"
+                            className="absolute top-12 right-0 bg-white rounded-lg shadow-sm border border-gray-200 p-2 z-30 w-56"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
@@ -1071,13 +1071,13 @@ export default function DocumentPage() {
                     {(file.tags || []).slice(0, 2).map((tag) => (
                       <span 
                         key={tag}
-                        className="px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 text-xs font-medium rounded-full"
+                        className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full"
                       >
                         {tag}
                       </span>
                     ))}
                     {(file.tags || []).length > 2 && (
-                      <span className="px-3 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-600 text-xs font-medium rounded-full">
+                      <span className="px-3 py-1 bg-slate-100 text-gray-600 text-xs font-medium rounded-full">
                         +{file.tags.length - 2}
                       </span>
                     )}
@@ -1093,7 +1093,7 @@ export default function DocumentPage() {
             {/* Empty States */}
             {!selectedFolder && visibleFolders.length === 0 && visibleFiles.length === 0 && (
               <div className="col-span-full text-center py-16">
-                <div className="w-20 h-20 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-6">
+                <div className="w-20 h-20 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FileText className="w-10 h-10 text-gray-500" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-700 mb-2">ยังไม่มีเอกสาร</h3>
@@ -1101,13 +1101,13 @@ export default function DocumentPage() {
                 <div className="flex justify-center space-x-4">
                   <button
                     onClick={() => setShowCreateFolder(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium shadow-md hover:shadow-sm transition-all duration-200"
                   >
                     สร้างโฟลเดอร์แรก
                   </button>
                   <button
                     onClick={() => setShowFileUpload(true)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium shadow-md hover:shadow-sm transition-all duration-200"
                   >
                     อัปโหลดไฟล์แรก
                   </button>
@@ -1125,7 +1125,7 @@ export default function DocumentPage() {
                 <p className="text-gray-500 mb-6">อัปโหลดไฟล์เอกสารลงในโฟลเดอร์นี้</p>
                 <button
                   onClick={() => setShowFileUpload(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-medium"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-full font-medium shadow-md hover:shadow-sm transition-all duration-200"
                 >
                   อัปโหลดไฟล์
                 </button>
@@ -1137,7 +1137,7 @@ export default function DocumentPage() {
 
       {/* Loading Indicator */}
       {isUpdating && (
-        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-sm z-50">
           <div className="flex items-center space-x-2">
             <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
             <span>กำลังอัพเดท...</span>
@@ -1148,9 +1148,9 @@ export default function DocumentPage() {
       {/* Create Folder Modal */}
       {showCreateFolder && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-3xl p-8 w-96 max-w-lg shadow-2xl border transform scale-110">
+          <div className="bg-white rounded-xl p-8 w-96 max-w-lg shadow-sm border transform scale-110">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                 <FolderPlus className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
@@ -1173,7 +1173,7 @@ export default function DocumentPage() {
                   type="text"
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300"
                   placeholder="ใส่ชื่อโฟลเดอร์..."
                 />
               </div>
@@ -1187,9 +1187,9 @@ export default function DocumentPage() {
                     <button
                       key={color}
                       onClick={() => setFolderColor(color)}
-                      className={`w-10 h-10 rounded-2xl border-2 transition-all duration-300 transform hover:scale-110 ${
+                      className={`w-10 h-10 rounded-lg border-2 transition-all duration-300 transform hover:scale-110 ${
                         folderColor === color 
-                          ? 'border-gray-800 scale-110 shadow-lg' 
+                          ? 'border-gray-800 scale-110 shadow-sm' 
                           : 'border-gray-200 hover:shadow-md'
                       }`}
                       style={{ backgroundColor: color }}
@@ -1202,14 +1202,14 @@ export default function DocumentPage() {
             <div className="flex justify-center space-x-4 mt-8">
               <button
                 onClick={() => setShowCreateFolder(false)}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium rounded-2xl hover:bg-gray-100 transition-all duration-300"
+                className="px-6 py-2.5 text-gray-600 hover:text-gray-800 font-medium rounded-full hover:bg-gray-100 transition-all duration-200"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={createFolder}
                 disabled={!folderName.trim()}
-                className="px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-2xl hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="px-8 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-sm transition-all duration-200"
               >
                 สร้างโฟลเดอร์
               </button>
@@ -1221,7 +1221,7 @@ export default function DocumentPage() {
       {/* Move File Modal */}
       {showMoveModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-96 max-w-lg shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-lg shadow-sm">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <Move className="w-6 h-6 text-purple-600" />
@@ -1289,13 +1289,13 @@ export default function DocumentPage() {
                   setMoveFileId(null);
                   setSelectedTargetFolder(null);
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 transition-all"
+                className="px-5 py-2.5 text-gray-600 hover:text-gray-800 font-medium rounded-full hover:bg-gray-100 transition-all duration-200"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleMoveFile}
-                className="px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-all"
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full shadow-md hover:shadow-sm transition-all duration-200"
               >
                 ย้ายไฟล์
               </button>
@@ -1307,7 +1307,7 @@ export default function DocumentPage() {
       {/* ⭐ Delete Folder Confirmation Modal */}
       {showDeleteFolderConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-96 max-w-lg shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-lg shadow-sm">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -1339,13 +1339,13 @@ export default function DocumentPage() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteFolderConfirm(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 transition-all duration-200"
+                className="px-5 py-2.5 text-gray-600 hover:text-gray-800 font-medium rounded-full hover:bg-gray-100 transition-all duration-200"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={() => deleteFolder(showDeleteFolderConfirm)}
-                className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all duration-200"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-full shadow-md hover:shadow-sm transition-all duration-200"
               >
                 ลบโฟลเดอร์
               </button>
@@ -1357,7 +1357,7 @@ export default function DocumentPage() {
       {/* Delete File Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-96 max-w-lg shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-lg shadow-sm">
             <div className="flex items-center space-x-4 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <Trash2 className="w-6 h-6 text-red-600" />
@@ -1371,13 +1371,13 @@ export default function DocumentPage() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium rounded-lg hover:bg-gray-100 transition-all duration-200"
+                className="px-5 py-2.5 text-gray-600 hover:text-gray-800 font-medium rounded-full hover:bg-gray-100 transition-all duration-200"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={() => deleteFile(showDeleteConfirm)}
-                className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all duration-200"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-full shadow-md hover:shadow-sm transition-all duration-200"
               >
                 ลบ
               </button>
@@ -1408,7 +1408,7 @@ export default function DocumentPage() {
 
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-6 right-6 bg-gradient-to-r from-green-600 to-green-500 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 flex items-center space-x-3 animate-bounce">
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-6 py-3 rounded-lg shadow-sm z-50 flex items-center space-x-3 animate-bounce">
           <div className="w-2 h-2 bg-white rounded-full"></div>
           <span className="font-medium">{toastMessage}</span>
         </div>

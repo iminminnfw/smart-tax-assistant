@@ -157,14 +157,14 @@ export default function TrashPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading trash...</div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-slate-600">Loading trash...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <AppNavigation />
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -172,17 +172,17 @@ export default function TrashPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Trash2 className="w-8 h-8 text-gray-700" />
+              <Trash2 className="w-8 h-8 text-slate-700" />
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">ถังขยะ</h1>
-                <p className="text-sm text-gray-500">จัดการไฟล์ที่ถูกลบ</p>
+                <h1 className="text-2xl font-semibold text-slate-800">ถังขยะ</h1>
+                <p className="text-sm text-slate-500">จัดการไฟล์ที่ถูกลบ</p>
               </div>
             </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/document')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
               title="กลับหน้าหลัก"
             >
               <Home className="w-4 h-4" />
@@ -192,7 +192,7 @@ export default function TrashPage() {
             {trashItems.length > 0 && (
               <button
                 onClick={handleEmptyTrash}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 text-sm font-medium"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>ล้างถังขยะ</span>
@@ -202,9 +202,9 @@ export default function TrashPage() {
         </div>
 
         {/* Warning Banner */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-yellow-800">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-amber-800">
             <strong>Items in trash will be permanently deleted after 7 days.</strong>
             <br />
             You can restore items at any time before they are automatically deleted.
@@ -214,22 +214,22 @@ export default function TrashPage() {
 
       {/* Empty Trash Confirmation */}
       {showEmptyConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Empty Trash?</h3>
-            <p className="text-gray-600 mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 border border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Empty Trash?</h3>
+            <p className="text-slate-600 text-sm mb-6">
               This will permanently delete all items in trash (older than 7 days). This action cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowEmptyConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEmptyTrash}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
               >
                 Empty Trash
               </button>
@@ -241,61 +241,61 @@ export default function TrashPage() {
       {/* Trash Items List */}
       {trashItems.length === 0 ? (
         <div className="text-center py-16">
-          <Trash2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">Trash is empty</h3>
-          <p className="text-gray-500">Deleted items will appear here</p>
+          <Trash2 className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-slate-600 mb-2">Trash is empty</h3>
+          <p className="text-slate-500 text-sm">Deleted items will appear here</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Deleted
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Days Remaining
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-slate-200">
               {trashItems.map((item) => {
                 const daysRemaining = getDaysRemaining(item.deletedAt);
 
                 return (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {item.type === 'folder' ? (
                           <Folder className="w-5 h-5 text-blue-500" />
                         ) : (
-                          <File className="w-5 h-5 text-gray-500" />
+                          <File className="w-5 h-5 text-slate-400" />
                         )}
-                        <span className="font-medium text-gray-900">{item.name}</span>
+                        <span className="font-medium text-slate-800">{item.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 capitalize">
+                    <td className="px-6 py-4 text-sm text-slate-600 capitalize">
                       {item.type}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                    <td className="px-6 py-4 text-sm text-slate-600">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4" />
                         {new Date(item.deletedAt).toLocaleDateString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`font-semibold ${
+                      <span className={`font-medium ${
                         daysRemaining <= 2 ? 'text-red-600' :
-                        daysRemaining <= 4 ? 'text-yellow-600' :
+                        daysRemaining <= 4 ? 'text-amber-600' :
                         'text-green-600'
                       }`}>
                         {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}

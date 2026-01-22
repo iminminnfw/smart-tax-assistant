@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-import  { authOptions }  from "@/lib/auth"; // ✅ import authOptions
+import  { authOptions }  from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    // ✅ ดึง session ของผู้ใช้ที่กำลัง login อยู่
+    // ดึง session ของผู้ใช้ที่กำลัง login อยู่
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {

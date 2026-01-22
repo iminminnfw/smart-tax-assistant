@@ -57,8 +57,10 @@ export async function sendEmailViaSES(message: EmailMessage) {
     const recipients = Array.isArray(message.to) ? message.to : [message.to];
 
     // Create email params
+    // Note: ใน SES Sandbox mode, ใช้แค่ email address โดยไม่มีชื่อ
+    // เพื่อให้ตรงกับที่ verify ใน AWS Console
     const params = {
-      Source: `${SES_FROM_NAME} <${SES_FROM_EMAIL}>`,
+      Source: SES_FROM_EMAIL,
       Destination: {
         ToAddresses: recipients,
       },

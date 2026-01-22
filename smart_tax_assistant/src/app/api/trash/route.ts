@@ -71,7 +71,7 @@ export async function DELETE() {
 
     console.log(`[7-Day Cleanup] Starting cleanup for items older than ${sevenDaysAgo.toISOString()}`);
 
-    // ✅ STEP 1: Query expired files BEFORE deleting
+    // Query expired files before deleting
     const expiredFiles = await prisma.documentFile.findMany({
       where: {
         userId: user.id,
@@ -84,7 +84,7 @@ export async function DELETE() {
 
     console.log(`[7-Day Cleanup] Found ${expiredFiles.length} expired files to delete`);
 
-    // ✅ STEP 2: Delete S3 files first
+    // Delete S3 files first
     let s3DeletedCount = 0;
     let s3FailedCount = 0;
 
@@ -105,7 +105,7 @@ export async function DELETE() {
       }
     }
 
-    // ✅ STEP 3: Delete files from database
+    // Delete files from database
     const deletedFiles = await prisma.documentFile.deleteMany({
       where: {
         userId: user.id,
@@ -118,7 +118,7 @@ export async function DELETE() {
 
     console.log(`[7-Day Cleanup] Deleted ${deletedFiles.count} files from database. S3: ${s3DeletedCount} deleted, ${s3FailedCount} failed`);
 
-    // ✅ STEP 4: Query expired folders (with their files)
+    // Query expired folders (with their files)
     const expiredFolders = await prisma.documentFolder.findMany({
       where: {
         userId: user.id,
@@ -132,7 +132,7 @@ export async function DELETE() {
 
     console.log(`[7-Day Cleanup] Found ${expiredFolders.length} expired folders to delete`);
 
-    // ✅ STEP 5: Delete S3 files from folders
+    // Delete S3 files from folders
     let folderS3DeletedCount = 0;
     let folderS3FailedCount = 0;
 
@@ -155,7 +155,7 @@ export async function DELETE() {
       }
     }
 
-    // ✅ STEP 6: Delete folders from database (will cascade delete files)
+    // Delete folders from database (will cascade delete files)
     const deletedFolders = await prisma.documentFolder.deleteMany({
       where: {
         userId: user.id,

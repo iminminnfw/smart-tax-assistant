@@ -193,13 +193,13 @@ ${description}
 export async function sendOTPEmail(options: SendOTPEmailOptions) {
   const { to, otpCode, purpose, expiresInMinutes = 10 } = options;
 
-  // 🔧 Development Mode: แสดง OTP ใน console
+  // Development Mode: แสดง OTP ใน console
   if (IS_DEV_MODE) {
     console.log('⚠️  DEV MODE: OTP will be displayed in console (not sent via email)');
     return await sendOTPEmailDev(options);
   }
 
-  // 📧 Production Mode: ส่งอีเมลจริงผ่าน AWS SES
+  // Production Mode: ส่งอีเมลจริงผ่าน AWS SES
   const { subject, html, text } = createOTPEmailTemplate(
     otpCode,
     purpose,
@@ -246,12 +246,12 @@ export async function sendOTPEmail(options: SendOTPEmailOptions) {
  * ส่งอีเมลยินดีต้อนรับหลังจากยืนยันอีเมลสำเร็จ
  */
 export async function sendWelcomeEmail(to: string, name: string) {
-  // 🔧 Development Mode
+  // Development Mode
   if (IS_DEV_MODE) {
     return await sendWelcomeEmailDev(to, name);
   }
 
-  // 📧 Production Mode
+  // Production Mode
   const subject = 'ยินดีต้อนรับสู่ Smart Tax Assistant!';
 
   const html = `

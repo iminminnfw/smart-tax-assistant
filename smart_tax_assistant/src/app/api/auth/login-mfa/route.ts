@@ -54,8 +54,10 @@ export async function POST(req: Request) {
     if (!user.emailVerified) {
       return NextResponse.json(
         {
-          error: 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ',
+          error: 'กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ คลิก "ยืนยันอีเมล" เพื่อขอส่งอีเมลยืนยันใหม่',
           requiresEmailVerification: true,
+          email: user.email, // ส่ง email ไปด้วยเพื่อใช้ในหน้า verify-email
+          redirectUrl: `/auth/verify-email?email=${encodeURIComponent(user.email)}`,
         },
         { status: 403 }
       );

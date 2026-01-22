@@ -34,9 +34,7 @@ export default function FileUploadModal({
   const [fileTags, setFileTags] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // ⭐ เพิ่มฟังก์ชันสำหรับ reset state ทั้งหมด
   const resetModal = () => {
-    console.log('🔄 Resetting modal state...');
     setSelectedFiles([]);
     setFileTags([]);
     setFileType('TAX_FORM');
@@ -44,23 +42,16 @@ export default function FileUploadModal({
     setIsUploading(false);
   };
 
-  // ⭐ แก้ไข handleFileSelect
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
-    
-    console.log('Files selected:', files.length);
-    
-    const newItems: UploadItem[] = Array.from(files).map(file => {
-      console.log('Processing file:', file.name, file.size);
-      return {
-        id: `${Date.now()}-${Math.random()}`,
-        file: file,
-        status: undefined,
-        progress: 0,
-      };
-    });
-    
-    console.log('New items created:', newItems);
+
+    const newItems: UploadItem[] = Array.from(files).map(file => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file: file,
+      status: undefined,
+      progress: 0,
+    }));
+
     setSelectedFiles(prev => [...prev, ...newItems]);
   };
 
@@ -78,7 +69,7 @@ export default function FileUploadModal({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files) {
       handleFileSelect(e.dataTransfer.files);
     }
@@ -88,33 +79,21 @@ export default function FileUploadModal({
     setSelectedFiles(prev => prev.filter(item => item.id !== id));
   };
 
-  // ⭐ แก้ไข handleUpload - ลดความซับซ้อนและปรับปรุงการปิด modal
   const handleUpload = async () => {
-    const itemsToUpload = selectedFiles.filter(item => 
+    const itemsToUpload = selectedFiles.filter(item =>
       item.file && (!item.status || item.status === 'error')
     );
 
-    if (itemsToUpload.length === 0) {
-      console.warn('No valid files to upload');
-      return;
-    }
+    if (itemsToUpload.length === 0) return;
 
     setIsUploading(true);
-    console.log('📤 Starting upload for', itemsToUpload.length, 'files');
-    
     const createdDocs: any[] = [];
-    
+
     for (let i = 0; i < itemsToUpload.length; i++) {
       const item = itemsToUpload[i];
-      
-      if (!item.file) {
-        console.error('Item without file in upload loop:', item);
-        continue;
-      }
-      
-      console.log(`📁 Uploading file ${i + 1}/${itemsToUpload.length}:`, item.file.name);
-      
-      setSelectedFiles(prev => prev.map(prevItem => 
+      if (!item.file) continue;
+
+      setSelectedFiles(prev => prev.map(prevItem =>
         prevItem.id === item.id ? { ...prevItem, status: 'uploading' as const, progress: 0 } : prevItem
       ));
 
@@ -128,9 +107,9 @@ export default function FileUploadModal({
         }
 
         const progressInterval = setInterval(() => {
-          setSelectedFiles(prev => prev.map(prevItem => 
-            prevItem.id === item.id && prevItem.progress !== undefined && prevItem.progress < 90 
-              ? { ...prevItem, progress: prevItem.progress + 10 } 
+          setSelectedFiles(prev => prev.map(prevItem =>
+            prevItem.id === item.id && prevItem.progress !== undefined && prevItem.progress < 90
+              ? { ...prevItem, progress: prevItem.progress + 10 }
               : prevItem
           ));
         }, 200);
@@ -142,69 +121,50 @@ export default function FileUploadModal({
         });
 
         clearInterval(progressInterval);
-        console.log(`📡 Upload response for ${item.file.name}:`, response.status);
 
         if (response.ok) {
           const result = await response.json();
-          console.log('✅ Upload successful:', result);
-
-          createdDocs.push(result.document ?? { 
-            id: result.id, 
-            url: result.url, 
+          createdDocs.push(result.document ?? {
+            id: result.id,
+            url: result.url,
             name: item.file.name,
             ...result
           });
-          
-          setSelectedFiles(prev => prev.map(prevItem => 
+
+          setSelectedFiles(prev => prev.map(prevItem =>
             prevItem.id === item.id ? { ...prevItem, status: 'success' as const, progress: 100 } : prevItem
           ));
         } else {
-          console.error(`❌ Upload failed for ${item.file.name}:`, response.status);
-          setSelectedFiles(prev => prev.map(prevItem => 
+          setSelectedFiles(prev => prev.map(prevItem =>
             prevItem.id === item.id ? { ...prevItem, status: 'error' as const } : prevItem
           ));
         }
       } catch (error) {
-        console.error(`💥 Upload error for ${item.file.name}:`, error);
-        setSelectedFiles(prev => prev.map(prevItem => 
+        setSelectedFiles(prev => prev.map(prevItem =>
           prevItem.id === item.id ? { ...prevItem, status: 'error' as const } : prevItem
         ));
       }
     }
 
     setIsUploading(false);
-    console.log('🏁 Upload completed. Created docs:', createdDocs.length);
 
-    // ⭐ ปรับปรุงการตรวจสอบความสำเร็จและปิด modal
     const successfulUploads = createdDocs.length;
-    console.log('✅ Successful uploads:', successfulUploads, 'out of', itemsToUpload.length);
-    
+
     if (successfulUploads > 0) {
-      console.log('🎉 Files uploaded successfully, triggering callbacks...');
-      
-      // ส่ง callback กลับไปให้หน้าแม่
       if (onUploaded && createdDocs.length > 0) {
-        console.log('📤 Calling onUploaded with', createdDocs.length, 'docs');
         onUploaded(createdDocs);
       } else if (onSuccess) {
-        console.log('📤 Calling onSuccess');
         onSuccess();
       }
-      
-      // ⭐ ปิด modal ทันทีหลังจาก callback แล้ว
-      console.log('🚪 Closing modal immediately...');
-      
-      // รอให้ UI อัพเดทแสดงสถานะ complete เล็กน้อย
+
       setTimeout(() => {
-        resetModal(); // reset ก่อน
-        onClose();    // แล้วค่อยปิด
-      }, 300); // ลด delay เหลือ 300ms
+        resetModal();
+        onClose();
+      }, 300);
     }
   };
 
-  // ⭐ แก้ไขฟังก์ชัน onClose - เพิ่ม reset
   const handleClose = () => {
-    console.log('🚪 Modal closing, resetting state...');
     resetModal();
     onClose();
   };
@@ -239,7 +199,7 @@ export default function FileUploadModal({
       case 'uploading': return 'text-blue-600';
       case 'success': return 'text-green-600';
       case 'error': return 'text-red-600';
-      default: return 'text-gray-600';
+      default: return 'text-slate-600';
     }
   };
 
@@ -256,16 +216,16 @@ export default function FileUploadModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden border border-slate-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-900">Upload files</h2>
+            <h2 className="text-lg font-semibold text-slate-800">Upload files</h2>
             <button
-              onClick={handleClose} // ⭐ เปลี่ยนเป็น handleClose
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={handleClose}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-5 h-5 text-slate-500" />
             </button>
           </div>
         </div>
@@ -274,18 +234,18 @@ export default function FileUploadModal({
         <div className="p-6 max-h-[calc(90vh-140px)] overflow-y-auto">
           {/* Drag & Drop Zone */}
           <div
-            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               dragActive
                 ? 'border-blue-400 bg-blue-50'
-                : 'border-gray-300 hover:border-gray-400'
+                : 'border-slate-300 hover:border-slate-400'
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            <Upload className="w-10 h-10 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-2">
+            <Upload className="w-10 h-10 text-slate-400 mx-auto mb-4" />
+            <p className="text-slate-600 mb-2">
               <span className="font-medium">Drag and drop files here, or </span>
               <label className="text-blue-600 font-medium cursor-pointer hover:text-blue-700">
                 Select files
@@ -298,7 +258,7 @@ export default function FileUploadModal({
                 />
               </label>
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-500">
               Accepted file types: PDF, JPG, PNG, CSV, XLSX, DOC (25MB each)
             </p>
           </div>
@@ -307,12 +267,12 @@ export default function FileUploadModal({
           {selectedFiles.length > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-gray-900">Selected Files</h3>
+                <h3 className="font-medium text-slate-800">Selected Files</h3>
                 <div className="flex items-center space-x-3">
                   <select
                     value={fileType}
                     onChange={(e) => setFileType(e.target.value)}
-                    className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="text-sm border border-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="TAX_FORM">Tax Form</option>
                     <option value="RECEIPT">Receipt</option>
@@ -324,7 +284,7 @@ export default function FileUploadModal({
               </div>
 
               {/* File Table Header */}
-              <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-700 pb-2 border-b border-gray-200">
+              <div className="grid grid-cols-12 gap-4 text-sm font-medium text-slate-600 pb-2 border-b border-slate-200">
                 <div className="col-span-5">File name</div>
                 <div className="col-span-2">Size</div>
                 <div className="col-span-2">Type</div>
@@ -334,34 +294,31 @@ export default function FileUploadModal({
               {/* File List */}
               <div className="space-y-2 mt-2 max-h-60 overflow-y-auto">
                 {selectedFiles.map((item) => {
-                  if (!item.file) {
-                    console.warn('Item without file detected:', item);
-                    return null;
-                  }
-                  
+                  if (!item.file) return null;
+
                   return (
-                    <div key={item.id} className="grid grid-cols-12 gap-4 items-center py-3 hover:bg-gray-50 rounded-lg px-2">
+                    <div key={item.id} className="grid grid-cols-12 gap-4 items-center py-3 hover:bg-slate-50 rounded-lg px-2">
                       <div className="col-span-5 flex items-center space-x-3">
-                        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm text-gray-900 truncate font-medium">
+                        <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-800 truncate font-medium">
                           {item.file.name}
                         </span>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-slate-600">
                           {formatFileSize(item.file.size)}
                         </span>
                       </div>
                       <div className="col-span-2">
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-slate-600">
                           {getFileTypeFromName(item.file.name)}
                         </span>
                       </div>
                       <div className="col-span-3 flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           {item.status === 'uploading' && (
-                            <div className="w-16 bg-gray-200 rounded-full h-1">
-                              <div 
+                            <div className="w-16 bg-slate-200 rounded-full h-1">
+                              <div
                                 className="bg-blue-600 h-1 rounded-full transition-all duration-300"
                                 style={{ width: `${item.progress || 0}%` }}
                               ></div>
@@ -380,9 +337,9 @@ export default function FileUploadModal({
                         {!item.status && (
                           <button
                             onClick={() => removeFile(item.id)}
-                            className="p-1 hover:bg-gray-200 rounded"
+                            className="p-1 hover:bg-slate-200 rounded"
                           >
-                            <X className="w-3 h-3 text-gray-400" />
+                            <X className="w-3 h-3 text-slate-400" />
                           </button>
                         )}
                       </div>
@@ -392,8 +349,8 @@ export default function FileUploadModal({
               </div>
 
               {/* Tags Selection */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <label className="block text-sm font-medium text-slate-700 mb-3">
                   Tags (Optional)
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -407,10 +364,10 @@ export default function FileUploadModal({
                           setFileTags([...fileTags, tag]);
                         }
                       }}
-                      className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                         fileTags.includes(tag)
-                          ? 'bg-blue-100 text-blue-700 border-blue-200'
-                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                       }`}
                     >
                       {tag}
@@ -424,12 +381,12 @@ export default function FileUploadModal({
 
         {/* Footer */}
         {selectedFiles.length > 0 && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
             <div className="flex justify-end">
               <button
                 onClick={handleUpload}
                 disabled={isUploading || selectedFiles.every(item => item.status === 'success')}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isUploading ? 'Uploading...' : 'Start upload'}
               </button>

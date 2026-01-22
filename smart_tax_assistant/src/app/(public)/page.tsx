@@ -417,13 +417,6 @@ export default function Home() {
 
         const features = [
           { 
-            title: '🤖 AI Chatbot อัจฉริยะ', 
-            description: 'ปรึกษาภาษี 24/7 กับ AI ที่เข้าใจกฎหมายไทย ให้คำตอบแม่นยำ และอัปเดตข้อมูลล่าสุดตลอดเวลา ประหยัดค่าใช้จ่ายที่ปรึกษาภาษี', 
-            icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>,
-            color: 'blue',
-            features: ['ตอบคำถามภาษี 24/7', 'อัปเดตกฎหมายล่าสุด', 'คำแนะนำเฉพาะบุคคล']
-          },
-          { 
             title: '⚡ คำนวณภาษีอัตโนมัติ', 
             description: 'เพียงอัปโหลดข้อมูล ระบบคำนวณภาษีให้ทันที ลดข้อผิดพลาด และประหยัดเวลา พร้อมตรวจสอบความถูกต้องแบบอัตโนมัติ', 
             icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,

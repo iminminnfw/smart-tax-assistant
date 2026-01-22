@@ -25,7 +25,7 @@ export async function DELETE() {
 
     console.log(`[Empty Trash] Emptying entire trash for user: ${user.id}`);
 
-    // ✅ STEP 1: Query ALL trashed files
+    // Query all trashed files
     const trashedFiles = await prisma.documentFile.findMany({
       where: {
         userId: user.id,
@@ -35,7 +35,7 @@ export async function DELETE() {
 
     console.log(`[Empty Trash] Found ${trashedFiles.length} trashed files to delete`);
 
-    // ✅ STEP 2: Delete S3 files first
+    // Delete S3 files first
     let s3DeletedCount = 0;
     let s3FailedCount = 0;
 
@@ -56,7 +56,7 @@ export async function DELETE() {
       }
     }
 
-    // ✅ STEP 3: Delete files from database
+    // Delete files from database
     const deletedFiles = await prisma.documentFile.deleteMany({
       where: {
         userId: user.id,
@@ -66,7 +66,7 @@ export async function DELETE() {
 
     console.log(`[Empty Trash] Deleted ${deletedFiles.count} files from database. S3: ${s3DeletedCount} deleted, ${s3FailedCount} failed`);
 
-    // ✅ STEP 4: Query ALL trashed folders (with their files)
+    // Query ALL trashed folders (with their files)
     const trashedFolders = await prisma.documentFolder.findMany({
       where: {
         userId: user.id,
@@ -77,7 +77,7 @@ export async function DELETE() {
 
     console.log(`[Empty Trash] Found ${trashedFolders.length} trashed folders to delete`);
 
-    // ✅ STEP 5: Delete S3 files from folders
+    //  Delete S3 files from folders
     let folderS3DeletedCount = 0;
     let folderS3FailedCount = 0;
 
@@ -100,7 +100,7 @@ export async function DELETE() {
       }
     }
 
-    // ✅ STEP 6: Delete folders from database (will cascade delete files)
+    // Delete folders from database (will cascade delete files)
     const deletedFolders = await prisma.documentFolder.deleteMany({
       where: {
         userId: user.id,

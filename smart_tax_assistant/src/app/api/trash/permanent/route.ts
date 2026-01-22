@@ -43,7 +43,7 @@ export async function DELETE(req: Request) {
 
       console.log(`[Permanent Delete] Deleting folder: ${folder.name} with ${folder.files.length} files`);
 
-      // ✅ FIRST: Delete S3 files for each file in folder
+      // Delete S3 files for each file in folder
       let s3DeletedCount = 0;
       let s3FailedCount = 0;
 
@@ -64,14 +64,14 @@ export async function DELETE(req: Request) {
         }
       }
 
-      // ✅ THEN: Delete all files from database
+      // Delete all files from database
       if (folder.files.length > 0) {
         await prisma.documentFile.deleteMany({
           where: { folderId: id },
         });
       }
 
-      // ✅ FINALLY: Delete folder from database
+      // Delete folder from database
       await prisma.documentFolder.delete({
         where: { id },
       });
@@ -98,7 +98,7 @@ export async function DELETE(req: Request) {
 
       console.log(`[Permanent Delete] Deleting file: ${file.name}`);
 
-      // ✅ FIRST: Delete from S3
+      // Delete from S3
       let s3Deleted = false;
       if (file.fileUrl && isS3Url(file.fileUrl)) {
         try {
@@ -114,7 +114,7 @@ export async function DELETE(req: Request) {
         }
       }
 
-      // ✅ THEN: Delete from database
+      // Delete from database
       await prisma.documentFile.delete({
         where: { id },
       });

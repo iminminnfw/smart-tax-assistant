@@ -3,6 +3,9 @@ FastAPI Main Application
 Version: Qdrant Support
 """
 
+from dotenv import load_dotenv
+load_dotenv()  # Load .env file before anything else
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -11,6 +14,9 @@ from app.services.tax_calculator import tax_calculator_service
 from app.services.rag_service import RAGService
 from app.services.ai_service import AIService
 from app.config import settings
+
+# Import AI Optimizer router
+from app.routers.ai_optimizer import router as ai_optimizer_router
 
 app = FastAPI(
     title="AI Tax Advisor API",
@@ -25,6 +31,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include AI Optimizer router
+app.include_router(ai_optimizer_router, prefix="/api/ai-optimizer", tags=["AI Optimizer"])
 
 # Initialize services
 print("=" * 50)

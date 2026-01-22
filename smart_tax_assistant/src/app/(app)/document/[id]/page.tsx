@@ -36,7 +36,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
 
-  // Unwrap params
   useEffect(() => {
     params.then(p => setDocumentId(p.id));
   }, [params]);
@@ -55,7 +54,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         setLoading(true);
         setError('');
 
-        // 1️⃣ Fetch document data
         const docRes = await fetch(`/api/document/${documentId}`);
         if (!docRes.ok) {
           if (docRes.status === 404) {
@@ -68,18 +66,16 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         const docData = await docRes.json();
         setDoc(docData);
 
-        // 2️⃣ Fetch signed URL if file exists
         if (docData.fileUrl) {
           console.log('Fetching signed URL for:', docData.fileUrl);
           const urlRes = await fetch(`/api/document/${documentId}/signed-url`);
           if (urlRes.ok) {
             const urlData = await urlRes.json();
-            console.log('✅ Signed URL received:', urlData.url.substring(0, 100) + '...');
+            console.log('Signed URL received:', urlData.url.substring(0, 100) + '...');
             setSignedUrl(urlData.url);
           } else {
             const errorData = await urlRes.json();
-            console.error('❌ Failed to get signed URL:', errorData);
-            // Fallback to direct URL (for local files)
+            console.error('Failed to get signed URL:', errorData);
             setSignedUrl(docData.fileUrl);
           }
         }
@@ -94,33 +90,31 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     loadDocument();
   }, [documentId, status, router]);
 
-  // Loading state
   if (loading || status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">กำลังโหลดเอกสาร...</p>
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">กำลังโหลดเอกสาร...</p>
         </div>
       </div>
     );
   }
 
-  // Error state
   if (error || !doc) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-24 h-24 bg-red-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <FileText className="w-12 h-12 text-red-600" />
+          <div className="w-20 h-20 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+            <FileText className="w-10 h-10 text-red-600" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">เกิดข้อผิดพลาด</h3>
-          <p className="text-gray-600 mb-6">{error || 'ไม่พบเอกสาร'}</p>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">เกิดข้อผิดพลาด</h3>
+          <p className="text-slate-600 mb-6">{error || 'ไม่พบเอกสาร'}</p>
           <Link
             href="/document"
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-2xl shadow-sm hover:shadow-md transition-all duration-200"
+            className="inline-flex items-center space-x-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
             <span>กลับไปหน้าเอกสาร</span>
           </Link>
         </div>
@@ -128,7 +122,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  // File type detection
   const mimeType = doc.mimeType || '';
   const fileName = doc.fileName || doc.name || '';
   const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
@@ -145,7 +138,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     ['txt', 'md', 'csv'].includes(fileExtension);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -153,14 +146,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center space-x-4">
               <Link
                 href={doc.folder ? `/document?folder=${doc.folder.id}` : '/document'}
-                className="p-3 bg-white hover:bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200"
+                className="p-2.5 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                <ArrowLeft className="w-5 h-5 text-slate-600" />
               </Link>
 
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{doc.name}</h1>
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <h1 className="text-2xl font-semibold text-slate-800 mb-1">{doc.name}</h1>
+                <div className="flex items-center space-x-4 text-sm text-slate-500">
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-4 h-4" />
                     <span>{new Date(doc.createdAt).toLocaleDateString('th-TH', {
@@ -176,9 +169,9 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex items-center space-x-1">
                       <span>ใน</span>
                       <span
-                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        className="px-2 py-0.5 rounded text-xs font-medium"
                         style={{
-                          backgroundColor: `${doc.folder.color}20`,
+                          backgroundColor: `${doc.folder.color}15`,
                           color: doc.folder.color
                         }}
                       >
@@ -202,9 +195,9 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 <a
                   href={signedUrl}
                   download={doc.fileName || doc.name}
-                  className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-2xl shadow-sm hover:shadow-md transition-all duration-200"
+                  className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                 >
-                  <Download className="w-5 h-5" />
+                  <Download className="w-4 h-4" />
                   <span>ดาวน์โหลด</span>
                 </a>
               )}
@@ -214,12 +207,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           {/* Tags */}
           {Array.isArray(doc.tags) && doc.tags.length > 0 && (
             <div className="flex items-center space-x-2 mb-6">
-              <Tag className="w-5 h-5 text-gray-500" />
+              <Tag className="w-4 h-4 text-slate-400" />
               <div className="flex flex-wrap gap-2">
                 {doc.tags.map((tag: string) => (
                   <span
                     key={tag}
-                    className="px-3 py-1 text-sm rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 font-medium"
+                    className="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-medium"
                   >
                     {tag}
                   </span>
@@ -230,7 +223,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* File Preview */}
-        <div className="bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           {signedUrl ? (
             <div className="p-6">
               {isImage ? (
@@ -238,14 +231,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   <SafeImage
                     src={signedUrl}
                     alt={doc.name}
-                    className="max-w-full max-h-[80vh] object-contain mx-auto rounded-2xl shadow-lg"
+                    className="max-w-full max-h-[70vh] object-contain mx-auto rounded-lg"
                   />
                 </div>
               ) : isPdf ? (
                 <div className="w-full">
                   <iframe
                     src={`${signedUrl}#toolbar=1`}
-                    className="w-full h-[80vh] rounded-2xl border border-gray-200"
+                    className="w-full h-[70vh] rounded-lg border border-slate-200"
                     title={doc.name}
                   />
                 </div>
@@ -253,18 +246,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 <div className="text-center">
                   <video
                     controls
-                    className="max-w-full max-h-[80vh] mx-auto rounded-2xl shadow-lg"
+                    className="max-w-full max-h-[70vh] mx-auto rounded-lg"
                   >
                     <source src={signedUrl} type={mimeType || undefined} />
                     เบราว์เซอร์ของคุณไม่สนับสนุนการเล่นวิดีโอ
                   </video>
                 </div>
               ) : isAudio ? (
-                <div className="text-center py-20">
-                  <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                    <FileText className="w-12 h-12 text-white" />
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+                    <FileText className="w-10 h-10 text-slate-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">{doc.name}</h3>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">{doc.name}</h3>
                   <audio controls className="mx-auto">
                     <source src={signedUrl} type={mimeType || undefined} />
                     เบราว์เซอร์ของคุณไม่สนับสนุนการเล่นเสียง
@@ -274,49 +267,49 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 <div className="prose max-w-none">
                   <iframe
                     src={signedUrl}
-                    className="w-full h-[60vh] border border-gray-200 rounded-2xl"
+                    className="w-full h-[60vh] border border-slate-200 rounded-lg"
                     title={doc.name}
                   />
                 </div>
               ) : (
-                <div className="text-center py-20">
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-400 to-gray-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                    <FileText className="w-12 h-12 text-white" />
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+                    <FileText className="w-10 h-10 text-slate-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-2">
                     ไม่สามารถแสดงตัวอย่างไฟล์ได้
                   </h3>
-                  <p className="text-gray-600 mb-2">
+                  <p className="text-slate-600 mb-2 text-sm">
                     ไฟล์ประเภท {mimeType || fileExtension || "ไม่ทราบ"}
                   </p>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-slate-500 mb-6 text-sm">
                     ไม่สามารถแสดงตัวอย่างได้ กรุณาดาวน์โหลดเพื่อดูเนื้อหา
                   </p>
                   <a
                     href={signedUrl}
                     download={doc.fileName || doc.name}
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-2xl shadow-sm hover:shadow-md transition-all duration-200"
+                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
-                    <Download className="w-5 h-5" />
+                    <Download className="w-4 h-4" />
                     <span>ดาวน์โหลดไฟล์</span>
                   </a>
                 </div>
               )}
             </div>
           ) : doc.fileUrl ? (
-            <div className="p-20 text-center">
-              <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-              <p className="text-gray-600">กำลังโหลดไฟล์...</p>
+            <div className="p-16 text-center">
+              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+              <p className="text-slate-600">กำลังโหลดไฟล์...</p>
             </div>
           ) : (
-            <div className="p-20 text-center">
-              <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-12 h-12 text-white" />
+            <div className="p-16 text-center">
+              <div className="w-20 h-20 bg-amber-100 rounded-xl flex items-center justify-center mx-auto mb-6">
+                <FileText className="w-10 h-10 text-amber-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              <h3 className="text-lg font-semibold text-slate-800 mb-2">
                 ไม่พบไฟล์
               </h3>
-              <p className="text-gray-600">
+              <p className="text-slate-600">
                 เอกสารนี้ไม่มีไฟล์แนบ
               </p>
             </div>
@@ -325,59 +318,59 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
         {/* File Info */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลไฟล์</h3>
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">ข้อมูลไฟล์</h3>
             <div className="space-y-3">
               <div>
-                <span className="text-sm text-gray-500">ประเภท:</span>
-                <p className="font-medium">{doc.type?.replace('_', ' ') || 'ไม่ระบุ'}</p>
+                <span className="text-xs text-slate-500">ประเภท:</span>
+                <p className="text-sm font-medium text-slate-700">{doc.type?.replace('_', ' ') || 'ไม่ระบุ'}</p>
               </div>
               {mimeType && (
                 <div>
-                  <span className="text-sm text-gray-500">MIME Type:</span>
-                  <p className="font-medium text-sm">{mimeType}</p>
+                  <span className="text-xs text-slate-500">MIME Type:</span>
+                  <p className="text-sm font-medium text-slate-700">{mimeType}</p>
                 </div>
               )}
               {doc.fileName && (
                 <div>
-                  <span className="text-sm text-gray-500">ชื่อไฟล์:</span>
-                  <p className="font-medium text-sm">{doc.fileName}</p>
+                  <span className="text-xs text-slate-500">ชื่อไฟล์:</span>
+                  <p className="text-sm font-medium text-slate-700">{doc.fileName}</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">วันที่</h3>
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">วันที่</h3>
             <div className="space-y-3">
               <div>
-                <span className="text-sm text-gray-500">สร้าง:</span>
-                <p className="font-medium">{new Date(doc.createdAt).toLocaleDateString('th-TH')}</p>
+                <span className="text-xs text-slate-500">สร้าง:</span>
+                <p className="text-sm font-medium text-slate-700">{new Date(doc.createdAt).toLocaleDateString('th-TH')}</p>
               </div>
               <div>
-                <span className="text-sm text-gray-500">แก้ไขล่าสุด:</span>
-                <p className="font-medium">{new Date(doc.updatedAt).toLocaleDateString('th-TH')}</p>
+                <span className="text-xs text-slate-500">แก้ไขล่าสุด:</span>
+                <p className="text-sm font-medium text-slate-700">{new Date(doc.updatedAt).toLocaleDateString('th-TH')}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">สถานะ</h3>
+          <div className="bg-white rounded-xl p-5 border border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">สถานะ</h3>
             <div className="space-y-3">
               <div>
-                <span className="text-sm text-gray-500">อัปโหลดแล้ว:</span>
-                <p className="font-medium">
+                <span className="text-xs text-slate-500">อัปโหลดแล้ว:</span>
+                <p className="text-sm font-medium">
                   {doc.fileUrl ? (
-                    <span className="text-green-600">✓ สำเร็จ</span>
+                    <span className="text-green-600">สำเร็จ</span>
                   ) : (
-                    <span className="text-red-600">✗ ไม่สำเร็จ</span>
+                    <span className="text-red-600">ไม่สำเร็จ</span>
                   )}
                 </p>
               </div>
               {doc.folder && (
                 <div>
-                  <span className="text-sm text-gray-500">โฟลเดอร์:</span>
-                  <p className="font-medium" style={{ color: doc.folder.color }}>
+                  <span className="text-xs text-slate-500">โฟลเดอร์:</span>
+                  <p className="text-sm font-medium" style={{ color: doc.folder.color }}>
                     {doc.folder.name}
                   </p>
                 </div>

@@ -22,7 +22,6 @@ export default function RenameModal({ item, onClose, onSuccess }: RenameModalPro
     e.preventDefault();
     setError('');
 
-    // Client-side validation
     const trimmedName = name.trim();
     if (!trimmedName) {
       setError('Name cannot be empty');
@@ -61,7 +60,6 @@ export default function RenameModal({ item, onClose, onSuccess }: RenameModalPro
         return;
       }
 
-      // Success
       onSuccess();
       onClose();
     } catch (err) {
@@ -72,23 +70,23 @@ export default function RenameModal({ item, onClose, onSuccess }: RenameModalPro
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg border border-slate-200 max-w-md w-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div className="flex items-center gap-2">
             {item.type === 'file' ? (
               <FileText className="w-5 h-5 text-blue-600" />
             ) : (
-              <Folder className="w-5 h-5 text-yellow-600" />
+              <Folder className="w-5 h-5 text-amber-500" />
             )}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-slate-800">
               Rename {item.type === 'file' ? 'File' : 'Folder'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-slate-400 hover:text-slate-600 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -99,35 +97,35 @@ export default function RenameModal({ item, onClose, onSuccess }: RenameModalPro
           <div className="mb-4">
             <label
               htmlFor="name"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              className="block text-sm font-medium text-slate-700 mb-2"
             >
               New name
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Pencil className="w-4 h-4 text-gray-400" />
+                <Pencil className="w-4 h-4 text-slate-400" />
               </div>
               <input
                 type="text"
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-800"
                 placeholder={`Enter ${item.type} name`}
                 autoFocus
                 disabled={loading}
               />
             </div>
             {error && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              <p className="mt-2 text-sm text-red-600">
                 {error}
               </p>
             )}
           </div>
 
           {/* Info */}
-          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-xs text-blue-800 dark:text-blue-300">
+          <div className="mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <p className="text-xs text-slate-600">
               <strong>Note:</strong> Only the display name will be changed.
               {item.type === 'file' && ' The file in storage will remain unchanged.'}
             </p>
@@ -138,14 +136,14 @@ export default function RenameModal({ item, onClose, onSuccess }: RenameModalPro
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors text-sm font-medium"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
               disabled={loading || !name.trim()}
             >
               {loading ? (

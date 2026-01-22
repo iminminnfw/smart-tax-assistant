@@ -25,10 +25,10 @@ export default function WelcomeHomePage() {
   // Loading state
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-gray-600">กำลังโหลด...</p>
+          <p className="text-slate-600">กำลังโหลด...</p>
         </div>
       </div>
     );
@@ -65,32 +65,31 @@ export default function WelcomeHomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <AppNavigation />
 
       <div>
         <div className="p-6">
           {/* Welcome Section */}
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">
-              ยินดีต้อนรับ, คุณ{user.name}! 👋
+            <h2 className="text-2xl font-semibold text-slate-800 mb-2">
+              ยินดีต้อนรับ, คุณ{user.name}
             </h2>
-            <p className="text-gray-600 text-lg">
+            <p className="text-slate-600">
               คุณได้ประหยัดภาษี{' '}
-              <span className="font-semibold text-green-600">
+              <span className="font-medium text-green-600">
                 ฿{dashboardData.taxReduction.toLocaleString()}
               </span>{' '}
               ไปแล้ว และคำนวณภาษีได้{' '}
-              <span className="font-semibold text-blue-600">
+              <span className="font-medium text-blue-600">
                 ฿{dashboardData.totalTax.toLocaleString()}
-              </span>{' '}
-              ทำได้ดีมาก! 🎉
+              </span>
             </p>
           </div>
 
           {/* Stats Cards (คืนกลับมา) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:border-slate-300 transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                   <Calculator className="w-6 h-6 text-blue-600" />
@@ -100,16 +99,16 @@ export default function WelcomeHomePage() {
                   12.5%
                 </span>
               </div>
-              <h3 className="text-gray-600 text-sm font-medium mb-1">
+              <h3 className="text-slate-600 text-sm font-medium mb-1">
                 ภาษีที่คำนวณได้
               </h3>
-              <p className="text-2xl font-bold text-gray-800">
+              <p className="text-2xl font-bold text-slate-800">
                 ฿{dashboardData.totalTax.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-500 mt-2">เพิ่มขึ้นจากเดือนที่แล้ว</p>
+              <p className="text-xs text-slate-500 mt-2">เพิ่มขึ้นจากเดือนที่แล้ว</p>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:border-slate-300 transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                   <TrendingDown className="w-6 h-6 text-green-600" />
@@ -119,30 +118,30 @@ export default function WelcomeHomePage() {
                   18.2%
                 </span>
               </div>
-              <h3 className="text-gray-600 text-sm font-medium mb-1">
+              <h3 className="text-slate-600 text-sm font-medium mb-1">
                 ลดหย่อนภาษีได้
               </h3>
-              <p className="text-2xl font-bold text-gray-800">
+              <p className="text-2xl font-bold text-slate-800">
                 ฿{dashboardData.taxReduction.toLocaleString()}
               </p>
-              <p className="text-xs text-gray-500 mt-2">ประหยัดได้มากขึ้น!</p>
+              <p className="text-xs text-slate-500 mt-2">ประหยัดได้มากขึ้น!</p>
             </div>
           </div>
 
           {/* Charts Section (คืนกลับมา) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
+                  <h3 className="text-lg font-semibold text-slate-800">
                     ภาษีรายเดือน
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-slate-500">
                     เปรียบเทียบรายเดือนในปีนี้
                   </p>
                 </div>
-                <button className="hover:bg-gray-100 p-2 rounded-lg transition-colors">
-                  <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                <button className="hover:bg-slate-100 p-2 rounded-lg transition-colors">
+                  <MoreHorizontal className="w-4 h-4 text-slate-400" />
                 </button>
               </div>
 
@@ -157,16 +156,16 @@ export default function WelcomeHomePage() {
 
                   return (
                     <div key={index} className="flex items-center space-x-4 group">
-                      <span className="text-sm font-medium text-gray-600 w-8">
+                      <span className="text-sm font-medium text-slate-600 w-8">
                         {item.month}
                       </span>
                       <div className="flex-1">
-                        <div className="w-full bg-gray-100 rounded-full h-8 relative overflow-hidden">
+                        <div className="w-full bg-slate-100 rounded-full h-8 relative overflow-hidden">
                           <div
-                            className={`h-8 rounded-full flex items-center justify-end pr-3 transition-all duration-1000 ${
+                            className={`h-8 rounded-full flex items-center justify-end pr-3 transition-all duration-500 ${
                               isCurrentMonth
-                                ? 'bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg'
-                                : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                                ? 'bg-blue-600'
+                                : 'bg-slate-300'
                             }`}
                             style={{ width: `${percentage}%` }}
                           >
@@ -174,9 +173,6 @@ export default function WelcomeHomePage() {
                               ฿{item.amount.toLocaleString()}
                             </span>
                           </div>
-                          {isCurrentMonth && (
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-600/20 animate-pulse"></div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -185,7 +181,7 @@ export default function WelcomeHomePage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
               
 
               <div className="flex flex-col items-center">
@@ -201,66 +197,54 @@ export default function WelcomeHomePage() {
                       stroke="currentColor"
                       strokeWidth="8"
                       fill="transparent"
-                      className="text-gray-200"
+                      className="text-slate-200"
                     />
                     <circle
                       cx="50"
                       cy="50"
                       r="40"
-                      stroke="url(#gradient)"
+                      stroke="#2563EB"
                       strokeWidth="8"
                       fill="transparent"
                       strokeDasharray={`${
                         dashboardData.totalProgress * 2.51
                       } 251`}
                       strokeLinecap="round"
-                      className="transition-all duration-1000"
+                      className="transition-all duration-500"
                     />
-                    <defs>
-                      <linearGradient
-                        id="gradient"
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#3B82F6" />
-                        <stop offset="100%" stopColor="#8B5CF6" />
-                      </linearGradient>
-                    </defs>
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold text-gray-800">
+                    <span className="text-2xl font-semibold text-slate-800">
                       {dashboardData.totalProgress}%
                     </span>
-                    <span className="text-green-500 text-sm font-medium bg-green-50 px-2 py-1 rounded-full">
+                    <span className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded-lg">
                       +10%
                     </span>
                   </div>
                 </div>
 
-                <p className="text-center text-gray-600 text-sm mb-6 px-2">
+                <p className="text-center text-slate-600 text-sm mb-6 px-2">
                   คุณได้รับ{' '}
-                  <span className="font-semibold text-blue-600">
+                  <span className="font-medium text-blue-600">
                     ฿{dashboardData.totalTax.toLocaleString()}
                   </span>{' '}
-                  วันนี้ สูงกว่าเดือนที่แล้ว ทำได้ดีมาก! 🚀
+                  วันนี้ สูงกว่าเดือนที่แล้ว
                 </p>
 
                 <div className="w-full space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <span className="text-gray-600 text-sm font-medium">
+                  <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                    <span className="text-slate-600 text-sm font-medium">
                       เป้าหมาย
                     </span>
                     <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-gray-800">
+                      <span className="font-semibold text-slate-800">
                         ฿{dashboardData.monthlyTarget / 1000}K
                       </span>
                       <TrendingDown className="w-4 h-4 text-red-500" />
                     </div>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                    <span className="text-gray-600 text-sm font-medium">
+                    <span className="text-slate-600 text-sm font-medium">
                       ผลงาน
                     </span>
                     <div className="flex items-center space-x-2">
@@ -271,7 +255,7 @@ export default function WelcomeHomePage() {
                     </div>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                    <span className="text-gray-600 text-sm font-medium">วันนี้</span>
+                    <span className="text-slate-600 text-sm font-medium">วันนี้</span>
                     <div className="flex items-center space-x-2">
                       <span className="font-semibold text-blue-800">
                         ฿{dashboardData.totalTax / 1000}K
@@ -285,13 +269,13 @@ export default function WelcomeHomePage() {
           </div>
 
           {/* Quick Actions (คืนกลับมา) */}
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">
+                <h3 className="text-lg font-semibold text-slate-800">
                   การดำเนินการด่วน
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-slate-500">
                   เลือกสิ่งที่คุณต้องการทำต่อไป
                 </p>
               </div>
@@ -299,74 +283,74 @@ export default function WelcomeHomePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Link href="/tax-calculator">
-                <div className="group p-6 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer hover:shadow-md">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 group-hover:scale-110 transition-all">
-                      <Calculator className="w-6 h-6 text-blue-600" />
+                <div className="group p-5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Calculator className="w-5 h-5 text-blue-600" />
                     </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
                   </div>
-                  <h4 className="font-semibold text-gray-800 mb-2">คำนวณภาษี</h4>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h4 className="font-medium text-slate-800 mb-1">คำนวณภาษี</h4>
+                  <p className="text-sm text-slate-500 mb-3">
                     เริ่มคำนวณภาษีใหม่สำหรับปีนี้
                   </p>
-                  <div className="flex items-center text-sm font-medium text-blue-600">
+                  <span className="text-sm font-medium text-blue-600">
                     เริ่มคำนวณ
-                  </div>
+                  </span>
                 </div>
               </Link>
 
               <Link href="/tax-forms">
-                <div className="group p-6 rounded-xl border border-gray-200 hover:border-green-500 hover:bg-green-50 transition-all duration-200 cursor-pointer hover:shadow-md">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 group-hover:scale-110 transition-all">
-                      <FileText className="w-6 h-6 text-green-600" />
+                <div className="group p-5 rounded-lg border border-slate-200 hover:border-green-300 hover:bg-green-50 transition-colors cursor-pointer">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-green-600" />
                     </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transform group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-green-600 transition-colors" />
                   </div>
-                  <h4 className="font-semibold text-gray-800 mb-2">แบบฟอร์มภาษี</h4>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h4 className="font-medium text-slate-800 mb-1">แบบฟอร์มภาษี</h4>
+                  <p className="text-sm text-slate-500 mb-3">
                     จัดการเอกสารและแบบฟอร์มภาษี
                   </p>
-                  <div className="flex items-center text-sm font-medium text-green-600">
+                  <span className="text-sm font-medium text-green-600">
                     ดูแบบฟอร์ม
-                  </div>
+                  </span>
                 </div>
               </Link>
 
               <Link href="/tax-reports">
-                <div className="group p-6 rounded-xl border border-gray-200 hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 cursor-pointer hover:shadow-md">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 group-hover:scale-110 transition-all">
-                      <BarChart3 className="w-6 h-6 text-purple-600" />
+                <div className="group p-5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <BarChart3 className="w-5 h-5 text-blue-600" />
                     </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transform group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-colors" />
                   </div>
-                  <h4 className="font-semibold text-gray-800 mb-2">รายงานภาษี</h4>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h4 className="font-medium text-slate-800 mb-1">รายงานภาษี</h4>
+                  <p className="text-sm text-slate-500 mb-3">
                     วิเคราะห์และดูรายงานภาษี
                   </p>
-                  <div className="flex items-center text-sm font-medium text-purple-600">
+                  <span className="text-sm font-medium text-blue-600">
                     ดูรายงาน
-                  </div>
+                  </span>
                 </div>
               </Link>
 
               <Link href="/profile-settings">
-                <div className="group p-6 rounded-xl border border-gray-200 hover:border-orange-500 hover:bg-orange-50 transition-all duration-200 cursor-pointer hover:shadow-md">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center group-hover:bg-orange-200 group-hover:scale-110 transition-all">
-                      <Settings className="w-6 h-6 text-orange-600" />
+                <div className="group p-5 rounded-lg border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                      <Settings className="w-5 h-5 text-slate-600" />
                     </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-orange-600 transform group-hover:translate-x-1 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
                   </div>
-                  <h4 className="font-semibold text-gray-800 mb-2">ตั้งค่าบัญชี</h4>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <h4 className="font-medium text-slate-800 mb-1">ตั้งค่าบัญชี</h4>
+                  <p className="text-sm text-slate-500 mb-3">
                     จัดการข้อมูลส่วนตัวและการตั้งค่า
                   </p>
-                  <div className="flex items-center text-sm font-medium text-orange-600">
+                  <span className="text-sm font-medium text-slate-600">
                     ตั้งค่า
-                  </div>
+                  </span>
                 </div>
               </Link>
             </div>

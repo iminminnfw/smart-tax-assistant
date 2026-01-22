@@ -1,12 +1,11 @@
 // app/api/document/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";         // <- ต้องเป็นไฟล์เดียวกับที่ [...nextauth] ใช้
-import prisma from "@/lib/prisma";                 // <- prisma client ของคุณ
+import { authOptions } from "@/lib/auth";         //ต้องเป็นไฟล์เดียวกับที่ [...nextauth] ใช้
+import prisma from "@/lib/prisma";                 
 
 export const runtime = "nodejs";
 
-/** ---- Utilities ---- */
 function jsonOk(data: unknown, init?: number) {
   return NextResponse.json(data, { status: init ?? 200 });
 }
@@ -30,13 +29,7 @@ async function requireUserId() {
   return { userId: userId ?? null, session };
 }
 
-/** ---- GET /api/document ----
- * Query:
- *  - folderId?: string
- *  - q?: string         (ค้นหา name/fileName/content แบบง่าย)
- *  - skip?: number      (default 0)
- *  - take?: number      (default 20, max 100)
- */
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await requireUserId();
@@ -77,19 +70,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** ---- POST /api/document ----
- * Body (JSON):
- *  - name: string            (จำเป็น)
- *  - fileUrl?: string | null (ถ้าเซฟไฟล์ไว้ public/uploads มาก่อน ก็ส่ง path มา)
- *  - fileName?: string | null
- *  - fileSize?: number | null
- *  - mimeType?: string | null
- *  - isUploaded?: boolean    (default true ถ้าแนบ fileUrl มาด้วย)
- *  - type?: string | null    (เช่น TAX_FORM | RECEIPT | NOTE ...)
- *  - tags?: string[]         (default [])
- *  - folderId?: string | null
- * หมายเหตุ: สคีมาของคุณบังคับ userId: string, และ (จากที่เห็นใน type) createdAt/updatedAt อาจไม่มี default
- */
+
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await requireUserId();
@@ -126,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const doc = await prisma.documentFile.create({
       data: {
-        userId,                 // <- ต้องเป็น string แน่ ๆ
+        userId,                 //ต้องเป็น string แน่ ๆ
         folderId: folderId ?? null,
         name,
         fileUrl,
@@ -136,8 +117,8 @@ export async function POST(req: NextRequest) {
         isUploaded: typeof isUploaded === "boolean" ? isUploaded : !!fileUrl,
         type,
         tags: tags as string[],
-        createdAt: now,         // ถ้า schema มี @default(now()) แล้ว จะไม่ต้องใส่สองบรรทัดนี้
-        updatedAt: now,         // แต่จาก type ที่คุณแนบมา มันอาจจะ require
+        createdAt: now,         
+        updatedAt: now,         
       },
     });
 
