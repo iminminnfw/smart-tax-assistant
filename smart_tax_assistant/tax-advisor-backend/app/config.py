@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     openai_api_key: str
     openai_model: str = "gpt-4o"
     openai_temperature: float = 0.7
+
+    # Ollama Configuration (optional)
+    use_ollama: bool = False
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5:14b"
+    ollama_temperature: float = 0.3
     
     
     # Qdrant Configuration

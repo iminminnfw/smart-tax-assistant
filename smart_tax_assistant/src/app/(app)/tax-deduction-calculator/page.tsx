@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AppNavigation from '@/components/AppNavigation';
 import MultiplePlansView from '@/components/TaxAdvisor/MultiplePlansView';
 import { TaxCalculationResponse } from '@/lib/tax-advisor/types';
@@ -61,6 +61,41 @@ export default function TaxDeductionCalculator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+
+  // Timer และ Cancel states
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Timer effect - นับเวลาที่ AI กำลังทำงาน
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loading) {
+      setElapsedTime(0);
+      interval = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
+
+  // ฟังก์ชันยกเลิกการคำนวณ
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+      setError('ยกเลิกการคำนวณแล้ว');
+    }
+  };
+
+  // แปลงวินาทีเป็น mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -196,10 +231,14 @@ export default function TaxDeductionCalculator() {
         risk_tolerance: formData.risk_tolerance
       };
 
+      // สร้าง AbortController สำหรับยกเลิก request
+      abortControllerRef.current = new AbortController();
+
       const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.CALCULATE_TAX), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(apiPayload),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -209,10 +248,15 @@ export default function TaxDeductionCalculator() {
       const data = await response.json();
       setResult(data);
     } catch (err) {
+      // ถ้าเป็นการยกเลิก ไม่ต้องแสดง error
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
       console.error('Error:', err);
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -1122,28 +1166,48 @@ export default function TaxDeductionCalculator() {
             </div>
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-bold py-6 px-8 rounded-2xl hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-2xl text-xl relative overflow-hidden group"
-            >
-              <span className="relative z-10 flex items-center justify-center gap-3">
-                {loading ? (
-                  <>
-                    <svg className="animate-spin h-6 w-6" viewBox="0 0 24 24">
+            {!loading ? (
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-bold py-6 px-8 rounded-2xl hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-2xl text-xl"
+              >
+                <span className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">🚀</span>
+                  คำนวณภาษีและรับคำแนะนำ 3 แผน (พ.ศ. 2568)
+                </span>
+              </button>
+            ) : (
+              <div className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-bold py-6 px-8 rounded-2xl shadow-2xl">
+                <div className="flex flex-col items-center gap-4">
+                  {/* Loading animation และ Timer */}
+                  <div className="flex items-center gap-4">
+                    <svg className="animate-spin h-8 w-8" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    กำลังวิเคราะห์และสร้างแผน...
-                  </>
-                ) : (
-                  <>
-                    <span className="text-2xl">🚀</span>
-                    คำนวณภาษีและรับคำแนะนำ 3 แผน (พ.ศ. 2568)
-                  </>
-                )}
-              </span>
-            </button>
+                    <div className="text-center">
+                      <p className="text-lg">กำลังวิเคราะห์และสร้างแผน...</p>
+                      <p className="text-3xl font-mono mt-1">⏱️ {formatTime(elapsedTime)}</p>
+                    </div>
+                  </div>
+
+                  {/* Progress bar animation */}
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div className="h-full bg-white/80 rounded-full animate-pulse" style={{width: '100%'}}></div>
+                  </div>
+
+                  {/* Cancel Button */}
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="mt-2 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-8 rounded-xl transition-all flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    <span className="text-xl">✖️</span>
+                    ยกเลิกการคำนวณ
+                  </button>
+                </div>
+              </div>
+            )}
           </form>
         </div>
 

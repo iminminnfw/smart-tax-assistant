@@ -4,6 +4,8 @@ Version: ปี 2568 - อัปเดต ThaiESG/ThaiESGX แทน SSF
 """
 
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
+from langchain_core.messages import SystemMessage, HumanMessage
 import json
 from typing import Dict, List, Any , Tuple
 
@@ -13,13 +15,24 @@ from app.config import settings
 
 class AIService:
     """AI Service ที่แนะนำการลงทุนครอบคลุมตามระดับรายได้ ปี 2568"""
-    
+
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model=settings.openai_model,
-            temperature=0.3,
-            openai_api_key=settings.openai_api_key
-        )
+        # เลือกใช้ Ollama หรือ OpenAI ตาม config
+        if settings.use_ollama:
+            print(f"🦙 Using Ollama: {settings.ollama_model} at {settings.ollama_base_url}")
+            self.llm = ChatOllama(
+                model=settings.ollama_model,
+                base_url=settings.ollama_base_url,
+                temperature=settings.ollama_temperature,
+                format="json",
+            )
+        else:
+            print(f"🤖 Using OpenAI: {settings.openai_model}")
+            self.llm = ChatOpenAI(
+                model=settings.openai_model,
+                temperature=0.3,
+                openai_api_key=settings.openai_api_key
+            )
 
     def _get_marginal_rate(self, taxable_income: int) -> int:
         """Get marginal tax rate based on taxable income"""
@@ -40,27 +53,51 @@ class AIService:
         else:
             return 35
     
+    def _calculate_legal_limits(self, gross: float) -> Dict[str, int]:
+        """[เทคนิค 1] Pre-calculation: คำนวณวงเงินสูงสุดตามกฎหมาย"""
+        return {
+            'life_insurance': 100000,
+            'health_insurance': 25000,
+            'life_health_combined': 125000,
+            'pension_insurance': int(min(gross * 0.15, 200000)),
+            'rmf': int(min(gross * 0.30, 500000)),
+            'thai_esg': int(min(gross * 0.30, 300000)),
+            'pvd': int(min(gross * 0.15, 500000)),
+            'easy_e_receipt': 50000,
+        }
+
     def generate_tax_optimization_prompt(
     self,
     request: TaxCalculationRequest,
     tax_result: TaxCalculationResult,
     retrieved_context: str,
-    expected_plans: Dict[str, Any] = None  # 👈 เพิ่มบรรทัดนี้เข้ามา (optional for API use)
-    ) -> str:
-        """สร้าง Prompt ที่บังคับ JSON ครบถ้วน สำหรับปี 2568"""
-        
+    expected_plans: Dict[str, Any] = None
+    ) -> List:
+        """
+        สร้าง Prompt ที่ใช้เทคนิค Prompt Engineering:
+        1. Pre-calculation - คำนวณวงเงินล่วงหน้า
+        2. Few-Shot Prompting - ให้ตัวอย่างที่ถูกต้อง
+        3. Chain-of-Thought - บังคับให้คิดทีละขั้นตอน
+        4. System/Human Message Separation
+        5. JSON Schema at the end (recency bias)
+        6. Ollama format="json" mode
+        """
+
         gross = tax_result.gross_income
         taxable = tax_result.taxable_income
         current_tax = tax_result.tax_amount
-        
+
+        # [เทคนิค 1] Pre-calculation
+        legal_limits = self._calculate_legal_limits(gross)
+
         # คำนวณวงเงินที่เหลือ - ปี 2568
-        max_rmf = min(gross * 0.30, 500000)
-        max_thai_esg = 300000  # ใหม่ปี 2568
-        max_thai_esgx_new = 300000  # ใหม่ปี 2568
-        max_thai_esgx_ltf = 300000  # ใหม่ปี 2568
-        max_pension = min(gross * 0.15, 200000)
-        max_pvd = min(gross * 0.15, 500000)
-        
+        max_rmf = legal_limits['rmf']
+        max_thai_esg = legal_limits['thai_esg']
+        max_thai_esgx_new = legal_limits['thai_esg']
+        max_thai_esgx_ltf = legal_limits['thai_esg']
+        max_pension = legal_limits['pension_insurance']
+        max_pvd = legal_limits['pvd']
+
         remaining_rmf = max_rmf - request.rmf
         remaining_thai_esg = max_thai_esg - request.thai_esg
         remaining_thai_esgx_new = max_thai_esgx_new - request.thai_esgx_new
@@ -70,7 +107,7 @@ class AIService:
         remaining_life = 100000 - request.life_insurance
         remaining_life_pension = 10000 - request.life_insurance_pension  # ใหม่ปี 2568
         remaining_health = 25000 - request.health_insurance
-        
+
         # อัตราภาษีส่วนเพิ่ม
         if taxable <= 150000:
             marginal_rate = 0
@@ -88,11 +125,11 @@ class AIService:
             marginal_rate = 30
         else:
             marginal_rate = 35
-        
+
         # ตรวจสอบว่ามีประกันหรือไม่
         has_life_insurance = request.life_insurance > 0
         has_health_insurance = request.health_insurance > 0
-        
+
         # แปลงความเสี่ยง
         risk_map = {
             'low': 'ต่ำ',
@@ -100,10 +137,10 @@ class AIService:
             'high': 'สูง'
         }
         risk_thai = risk_map.get(request.risk_tolerance, request.risk_tolerance)
-        
+
         # กำหนด risk_level
         risk_level = request.risk_tolerance
-        
+
         # 🎯 กำหนดเงินลงทุนแบบ 3 ระดับคงที่ ตรงตาม ground truth (เพื่อความแม่นยำ 100%)
         # Plan 1 (Conservative), Plan 2 (Balanced), Plan 3 (Aggressive)
         if gross < 600000:
@@ -130,97 +167,174 @@ class AIService:
             tier_1 = 800000
             tier_2 = 1200000
             tier_3 = 1800000
-        
+
         # คำนวณภาษีที่ประหยัดได้โดยประมาณ
         potential_tax_saving = int(tier_3 * (marginal_rate / 100))
-        
-        return f"""คุณเป็นที่ปรึกษาภาษีและการลงทุนมืออาชีพในประเทศไทย ปี 2568
 
-📊 สถานการณ์ของลูกค้า:
+        # =====================================================================
+        # SYSTEM MESSAGE: กฎเหล็ก + Legal Limits + Few-Shot + Chain-of-Thought
+        # =====================================================================
+        system_prompt = f"""คุณเป็น AI ที่ปรึกษาภาษีและการลงทุนมืออาชีพในประเทศไทย ปี 2568
+คุณต้องปฏิบัติตามกฎหมายภาษีไทยอย่างเคร่งครัด:
+- ห้ามแนะนำเกินวงเงินตามกฎหมายเด็ดขาด
+- ทุกตัวเลขต้องผ่านการตรวจสอบก่อนตอบ
+- ถ้าไม่แน่ใจ ให้แนะนำน้อยกว่าวงเงินสูงสุด
+- ความถูกต้องตามกฎหมาย > ความน่าสนใจของแผน
+- คุณต้องตอบเป็น JSON เท่านั้น ห้ามมี markdown หรือข้อความอื่น
+
+🆕 สิ่งที่เปลี่ยนแปลงในปี 2568:
+- SSF ยกเลิกแล้ว ห้ามใช้
+- ThaiESG/ThaiESGX มาแทน (วงเงิน 300,000 บาท ยกเว้น 30%)
+- Easy e-Receipt เพิ่มเป็น 50,000 บาท
+- ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
+
+🚨 วงเงินลดหย่อนสูงสุดตามกฎหมายที่ห้ามเกิน:
+
+กลุ่มประกัน (จำนวนเงินคงที่):
+- ประกันชีวิต: สูงสุด 100,000 บาท (FIXED LIMIT)
+- ประกันชีวิตแบบบำนาญ: สูงสุด 10,000 บาท (FIXED LIMIT)
+- ประกันสุขภาพ: สูงสุด 25,000 บาท (FIXED LIMIT)
+- ประกันบำนาญ: สูงสุด min(200,000, 15% ของรายได้) = {min(200000, int(gross * 0.15)):,.0f} บาท
+- ประกันสังคม มาตรา 40: สูงสุด 9,000 บาท (FIXED LIMIT)
+
+กลุ่มกองทุนและการลงทุน (ขึ้นกับรายได้):
+- RMF: สูงสุด min(500,000, 30% ของรายได้) = {max_rmf:,.0f} บาท
+- ThaiESG/ThaiESGX: สูงสุด min(300,000, 30% ของรายได้) = {min(300000, int(gross * 0.30)):,.0f} บาท แต่ละกอง
+- กองทุนสำรองเลี้ยงชีพ (PVD): สูงสุด min(500,000, 15% ของรายได้) = {max_pvd:,.0f} บาท
+- กบข.: สูงสุด min(500,000, 30% ของรายได้)
+
+กลุ่มอื่นๆ:
+- Easy e-Receipt: สูงสุด 50,000 บาท (FIXED LIMIT)
+- ลงทุนหุ้นจดทะเบียนใหม่: สูงสุด 100,000 บาท (FIXED LIMIT)
+- เงินบริจาคทั่วไป: สูงสุด 10% ของรายได้
+- เงินบริจาคการศึกษา: ไม่จำกัด (นับ 2 เท่า)
+
+คำเตือน:
+1. การแนะนำเกินวงเงินที่กฎหมายกำหนด = ผิดกฎหมาย
+2. ห้ามคำนวณภาษีที่ประหยัดได้จากเงินลงทุนที่เกินวงเงิน
+3. ตัวอย่าง: ถ้าแนะนำประกันบำนาญ 274,920 แต่สูงสุดคือ 200,000 → ลดหย่อนได้จริงเพียง 200,000
+
+[FEW-SHOT EXAMPLES]
+
+ตัวอย่างผิด (ห้ามทำ):
+- รายได้ 1,800,000, total_investment = 800,000
+- แนะนำ: ประกันบำนาญ 35% = 280,000
+- วงเงินสูงสุด = min(200,000, 1,800,000×15%) = 200,000
+- 280,000 > 200,000 = ผิดกฎหมาย!
+
+ตัวอย่างถูก (ทำแบบนี้):
+- รายได้ 1,800,000, total_investment = 800,000
+- แนะนำ: ประกันบำนาญ 25% = 200,000 (ใช้วงเงินเต็มแต่ไม่เกิน)
+- 200,000 ≤ 200,000 = ถูกต้อง!
+
+ตัวอย่างผิดอีก:
+- total_investment = 500,000
+- แนะนำ: ประกันชีวิต 40% = 200,000
+- วงเงินสูงสุด = 100,000
+- 200,000 > 100,000 = ผิด!
+
+ตัวอย่างถูก:
+- total_investment = 500,000
+- แนะนำ: ประกันชีวิต 20% = 100,000 (ใช้วงเงินเต็มพอดี)
+- 100,000 ≤ 100,000 = ถูกต้อง!
+
+[CHAIN-OF-THOUGHT] ก่อนตอบให้คิดทีละขั้น:
+
+STEP 1: ตรวจสอบวงเงินตามกฎหมาย
+- ประกันชีวิต: max 100,000
+- ประกันสุขภาพ: max 25,000
+- ประกันบำนาญ: max {min(200000, int(gross * 0.15)):,}
+- RMF: max {max_rmf:,}
+- ThaiESG: max {min(300000, int(gross * 0.30)):,}
+
+STEP 2: คำนวณ % สูงสุดที่ยอมให้ได้
+- สำหรับแต่ละ allocation: percentage_max = (legal_limit / total_investment) × 100
+- ตัวอย่าง: total = {tier_3:,}, limit = 100,000 → percentage_max = {(100000 / tier_3 * 100):.1f}%
+
+STEP 3: ตรวจสอบก่อนตอบ
+- ทุก allocation: investment_amount = total_investment × (percentage / 100)
+- ถ้า investment_amount > legal_limit → ลด percentage = (legal_limit / total_investment) × 100
+
+[INVESTMENT_AMOUNT VALIDATION]
+สำหรับแต่ละ allocation คำนวณ: investment_amount = total_investment × (percentage / 100)
+| Category       | investment_amount ≤ ? |
+|----------------|----------------------|
+| ประกันชีวิต      | 100,000              |
+| ประกันสุขภาพ     | 25,000               |
+| ประกันบำนาญ     | {min(200000, int(gross * 0.15)):,}  |
+| RMF            | {max_rmf:,}          |
+| ThaiESG        | {min(300000, int(gross * 0.30)):,}  |
+
+ถ้า investment_amount > legal_limit → ลด percentage = (legal_limit / total_investment) × 100"""
+
+        # =====================================================================
+        # HUMAN MESSAGE: ข้อมูลลูกค้า + RAG + กฎ + JSON Schema (ท้ายสุด)
+        # =====================================================================
+
+        insurance_rules = ""
+        if not has_life_insurance:
+            insurance_rules += "\n- ทุกแผนต้องมีประกันชีวิตอย่างน้อย 20,000 บาท (แต่ไม่เกิน 100,000)"
+        if not has_health_insurance:
+            insurance_rules += "\n- ทุกแผนต้องมีประกันสุขภาพอย่างน้อย 15,000 บาท (แต่ไม่เกิน 25,000)"
+
+        human_prompt = f"""สถานการณ์ของลูกค้า:
 - รายได้รวม: {gross:,.0f} บาท
 - เงินได้สุทธิ: {taxable:,.0f} บาท
 - ภาษีที่ต้องจ่ายตอนนี้: {current_tax:,.0f} บาท
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
-- ระดับความเสี่ยงที่ลูกค้าเลือก: {risk_thai}
+- ระดับความเสี่ยง: {risk_thai}
 
-💰 วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568):
-- RMF: เหลือ {remaining_rmf:,.0f} บาท (สูงสุด {max_rmf:,.0f})
-- ThaiESG: เหลือ {remaining_thai_esg:,.0f} บาท (สูงสุด {max_thai_esg:,.0f})
-- ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} บาท (สูงสุด {max_thai_esgx_new:,.0f})
-- ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} บาท (สูงสุด {max_thai_esgx_ltf:,.0f})
-- กองทุนสำรองเลี้ยงชีพ: เหลือ {remaining_pvd:,.0f} บาท (สูงสุด {max_pvd:,.0f})
-- ประกันบำนาญ: เหลือ {remaining_pension:,.0f} บาท (สูงสุด {max_pension:,.0f})
-- ประกันชีวิต: เหลือ {remaining_life:,.0f} บาท (⚠️ วงเงินสูงสุด 100,000 บาท)
-- ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} บาท (⚠️ วงเงินสูงสุด 10,000 บาท)
-- ประกันสุขภาพ: เหลือ {remaining_health:,.0f} บาท (⚠️ วงเงินสูงสุด 25,000 บาท)
+วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568):
+- RMF: เหลือ {remaining_rmf:,.0f} (สูงสุด {max_rmf:,.0f})
+- ThaiESG: เหลือ {remaining_thai_esg:,.0f} (สูงสุด {max_thai_esg:,.0f})
+- ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} (สูงสุด {max_thai_esgx_new:,.0f})
+- ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} (สูงสุด {max_thai_esgx_ltf:,.0f})
+- กองทุนสำรองเลี้ยงชีพ: เหลือ {remaining_pvd:,.0f} (สูงสุด {max_pvd:,.0f})
+- ประกันบำนาญ: เหลือ {remaining_pension:,.0f} (สูงสุด {max_pension:,.0f})
+- ประกันชีวิต: เหลือ {remaining_life:,.0f} (สูงสุด 100,000)
+- ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} (สูงสุด 10,000)
+- ประกันสุขภาพ: เหลือ {remaining_health:,.0f} (สูงสุด 25,000)
 
-🎯 เป้าหมายการลงทุนที่แนะนำสำหรับรายได้ระดับนี้:
-- เงินลงทุน 3 ระดับ: {tier_1:,.0f} / {tier_2:,.0f} / {tier_3:,.0f} บาท
-- ภาษีที่อาจประหยัดได้: ประมาณ {potential_tax_saving:,.0f} บาท
-
-🏥 สถานะประกัน:
+สถานะประกัน:
 - ประกันชีวิต: {'มีแล้ว' if has_life_insurance else 'ยังไม่มี - ควรมี'}
 - ประกันสุขภาพ: {'มีแล้ว' if has_health_insurance else 'ยังไม่มี - ควรมี'}
 
-🆕 สิ่งที่เปลี่ยนแปลงในปี 2568:
-- ❌ SSF ยกเลิกแล้ว
-- ✅ ThaiESG/ThaiESGX มาแทน (วงเงิน 300,000 บาท ยกเว้น 30%)
-- ✅ Easy e-Receipt เพิ่มเป็น 50,000 บาท
-- ✅ ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
-
-🚨 **วงเงินลดหย่อนสูงสุดตามกฎหมายที่ต้องปฏิบัติตาม (ห้ามเกิน!):**
-
-**กลุ่มประกัน (เป็นจำนวนเงินคงที่):**
-- ประกันชีวิต: สูงสุด 100,000 บาท (FIXED LIMIT)
-- ประกันชีวิตแบบบำนาญ: สูงสุด 10,000 บาท (FIXED LIMIT)
-- ประกันสุขภาพ: สูงสุด 25,000 บาท (FIXED LIMIT)
-- ประกันบำนาญ: สูงสุด min(200,000 บาท, 15% ของรายได้) = สูงสุด {min(200000, int(gross * 0.15)):,.0f} บาท สำหรับรายได้นี้
-- ประกันสังคม มาตรา 40: สูงสุด 9,000 บาท (FIXED LIMIT)
-
-**กลุ่มกองทุนและการลงทุน (ขึ้นกับรายได้):**
-- RMF: สูงสุด min(500,000 บาท, 30% ของรายได้) = สูงสุด {max_rmf:,.0f} บาท สำหรับรายได้นี้
-- ThaiESG/ThaiESGX: สูงสุด min(300,000 บาท, 30% ของรายได้) = สูงสุด {min(300000, int(gross * 0.30)):,.0f} บาท แต่ละกอง
-- กองทุนสำรองเลี้ยงชีพ (PVD): สูงสุด min(500,000 บาท, 15% ของรายได้) = สูงสุด {max_pvd:,.0f} บาท
-- กองทุนบำเหน็จบำนาญข้าราชการ (กบข.): สูงสุด min(500,000 บาท, 30% ของรายได้)
-
-**กลุ่มอื่นๆ:**
-- Easy e-Receipt: สูงสุด 50,000 บาท (FIXED LIMIT)
-- ลงทุนหุ้นจดทะเบียนใหม่: สูงสุด 100,000 บาท (FIXED LIMIT)
-- เงินบริจาคทั่วไป: สูงสุด 10% ของรายได้
-- เงินบริจาคการศึกษา: ไม่จำกัด (แต่นับ 2 เท่า)
-
-⚠️ **คำเตือนสำคัญที่สุด:**
-1. การแนะนำเกินวงเงินที่กฎหมายกำหนด = **ผิดกฎหมาย** และทำให้ลูกค้าเสียหาย!
-2. **ห้ามคำนวณภาษีที่ประหยัดได้จากเงินลงทุนที่เกินวงเงิน!**
-3. ตัวอย่าง: ถ้าแนะนำประกันบำนาญ 274,920 บาท แต่วงเงินสูงสุดคือ 200,000 บาท
-   → ลดหย่อนได้จริงเพียง 200,000 บาท เท่านั้น
-   → ภาษีที่ประหยัดได้ = 200,000 × อัตราภาษีส่วนเพิ่ม (ไม่ใช่ 274,920!)
-
-📚 ข้อมูลจาก Knowledge Base:
+ข้อมูลจาก Knowledge Base:
 {retrieved_context}
 
-🎯 ภารกิจ: สร้าง 3 แผนการลงทุนที่แตกต่างกัน
+ภารกิจ: สร้าง 3 แผนการลงทุนที่แตกต่างกัน
 
-**กฎสำคัญ - ใช้เงินลงทุนเป๊ะๆ ตามที่กำหนด:**
+กฎสำคัญ:
 1. แผนที่ 1 (Conservative): total_investment = {tier_1:,.0f} บาท (เน้นประกัน + ความปลอดภัย)
 2. แผนที่ 2 (Balanced): total_investment = {tier_2:,.0f} บาท (สมดุล กระจายความเสี่ยง)
 3. แผนที่ 3 (Aggressive): total_investment = {tier_3:,.0f} บาท (เน้นการเติบโต + ลดหย่อนสูงสุด)
-4. ทุกแผนต้องมีความเสี่ยงระดับ "{risk_level}"
-5. 🚨 **ห้ามเกินวงเงินตามกฎหมาย:**
-   - ประกันชีวิต ≤ 100,000 บาท (รวมทุกประเภท)
-   - ประกันสุขภาพ ≤ 25,000 บาท
-   - ประกันชีวิต + สุขภาพ รวม ≤ 125,000 บาท
-   - ถ้าแนะนำ "ประกันชีวิตและสุขภาพ" ต้องแยกชัดเจนว่าเป็นประกันชีวิตเท่าไร สุขภาพเท่าไร
-{'6. ทุกแผนต้องมีประกันชีวิตอย่างน้อย 20,000 บาท (แต่ไม่เกิน 100,000)' if not has_life_insurance else ''}
-{'7. ทุกแผนต้องมีประกันสุขภาพอย่างน้อย 15,000 บาท (แต่ไม่เกิน 25,000)' if not has_health_insurance else ''}
-8. ควรใช้วงเงิน RMF ให้เต็มที่ (หรือใกล้เคียง) เพราะลดหย่อนได้สูง
-9. **ใช้ ThaiESG/ThaiESGX แทน SSF** (SSF ยกเลิกแล้วในปี 2568)
-10. สำหรับรายได้สูง (1,500,000+): ควรมีเงินบริจาคการศึกษา (นับ 2 เท่า)
-11. ⚠️ **สำคัญ:** เมื่อคำนวณเปอร์เซ็นต์การจัดสรรให้ระวังไม่ให้ยอดรวมเกินวงเงินตามกฎหมาย
+4. ทุกแผนต้องมี plan_type เป็น "{risk_level}"
+5. ทุกแผนต้องมี overall_risk เป็น "{risk_level}"
+6. ห้ามเกินวงเงินตามกฎหมาย (ประกันชีวิต ≤ 100,000, ประกันสุขภาพ ≤ 25,000, รวม ≤ 125,000){insurance_rules}
+7. ควรใช้วงเงิน RMF ให้เต็มที่
+8. ใช้ ThaiESG/ThaiESGX แทน SSF (SSF ยกเลิกแล้วปี 2568)
+9. รายได้ 1,500,000+ ควรมีเงินบริจาคการศึกษา (นับ 2 เท่า)
+10. percentage รวมในแต่ละแผนต้องใกล้เคียง 100 (99-101)
+11. ห้ามใส่ investment_amount และ tax_saving ใน allocations (ระบบคำนวณให้)
 
-**โครงสร้าง JSON ที่ต้องการ:**
+REQUIRED FIELDS ในแต่ละ plan (ห้ามขาด):
+- plan_id: string ("1", "2", "3")
+- plan_name: string
+- plan_type: string (ต้องเป็น "{risk_level}")
+- description: string
+- total_investment: int
+- total_tax_saving: int
+- overall_risk: string (ต้องเป็น "{risk_level}")
+- allocations: array
 
-```json
+REQUIRED FIELDS ในแต่ละ allocation (ห้ามขาด):
+- category: string
+- percentage: float
+- risk_level: string ("low", "medium", "high")
+- pros: array of string
+- cons: array of string
+
+ตอบเป็น JSON ตามโครงสร้างนี้เท่านั้น:
 {{
   "plans": [
     {{
@@ -348,26 +462,12 @@ class AIService:
       ]
     }}
   ]
-}}
-```
+}}"""
 
-**หมายเหตุสำคัญ:**
-- **ใช้ total_investment ตามที่กำหนดเท่านั้น:** Plan 1 = {tier_1:,.0f}, Plan 2 = {tier_2:,.0f}, Plan 3 = {tier_3:,.0f}
-- **ห้ามเปลี่ยนค่า total_investment หรือ total_tax_saving** จากตัวอย่าง (ตัวเลขจะถูกคำนวณใหม่ด้วย Python)
-- แต่ละ allocation ต้องมีครบทุก field: category, percentage, risk_level, pros, cons
-- **ห้ามใส่ investment_amount และ tax_saving ใน allocations** (ระบบจะคำนวณให้อัตโนมัติ)
-- pros และ cons ต้องเป็น array ของ string
-- **percentage รวมทั้งหมดในแต่ละแผนต้องใกล้เคียง 100** (ควรอยู่ในช่วง 99-101)
-- **อย่าใช้ SSF** เพราะยกเลิกแล้วในปี 2568 ใช้ ThaiESG/ThaiESGX แทน
-- แผนที่ 3 สำหรับรายได้ 1,500,000+ ควรมีเงินบริจาคการศึกษา
-- 🚨 **วงเงินตามกฎหมายที่ห้ามเกิน:**
-  * ประกันชีวิต: สูงสุด 100,000 บาท
-  * ประกันสุขภาพ: สูงสุด 25,000 บาท
-  * เมื่อคำนวณเป็นเงิน (total_investment × percentage) ต้องไม่เกินวงเงินที่กฎหมายกำหนด
-  * ตัวอย่าง: ถ้า total_investment = 800,000 และแนะนำประกันชีวิต 40% = 320,000 (ผิด! เกิน 100,000)
-  * ต้องปรับ: ประกันชีวิต ≤ 12.5% ของ 800,000 = 100,000 บาท
-
-ตอบเป็น JSON เท่านั้น ห้ามมี markdown หรือข้อความอื่น:"""
+        return [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=human_prompt)
+        ]
     
     async def generate_recommendations(
         self,
@@ -377,13 +477,13 @@ class AIService:
         expected_plans: Dict[str, Any] = None,
         test_case_id: int = 0
     ) -> Tuple[Dict[str, Any], str]:
-        """เรียก OpenAI เพื่อสร้างหลายแผนการลงทุน"""
+        """เรียก Ollama/OpenAI เพื่อสร้างหลายแผนการลงทุน"""
         try:
-            prompt = self.generate_tax_optimization_prompt(
+            messages = self.generate_tax_optimization_prompt(
                 request, tax_result, retrieved_context, expected_plans
             )
-            
-            response = await self.llm.ainvoke(prompt)
+
+            response = await self.llm.ainvoke(messages)
             raw_response = response.content
             
             # Parse JSON
@@ -411,6 +511,16 @@ class AIService:
             if len(result["plans"]) != 3:
                 raise ValueError(f"Expected 3 plans, got {len(result['plans'])}")
             
+            # Auto-fill missing fields before validation
+            plan_type_map = {"1": "conservative", "2": "moderate", "3": "aggressive"}
+            for i, plan in enumerate(result["plans"]):
+                if "plan_type" not in plan:
+                    plan["plan_type"] = plan_type_map.get(str(plan.get("plan_id", i+1)), request.risk_tolerance)
+                    print(f"⚡ Auto-filled plan_type for Plan {i+1}: {plan['plan_type']}")
+                if "overall_risk" not in plan:
+                    plan["overall_risk"] = request.risk_tolerance
+                    print(f"⚡ Auto-filled overall_risk for Plan {i+1}: {plan['overall_risk']}")
+
             # Validate each plan
             for i, plan in enumerate(result["plans"]):
                 required_fields = ["plan_id", "plan_name", "plan_type", "description",
