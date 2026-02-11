@@ -53,7 +53,10 @@ class Priority(str, Enum):
 
 @dataclass
 class UserProfile:
-    """User's financial profile for AI analysis"""
+    """User's financial profile for AI analysis (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
+    """
     age: int
     annual_income: float
     monthly_expenses: float
@@ -64,9 +67,8 @@ class UserProfile:
     marital_status: str
     dependents: int
 
-    # Existing tax deductions
+    # Existing tax deductions (ปี 2568 - ไม่รวม SSF)
     existing_rmf: float = 0
-    existing_ssf: float = 0
     existing_thai_esg: float = 0
     existing_insurance: float = 0
 
@@ -83,7 +85,6 @@ class UserProfile:
             'dependents': self.dependents,
             'existing_deductions': {
                 'rmf': self.existing_rmf,
-                'ssf': self.existing_ssf,
                 'thai_esg': self.existing_thai_esg,
                 'insurance': self.existing_insurance
             }
@@ -103,14 +104,16 @@ class ParsedGoal:
 
 @dataclass
 class TaxScenario:
-    """A tax optimization scenario"""
+    """A tax optimization scenario (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว
+    """
     id: int
     name: str
     description: str
 
-    # Financial details
+    # Financial details (ไม่รวม SSF)
     rmf_investment: float
-    ssf_investment: float
     thai_esg_investment: float
     total_investment: float
 
@@ -165,12 +168,13 @@ class AITaxAdvisor:
 2. เข้าใจเป้าหมายที่ผู้ใช้ต้องการ
 3. สร้าง 3 สถานการณ์การลงทุนที่เหมาะสม
 
-กฎภาษีไทย 2567-2568:
-- RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท
-- SSF: ลดหย่อนได้สูงสุด 200,000 บาท (รวม SSF+RMF ไม่เกิน 500,000)
-- ThaiESG: ลดหย่อนได้สูงสุด 300,000 บาท (ถึงปี 2575)
+กฎภาษีไทย ปี 2568:
+- RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท (ถือจนอายุ 55 ปี)
+- ThaiESG: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท (ถือ 8 ปี, ถึงปี 2575)
 
-อัตราภาษี:
+หมายเหตุสำคัญ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ SSF
+
+อัตราภาษี ปี 2568:
 - 0-150,000: 0%
 - 150,001-300,000: 5%
 - 300,001-500,000: 10%
@@ -182,7 +186,7 @@ class AITaxAdvisor:
 
 ตอบเป็น JSON array ของ 3 scenarios โดยแต่ละ scenario มี:
 - id, name, description
-- rmf_investment, ssf_investment, thai_esg_investment, total_investment
+- rmf_investment, thai_esg_investment, total_investment (ไม่มี SSF)
 - tax_saved, cash_remaining, risk_level (1-10)
 - explanation (อธิบายเหตุผลแบบเข้าใจง่าย)
 - pros (ข้อดี array)
@@ -311,10 +315,11 @@ class AITaxAdvisor:
 - ความเสี่ยงที่รับได้: {profile.risk_tolerance}
 - สถานะ: {profile.marital_status}, บุตร {profile.dependents} คน
 
-ลดหย่อนที่ใช้แล้ว:
+ลดหย่อนที่ใช้แล้ว (ปี 2568):
 - RMF: ฿{profile.existing_rmf:,.0f}
-- SSF: ฿{profile.existing_ssf:,.0f}
 - ThaiESG: ฿{profile.existing_thai_esg:,.0f}
+
+หมายเหตุ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
 
 เป้าหมายของผู้ใช้: "{user_input}"
 
@@ -378,11 +383,11 @@ class AITaxAdvisor:
         annual_savings = (profile.annual_income / 12 - profile.monthly_expenses) * 12
         available_budget = max(0, annual_savings - 100000)  # Keep 100K buffer
 
-        # Calculate remaining quota
+        # Calculate remaining quota (ปี 2568 - ไม่รวม SSF)
         rmf_limit = min(profile.annual_income * 0.30, 500000)
         rmf_remaining = max(0, rmf_limit - profile.existing_rmf)
-        ssf_remaining = max(0, 200000 - profile.existing_ssf)
-        thai_esg_remaining = max(0, 300000 - profile.existing_thai_esg)
+        thai_esg_limit = min(profile.annual_income * 0.30, 300000)
+        thai_esg_remaining = max(0, thai_esg_limit - profile.existing_thai_esg)
 
         # Fund info for context
         fund_info = ""
@@ -403,10 +408,11 @@ class AITaxAdvisor:
 - สถานะสมรส: {profile.marital_status}
 - บุตร/ผู้อุปการะ: {profile.dependents} คน
 
-สิทธิลดหย่อนคงเหลือ:
+สิทธิลดหย่อนคงเหลือ (ปี 2568):
 - RMF: ฿{rmf_remaining:,.0f} (จากทั้งหมด ฿{rmf_limit:,.0f})
-- SSF: ฿{ssf_remaining:,.0f} (จากทั้งหมด ฿200,000)
-- ThaiESG: ฿{thai_esg_remaining:,.0f} (จากทั้งหมด ฿300,000)
+- ThaiESG: ฿{thai_esg_remaining:,.0f} (จากทั้งหมด ฿{thai_esg_limit:,.0f})
+
+หมายเหตุ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ
 
 งบประมาณที่สามารถลงทุนได้: ประมาณ ฿{available_budget:,.0f}/ปี
 
@@ -447,14 +453,17 @@ class AITaxAdvisor:
 
             scenarios = []
             for i, s in enumerate(scenarios_data[:3], 1):
+                rmf = float(s.get('rmf_investment', 0))
+                thai_esg = float(s.get('thai_esg_investment', 0))
+                total = float(s.get('total_investment', rmf + thai_esg))
+
                 scenario = TaxScenario(
                     id=s.get('id', i),
                     name=s.get('name', f'สถานการณ์ {i}'),
                     description=s.get('description', ''),
-                    rmf_investment=float(s.get('rmf_investment', 0)),
-                    ssf_investment=float(s.get('ssf_investment', 0)),
-                    thai_esg_investment=float(s.get('thai_esg_investment', 0)),
-                    total_investment=float(s.get('total_investment', 0)),
+                    rmf_investment=rmf,
+                    thai_esg_investment=thai_esg,
+                    total_investment=total,
                     tax_saved=float(s.get('tax_saved', 0)),
                     cash_remaining=float(s.get('cash_remaining', available_budget)),
                     risk_level=int(s.get('risk_level', 5)),
@@ -480,21 +489,24 @@ class AITaxAdvisor:
         profile: UserProfile,
         goal: ParsedGoal
     ) -> List[TaxScenario]:
-        """Generate fallback scenarios if AI fails"""
+        """Generate fallback scenarios if AI fails (ปี 2568 - ไม่รวม SSF)"""
 
         rmf_limit = min(profile.annual_income * 0.30, 500000)
+        thai_esg_limit = min(profile.annual_income * 0.30, 300000)
         available = (profile.annual_income / 12 - profile.monthly_expenses) * 12 * 0.5
+
+        rmf_balanced = min(available * 0.5, rmf_limit)
+        thai_esg_balanced = min(available * 0.3, thai_esg_limit)
 
         return [
             TaxScenario(
                 id=1,
                 name="แผนสมดุล",
                 description="สมดุลระหว่างการประหยัดภาษีและเงินสดคงเหลือ",
-                rmf_investment=min(available * 0.5, rmf_limit),
-                ssf_investment=0,
-                thai_esg_investment=min(available * 0.3, 300000),
-                total_investment=available * 0.8,
-                tax_saved=available * 0.8 * 0.25,
+                rmf_investment=rmf_balanced,
+                thai_esg_investment=thai_esg_balanced,
+                total_investment=rmf_balanced + thai_esg_balanced,
+                tax_saved=(rmf_balanced + thai_esg_balanced) * 0.25,
                 cash_remaining=profile.existing_savings + available * 0.2,
                 risk_level=5,
                 recommended_funds=[],
@@ -507,16 +519,15 @@ class AITaxAdvisor:
             TaxScenario(
                 id=2,
                 name="แผนประหยัดภาษีสูงสุด",
-                description="เน้นลดหย่อนภาษีให้มากที่สุด",
+                description="เน้นลดหย่อนภาษีให้มากที่สุด (RMF + ThaiESG)",
                 rmf_investment=rmf_limit,
-                ssf_investment=0,
-                thai_esg_investment=300000,
-                total_investment=rmf_limit + 300000,
-                tax_saved=(rmf_limit + 300000) * 0.25,
+                thai_esg_investment=thai_esg_limit,
+                total_investment=rmf_limit + thai_esg_limit,
+                tax_saved=(rmf_limit + thai_esg_limit) * 0.25,
                 cash_remaining=profile.existing_savings,
                 risk_level=7,
                 recommended_funds=[],
-                explanation="แผนนี้เน้นใช้สิทธิลดหย่อนให้เต็มที่",
+                explanation="แผนนี้เน้นใช้สิทธิลดหย่อน RMF และ ThaiESG ให้เต็มที่",
                 pros=["ประหยัดภาษีสูงสุด"],
                 cons=["เงินสดเหลือน้อย"],
                 confidence=70,
@@ -527,10 +538,9 @@ class AITaxAdvisor:
                 name="แผนอนุรักษ์นิยม",
                 description="เน้นรักษาเงินสดและความปลอดภัย",
                 rmf_investment=min(available * 0.3, rmf_limit),
-                ssf_investment=0,
                 thai_esg_investment=min(available * 0.2, 100000),
-                total_investment=available * 0.5,
-                tax_saved=available * 0.5 * 0.25,
+                total_investment=min(available * 0.3, rmf_limit) + min(available * 0.2, 100000),
+                tax_saved=(min(available * 0.3, rmf_limit) + min(available * 0.2, 100000)) * 0.25,
                 cash_remaining=profile.existing_savings + available * 0.5,
                 risk_level=3,
                 recommended_funds=[],
@@ -571,13 +581,12 @@ class AITaxAdvisor:
         # Deduction limits
         limits = tax_service.calculate_deduction_limits(profile.annual_income)
 
-        # Used deductions
-        total_used = profile.existing_rmf + profile.existing_ssf + profile.existing_thai_esg
+        # Used deductions (ปี 2568 - ไม่รวม SSF)
+        total_used = profile.existing_rmf + profile.existing_thai_esg
 
         # Remaining quota
         remaining = {
             'rmf': max(0, limits['rmf_max'] - profile.existing_rmf),
-            'ssf': max(0, limits['ssf_max'] - profile.existing_ssf),
             'thai_esg': max(0, limits['thai_esg_max'] - profile.existing_thai_esg)
         }
         total_remaining = sum(remaining.values())
@@ -605,13 +614,13 @@ class AITaxAdvisor:
             'deduction_status': {
                 'used': {
                     'rmf': profile.existing_rmf,
-                    'ssf': profile.existing_ssf,
                     'thai_esg': profile.existing_thai_esg,
                     'total': total_used
                 },
                 'remaining': remaining,
                 'total_remaining': total_remaining,
-                'limits': limits
+                'limits': limits,
+                'note': 'SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)'
             },
             'opportunity': {
                 'max_additional_deduction': total_remaining,
@@ -743,7 +752,7 @@ async def example_usage():
     # Create advisor
     advisor = create_ai_advisor()
 
-    # Sample profile
+    # Sample profile (ปี 2568 - ไม่รวม SSF)
     profile = UserProfile(
         age=32,
         annual_income=1_200_000,
@@ -755,7 +764,6 @@ async def example_usage():
         marital_status="single",
         dependents=0,
         existing_rmf=0,
-        existing_ssf=0,
         existing_thai_esg=0
     )
 

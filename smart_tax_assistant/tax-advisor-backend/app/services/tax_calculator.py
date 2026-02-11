@@ -108,7 +108,9 @@ class TaxCalculatorService:
         - ประกันบำนาญ: สูงสุด 15% หรือ 200,000 (item 13)
         - RMF: สูงสุด 30% หรือ 500,000 (item 12)
         - ThaiESG: สูงสุด 30% หรือ 300,000 (item 21)
-        - PVD/กบข./ครู: มีขีดจำกัดตามเปอร์เซ็นต์
+
+        หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว เพราะใช้ได้เฉพาะ 40(1) เงินเดือน
+        โปรเจกต์นี้เน้น 40(6) และ 40(8) เท่านั้น
         """
         gross_income = request.gross_income
 
@@ -143,28 +145,7 @@ class TaxCalculatorService:
                 f"แต่สูงสุดได้ {max_thai_esg:,} บาท (30% ของรายได้ {gross_income:,} หรือ 300,000)"
             )
 
-        # PVD: สูงสุด 15% หรือ 500,000
-        max_pvd = min(int(gross_income * 0.15), 500000)
-        if request.provident_fund > max_pvd:
-            raise ValueError(
-                f"PVD เกินขีดจำกัด: ระบุ {request.provident_fund:,} บาท "
-                f"แต่สูงสุดได้ {max_pvd:,} บาท (15% ของรายได้ {gross_income:,} หรือ 500,000)"
-            )
-
-        # กบข.: สูงสุด 30% หรือ 500,000
-        max_gpf = min(int(gross_income * 0.30), 500000)
-        if request.gpf > max_gpf:
-            raise ValueError(
-                f"กบข. เกินขีดจำกัด: ระบุ {request.gpf:,} บาท "
-                f"แต่สูงสุดได้ {max_gpf:,} บาท (30% ของรายได้ {gross_income:,} หรือ 500,000)"
-            )
-
-        # กองทุนสงเคราะห์ครู: สูงสุด 15% หรือ 500,000
-        if request.pvd_teacher > max_pvd:
-            raise ValueError(
-                f"กองทุนสงเคราะห์ครู เกินขีดจำกัด: ระบุ {request.pvd_teacher:,} บาท "
-                f"แต่สูงสุดได้ {max_pvd:,} บาท (15% ของรายได้ {gross_income:,} หรือ 500,000)"
-            )
+        # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
 
         # เงินบริจาคทั่วไป: สูงสุด 10% ของรายได้หลังหักค่าใช้จ่าย
         # (จะคำนวณหลังหักค่าใช้จ่ายและค่าลดหย่อนแล้ว)
@@ -203,11 +184,9 @@ class TaxCalculatorService:
             request.health_insurance_parents +
             request.social_security +
 
-            # กลุ่มกองทุนและการลงทุน
+            # กลุ่มกองทุนและการลงทุน (สำหรับ 40(6) และ 40(8))
+            # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             request.pension_insurance +
-            request.provident_fund +
-            request.gpf +
-            request.pvd_teacher +
             request.rmf +
 
             # กลุ่มกองทุน ESG (ใหม่ปี 2568 - แทน SSF)

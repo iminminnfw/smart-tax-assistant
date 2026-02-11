@@ -47,3 +47,6 @@ next-env.d.ts
 .env
 .env*.local
 .env.example
+
+# SEC Open Data (large dataset - do not push)
+SEC_OPEN_DATA/

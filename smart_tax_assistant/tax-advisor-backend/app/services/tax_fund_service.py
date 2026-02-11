@@ -1,7 +1,10 @@
 """
 Tax Fund Service
-Filters SEC fund data for tax-saving funds (RMF, SSF, ThaiESG)
+Filters SEC fund data for tax-saving funds (RMF, ThaiESG)
 and provides tax optimization calculations
+
+Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (ซื้อได้ถึง 31 ธ.ค. 2567)
+      SSF is no longer tax-deductible (ended Dec 31, 2024)
 """
 
 from typing import List, Dict, Any, Optional
@@ -15,22 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 class TaxFundCategory(str, Enum):
-    """Tax-saving fund categories in Thailand"""
+    """Tax-saving fund categories in Thailand (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
+    """
     RMF = "RMF"           # Retirement Mutual Fund - 30% of income, max 500K
-    SSF = "SSF"           # Super Saving Fund - max 200K (combined with RMF max 500K)
-    THAI_ESG = "ThaiESG"  # Thai ESG Fund - max 300K
+    THAI_ESG = "ThaiESG"  # Thai ESG Fund - 30% of income, max 300K (valid until 2032)
 
 
 @dataclass
 class TaxDeductionLimits:
-    """Thai tax deduction limits for 2567-2568"""
+    """Thai tax deduction limits for ปี 2568
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
+    """
     RMF_PERCENT = 0.30          # 30% of assessable income
     RMF_MAX = 500_000           # Max 500,000 THB
-    SSF_MAX = 200_000           # Max 200,000 THB
-    SSF_RMF_COMBINED_MAX = 500_000  # Combined max 500,000 THB
+    THAI_ESG_PERCENT = 0.30     # 30% of assessable income
     THAI_ESG_MAX = 300_000      # Max 300,000 THB (valid until 2032)
 
-    # Tax brackets 2567
+    # Tax brackets 2568
     TAX_BRACKETS = [
         (150_000, 0),
         (300_000, 0.05),
@@ -45,10 +52,12 @@ class TaxDeductionLimits:
 
 class TaxFundService:
     """
-    Service for filtering and recommending tax-saving funds
+    Service for filtering and recommending tax-saving funds (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
 
     Features:
-    - Filter funds by tax category (RMF, SSF, ThaiESG)
+    - Filter funds by tax category (RMF, ThaiESG)
     - Calculate tax savings potential
     - Get fund recommendations with NAV data
     - Calculate optimal allocation
@@ -59,13 +68,10 @@ class TaxFundService:
         savings = service.calculate_tax_savings(income=1_200_000, rmf=200_000)
     """
 
-    # Keywords for fund classification
+    # Keywords for fund classification (ปี 2568 - ไม่รวม SSF)
     FUND_KEYWORDS = {
         TaxFundCategory.RMF: [
             'RMF', 'RETIREMENT', 'เพื่อการเลี้ยงชีพ', 'กองทุนรวมเพื่อการเลี้ยงชีพ'
-        ],
-        TaxFundCategory.SSF: [
-            'SSF', 'SUPER SAVING', 'ซูเปอร์เซฟวิ่ง'
         ],
         TaxFundCategory.THAI_ESG: [
             'THAIESG', 'THAI ESG', 'ESG', 'ไทยอีเอสจี', 'ธรรมาภิบาล'
@@ -92,10 +98,10 @@ class TaxFundService:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        Get tax-saving funds filtered by category
+        Get tax-saving funds filtered by category (ปี 2568)
 
         Args:
-            category: Filter by RMF, SSF, or ThaiESG (None for all)
+            category: Filter by RMF or ThaiESG (None for all)
             include_nav: Include current NAV data (slower)
             limit: Maximum number of funds to return
 
@@ -288,7 +294,9 @@ class TaxFundService:
 
     def calculate_deduction_limits(self, annual_income: float) -> Dict[str, float]:
         """
-        Calculate maximum deduction limits for each category
+        Calculate maximum deduction limits for each category (ปี 2568)
+
+        Note: SSF หมดสิทธิ์ลดหย่อนแล้ว
 
         Args:
             annual_income: Annual assessable income
@@ -301,29 +309,32 @@ class TaxFundService:
             self.limits.RMF_MAX
         )
 
+        thai_esg_limit = min(
+            annual_income * self.limits.THAI_ESG_PERCENT,
+            self.limits.THAI_ESG_MAX
+        )
+
         return {
             'rmf_max': rmf_limit,
-            'ssf_max': self.limits.SSF_MAX,
-            'ssf_rmf_combined_max': self.limits.SSF_RMF_COMBINED_MAX,
-            'thai_esg_max': self.limits.THAI_ESG_MAX,
-            'total_potential': rmf_limit + self.limits.THAI_ESG_MAX
+            'thai_esg_max': thai_esg_limit,
+            'total_potential': rmf_limit + thai_esg_limit
         }
 
     def calculate_tax_savings(
         self,
         annual_income: float,
         rmf_investment: float = 0,
-        ssf_investment: float = 0,
         thai_esg_investment: float = 0,
         existing_deductions: float = 0
     ) -> Dict[str, Any]:
         """
-        Calculate tax savings from tax fund investments
+        Calculate tax savings from tax fund investments (ปี 2568)
+
+        Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
 
         Args:
             annual_income: Annual assessable income
             rmf_investment: Amount invested in RMF
-            ssf_investment: Amount invested in SSF
             thai_esg_investment: Amount invested in ThaiESG
             existing_deductions: Other existing deductions
 
@@ -334,17 +345,9 @@ class TaxFundService:
 
         # Apply limits
         actual_rmf = min(rmf_investment, limits['rmf_max'])
-        actual_ssf = min(ssf_investment, limits['ssf_max'])
-
-        # Combined SSF+RMF limit
-        combined = actual_rmf + actual_ssf
-        if combined > limits['ssf_rmf_combined_max']:
-            excess = combined - limits['ssf_rmf_combined_max']
-            actual_ssf = max(0, actual_ssf - excess)
-
         actual_thai_esg = min(thai_esg_investment, limits['thai_esg_max'])
 
-        total_deduction = actual_rmf + actual_ssf + actual_thai_esg
+        total_deduction = actual_rmf + actual_thai_esg
 
         # Calculate tax without deductions
         tax_without = self.calculate_tax_bracket(annual_income)
@@ -359,13 +362,11 @@ class TaxFundService:
         return {
             'investments': {
                 'rmf': rmf_investment,
-                'ssf': ssf_investment,
                 'thai_esg': thai_esg_investment,
-                'total': rmf_investment + ssf_investment + thai_esg_investment
+                'total': rmf_investment + thai_esg_investment
             },
             'actual_deductions': {
                 'rmf': actual_rmf,
-                'ssf': actual_ssf,
                 'thai_esg': actual_thai_esg,
                 'total': total_deduction
             },
@@ -385,12 +386,13 @@ class TaxFundService:
         annual_income: float,
         available_budget: float,
         existing_rmf: float = 0,
-        existing_ssf: float = 0,
         existing_thai_esg: float = 0,
         priority: str = 'balanced'
     ) -> Dict[str, Any]:
         """
-        Calculate optimal allocation across tax fund categories
+        Calculate optimal allocation across tax fund categories (ปี 2568)
+
+        Note: SSF หมดสิทธิ์ลดหย่อนแล้ว
 
         Args:
             annual_income: Annual income
@@ -405,48 +407,35 @@ class TaxFundService:
 
         # Calculate remaining quota
         rmf_remaining = max(0, limits['rmf_max'] - existing_rmf)
-        ssf_remaining = max(0, limits['ssf_max'] - existing_ssf)
         thai_esg_remaining = max(0, limits['thai_esg_max'] - existing_thai_esg)
 
-        # Combined limit check
-        combined_remaining = limits['ssf_rmf_combined_max'] - existing_rmf - existing_ssf
-        ssf_remaining = min(ssf_remaining, combined_remaining)
-
-        total_remaining = rmf_remaining + ssf_remaining + thai_esg_remaining
+        total_remaining = rmf_remaining + thai_esg_remaining
         budget = min(available_budget, total_remaining)
 
         # Allocation strategy
-        allocation = {'rmf': 0, 'ssf': 0, 'thai_esg': 0}
+        allocation = {'rmf': 0, 'thai_esg': 0}
         remaining_budget = budget
 
         if priority == 'tax_max':
-            # Maximize deductions: RMF first, then ThaiESG, then SSF
+            # Maximize deductions: RMF first (higher limit), then ThaiESG
             allocation['rmf'] = min(remaining_budget, rmf_remaining)
             remaining_budget -= allocation['rmf']
 
             allocation['thai_esg'] = min(remaining_budget, thai_esg_remaining)
-            remaining_budget -= allocation['thai_esg']
-
-            allocation['ssf'] = min(remaining_budget, ssf_remaining)
 
         elif priority == 'balanced':
             # Balanced: distribute proportionally
             if total_remaining > 0:
                 rmf_ratio = rmf_remaining / total_remaining
-                ssf_ratio = ssf_remaining / total_remaining
                 esg_ratio = thai_esg_remaining / total_remaining
 
                 allocation['rmf'] = min(budget * rmf_ratio, rmf_remaining)
-                allocation['ssf'] = min(budget * ssf_ratio, ssf_remaining)
                 allocation['thai_esg'] = min(budget * esg_ratio, thai_esg_remaining)
 
         else:  # conservative
-            # ThaiESG first (newer, more flexible), then SSF, then RMF
+            # ThaiESG first (shorter holding period), then RMF
             allocation['thai_esg'] = min(remaining_budget, thai_esg_remaining)
             remaining_budget -= allocation['thai_esg']
-
-            allocation['ssf'] = min(remaining_budget, ssf_remaining)
-            remaining_budget -= allocation['ssf']
 
             allocation['rmf'] = min(remaining_budget, rmf_remaining)
 
@@ -454,7 +443,6 @@ class TaxFundService:
         savings = self.calculate_tax_savings(
             annual_income,
             rmf_investment=existing_rmf + allocation['rmf'],
-            ssf_investment=existing_ssf + allocation['ssf'],
             thai_esg_investment=existing_thai_esg + allocation['thai_esg']
         )
 
@@ -464,7 +452,6 @@ class TaxFundService:
             'remaining_budget': available_budget - sum(allocation.values()),
             'remaining_quota': {
                 'rmf': rmf_remaining - allocation['rmf'],
-                'ssf': ssf_remaining - allocation['ssf'],
                 'thai_esg': thai_esg_remaining - allocation['thai_esg']
             },
             'tax_savings': savings['tax_saved'],
@@ -478,7 +465,7 @@ class TaxFundService:
 
     async def get_fund_statistics(self) -> Dict[str, Any]:
         """
-        Get statistics about available tax funds
+        Get statistics about available tax funds (ปี 2568)
 
         Returns:
             Count and breakdown by category
@@ -489,7 +476,6 @@ class TaxFundService:
             'total': len(all_funds),
             'by_category': {
                 'RMF': 0,
-                'SSF': 0,
                 'ThaiESG': 0
             },
             'by_amc': {}
@@ -542,9 +528,9 @@ async def example_usage():
         print(f"  Tax saved: ฿{savings['tax_saved']:,.0f}")
         print(f"  Effective return: {savings['effective_return']:.1f}%")
 
-        # Optimal allocation
+        # Optimal allocation (ปี 2568 - ไม่รวม SSF)
         print("\n" + "=" * 60)
-        print("Example 3: Optimal Allocation")
+        print("Example 3: Optimal Allocation (RMF + ThaiESG)")
         print("=" * 60)
 
         allocation = tax_service.calculate_optimal_allocation(
@@ -555,7 +541,6 @@ async def example_usage():
 
         print(f"  Recommended:")
         print(f"    RMF: ฿{allocation['recommended_allocation']['rmf']:,.0f}")
-        print(f"    SSF: ฿{allocation['recommended_allocation']['ssf']:,.0f}")
         print(f"    ThaiESG: ฿{allocation['recommended_allocation']['thai_esg']:,.0f}")
         print(f"  Tax savings: ฿{allocation['tax_savings']:,.0f}")
 

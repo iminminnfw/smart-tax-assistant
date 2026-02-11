@@ -134,6 +134,7 @@ export default function AIOptimizerPage() {
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Check authentication
   useEffect(() => {
@@ -142,7 +143,65 @@ export default function AIOptimizerPage() {
     }
   }, [status, router]);
 
+  // Load profile from database
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (status !== 'authenticated') return;
+
+      try {
+        setProfileLoading(true);
+        const response = await fetch('/api/user/financial-profile');
+
+        if (response.ok) {
+          const data = await response.json();
+
+          // Update profile with data from DB
+          setProfile({
+            annual_income: data.annual_income || DEFAULT_PROFILE.annual_income,
+            age: data.age || DEFAULT_PROFILE.age,
+            risk_tolerance: data.risk_tolerance || DEFAULT_PROFILE.risk_tolerance,
+            current_deductions: data.current_deductions || {},
+            has_spouse: data.has_spouse || false,
+            num_children: data.num_children || 0,
+            num_parents: data.num_parents || 0,
+            has_disability: data.has_disability || false,
+            monthly_expenses: data.monthly_expenses || DEFAULT_PROFILE.monthly_expenses,
+            financial_goals: data.financial_goals || [],
+          });
+
+          console.log('Profile loaded from DB:', data.has_profile ? 'existing profile' : 'default values');
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+        // Keep default profile on error
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [status]);
+
   // API Functions
+  const saveProfile = async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/user/financial-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile),
+      });
+      if (!response.ok) {
+        console.warn('Failed to save profile to DB');
+        return false;
+      }
+      console.log('Profile saved to DB');
+      return true;
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      return false;
+    }
+  };
+
   const analyzeProfile = async (): Promise<ProfileAnalysis | null> => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/ai-optimizer/analyze-profile`, {
@@ -203,6 +262,9 @@ export default function AIOptimizerPage() {
     setError(null);
 
     try {
+      // Step 0: Save profile to DB (background, don't block)
+      saveProfile();
+
       // Step 1: Analyze profile
       setLoadingStep(1);
       const analysis = await analyzeProfile();
@@ -310,6 +372,9 @@ export default function AIOptimizerPage() {
                   <div className="flex items-center gap-2 mb-6">
                     <User className="w-5 h-5 text-blue-600" />
                     <h2 className="text-lg font-semibold text-slate-800">โปรไฟล์ของคุณ</h2>
+                    {profileLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-auto" />
+                    )}
                   </div>
 
                   <div className="space-y-4">

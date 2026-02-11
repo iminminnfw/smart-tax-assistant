@@ -5,6 +5,18 @@ FastAPI routes for AI-powered tax optimization
 Add to main.py:
     from app.routers import ai_optimizer
     app.include_router(ai_optimizer.router, prefix="/api/ai", tags=["AI Optimizer"])
+
+Endpoints:
+    - /health: Health check
+    - /tax-funds: Get tax-saving funds
+    - /calculate/*: Tax calculations
+    - /analyze-profile: Profile analysis
+    - /parse-goal: Goal parsing
+    - /generate-scenarios: Scenario generation
+    - /simulate: What-if simulator
+    - /smart-fund/{fund_code}: Deep fund analysis with 4 Intelligence Layers (NEW)
+    - /smart-funds/batch: Batch fund analysis with filtering (NEW)
+    - /smart-funds/top-picks: AI-recommended funds for user (NEW)
 """
 
 from fastapi import APIRouter, HTTPException, Query, Body
@@ -24,6 +36,16 @@ from ..services.ai_tax_advisor import (
     create_ai_advisor
 )
 
+# SmartFundAnalyzer - 4 Intelligence Layers
+from ..services.smart_fund_analyzer import (
+    SmartFundAnalyzer,
+    SmartFundAnalysisResult,
+    SmartAnalysisBatchResult,
+    FundType,
+    create_smart_analyzer
+)
+from ..services.sec_api_client import SECAPIClient
+
 logger = logging.getLogger(__name__)
 
 # ============================================================
@@ -31,7 +53,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 class UserProfileRequest(BaseModel):
-    """User profile for AI analysis"""
+    """User profile for AI analysis (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
+    """
     age: int = Field(..., ge=18, le=100, description="User's age")
     annual_income: float = Field(..., gt=0, description="Annual income in THB")
     monthly_expenses: float = Field(..., ge=0, description="Monthly expenses")
@@ -45,9 +70,8 @@ class UserProfileRequest(BaseModel):
     marital_status: str = Field(default="single", description="Marital status")
     dependents: int = Field(default=0, ge=0, description="Number of dependents")
 
-    # Existing deductions
+    # Existing deductions (ปี 2568 - ไม่รวม SSF)
     existing_rmf: float = Field(default=0, ge=0, description="Existing RMF investment")
-    existing_ssf: float = Field(default=0, ge=0, description="Existing SSF investment")
     existing_thai_esg: float = Field(default=0, ge=0, description="Existing ThaiESG investment")
     existing_insurance: float = Field(default=0, ge=0, description="Existing insurance premium")
 
@@ -69,24 +93,84 @@ class ScenarioRequest(BaseModel):
 
 
 class TaxCalculationRequest(BaseModel):
-    """Request for tax calculation"""
+    """Request for tax calculation (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว
+    """
     annual_income: float = Field(..., gt=0)
     rmf_investment: float = Field(default=0, ge=0)
-    ssf_investment: float = Field(default=0, ge=0)
     thai_esg_investment: float = Field(default=0, ge=0)
     existing_deductions: float = Field(default=0, ge=0)
 
 
 class AllocationRequest(BaseModel):
-    """Request for optimal allocation"""
+    """Request for optimal allocation (ปี 2568)
+
+    Note: SSF หมดสิทธิ์ลดหย่อนแล้ว
+    """
     annual_income: float = Field(..., gt=0)
     available_budget: float = Field(..., gt=0)
     existing_rmf: float = Field(default=0, ge=0)
-    existing_ssf: float = Field(default=0, ge=0)
     existing_thai_esg: float = Field(default=0, ge=0)
     priority: str = Field(
         default="balanced",
         description="Priority: tax_max, balanced, conservative"
+    )
+
+
+class SmartFundBatchRequest(BaseModel):
+    """Request for batch fund analysis with 4 Intelligence Layers"""
+    fund_codes: Optional[List[str]] = Field(
+        None,
+        description="List of fund codes to analyze. If empty, analyzes all tax funds."
+    )
+    annual_income: float = Field(
+        ...,
+        gt=0,
+        description="User's annual income for tax bracket calculation"
+    )
+    filter_accumulating_only: bool = Field(
+        default=False,
+        description="Only include funds with no dividend (tax-efficient)"
+    )
+    max_risk_level: Optional[int] = Field(
+        None,
+        ge=1,
+        le=8,
+        description="Maximum risk level (1-8)"
+    )
+    min_return_1y: Optional[float] = Field(
+        None,
+        description="Minimum 1-year return percentage"
+    )
+    fund_type: Optional[str] = Field(
+        None,
+        description="Filter by fund type: RMF, ThaiESG"
+    )
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum funds to return"
+    )
+
+
+class TopPicksRequest(BaseModel):
+    """Request for AI-recommended top fund picks"""
+    annual_income: float = Field(..., gt=0, description="User's annual income")
+    risk_tolerance: str = Field(
+        default="moderate",
+        description="conservative, moderate, aggressive"
+    )
+    fund_type: Optional[str] = Field(
+        None,
+        description="RMF or ThaiESG"
+    )
+    top_n: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of top picks to return"
     )
 
 
@@ -97,6 +181,8 @@ class AllocationRequest(BaseModel):
 sec_service: Optional[SECService] = None
 tax_fund_service: Optional[TaxFundService] = None
 ai_advisor: Optional[AITaxAdvisor] = None
+smart_fund_analyzer: Optional[SmartFundAnalyzer] = None
+sec_api_client: Optional[SECAPIClient] = None
 
 
 # ============================================================
@@ -111,7 +197,7 @@ async def lifespan(app):
     Add to FastAPI app:
         app = FastAPI(lifespan=lifespan)
     """
-    global sec_service, tax_fund_service, ai_advisor
+    global sec_service, tax_fund_service, ai_advisor, smart_fund_analyzer, sec_api_client
 
     # Startup
     logger.info("Initializing AI Optimizer services...")
@@ -140,6 +226,17 @@ async def lifespan(app):
             logger.warning("⚠️ No LLM API key found. AI features will be limited.")
             ai_advisor = None
 
+        # Initialize SEC API Client and SmartFundAnalyzer
+        sec_api_key = os.getenv("SEC_API_KEY")
+        if sec_api_key:
+            sec_api_client = SECAPIClient(api_key=sec_api_key)
+            smart_fund_analyzer = SmartFundAnalyzer(sec_client=sec_api_client)
+            logger.info("✅ SmartFundAnalyzer initialized with 4 Intelligence Layers")
+        else:
+            logger.warning("⚠️ SEC_API_KEY not set. SmartFundAnalyzer will not be available.")
+            sec_api_client = None
+            smart_fund_analyzer = None
+
         logger.info("✅ AI Optimizer services initialized")
 
     except Exception as e:
@@ -151,6 +248,10 @@ async def lifespan(app):
     if sec_service:
         await sec_service.close()
         logger.info("✅ SEC Service closed")
+
+    if sec_api_client:
+        await sec_api_client.close()
+        logger.info("✅ SEC API Client closed")
 
 
 # ============================================================
@@ -173,7 +274,15 @@ async def health_check():
             "sec_service": sec_service is not None,
             "tax_fund_service": tax_fund_service is not None,
             "ai_advisor": ai_advisor is not None,
-            "ai_provider": ai_advisor.provider if ai_advisor else None
+            "ai_provider": ai_advisor.provider if ai_advisor else None,
+            "smart_fund_analyzer": smart_fund_analyzer is not None,
+            "sec_api_client": sec_api_client is not None
+        },
+        "features": {
+            "4_intelligence_layers": smart_fund_analyzer is not None,
+            "goal_parsing": ai_advisor is not None,
+            "scenario_generation": True,
+            "tax_calculation": tax_fund_service is not None
         }
     }
 
@@ -186,7 +295,7 @@ async def health_check():
 async def get_tax_funds(
     category: Optional[str] = Query(
         None,
-        description="Filter by category: RMF, SSF, ThaiESG"
+        description="Filter by category: RMF, ThaiESG (SSF หมดสิทธิ์แล้ว)"
     ),
     include_nav: bool = Query(False, description="Include NAV data"),
     limit: int = Query(50, ge=1, le=200, description="Maximum results")
@@ -194,7 +303,7 @@ async def get_tax_funds(
     """
     Get tax-saving funds from SEC API
 
-    Returns filtered list of RMF, SSF, and ThaiESG funds.
+    Returns filtered list of RMF and ThaiESG funds (SSF หมดสิทธิ์แล้ว).
     """
     if tax_fund_service is None:
         raise HTTPException(503, "Tax fund service not initialized")
@@ -289,7 +398,6 @@ async def calculate_tax_savings(request: TaxCalculationRequest):
         result = tax_fund_service.calculate_tax_savings(
             annual_income=request.annual_income,
             rmf_investment=request.rmf_investment,
-            ssf_investment=request.ssf_investment,
             thai_esg_investment=request.thai_esg_investment,
             existing_deductions=request.existing_deductions
         )
@@ -317,7 +425,6 @@ async def calculate_optimal_allocation(request: AllocationRequest):
             annual_income=request.annual_income,
             available_budget=request.available_budget,
             existing_rmf=request.existing_rmf,
-            existing_ssf=request.existing_ssf,
             existing_thai_esg=request.existing_thai_esg,
             priority=request.priority
         )
@@ -382,9 +489,9 @@ async def analyze_profile(profile: UserProfileRequest):
                 "deduction_limits": limits,
                 "remaining_quota": {
                     "rmf": max(0, limits['rmf_max'] - profile.existing_rmf),
-                    "ssf": max(0, limits['ssf_max'] - profile.existing_ssf),
                     "thai_esg": max(0, limits['thai_esg_max'] - profile.existing_thai_esg)
-                }
+                },
+                "note": "SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)"
             }
         }
 
@@ -400,7 +507,6 @@ async def analyze_profile(profile: UserProfileRequest):
             marital_status=profile.marital_status,
             dependents=profile.dependents,
             existing_rmf=profile.existing_rmf,
-            existing_ssf=profile.existing_ssf,
             existing_thai_esg=profile.existing_thai_esg,
             existing_insurance=profile.existing_insurance
         )
@@ -443,7 +549,6 @@ async def parse_goal(request: GoalRequest):
             marital_status=request.profile.marital_status,
             dependents=request.profile.dependents,
             existing_rmf=request.profile.existing_rmf,
-            existing_ssf=request.profile.existing_ssf,
             existing_thai_esg=request.profile.existing_thai_esg,
             existing_insurance=request.profile.existing_insurance
         )
@@ -489,7 +594,6 @@ async def generate_scenarios(request: ScenarioRequest):
             marital_status=request.profile.marital_status,
             dependents=request.profile.dependents,
             existing_rmf=request.profile.existing_rmf,
-            existing_ssf=request.profile.existing_ssf,
             existing_thai_esg=request.profile.existing_thai_esg,
             existing_insurance=request.profile.existing_insurance
         )
@@ -529,7 +633,6 @@ async def generate_scenarios(request: ScenarioRequest):
                         "description": s.description,
                         "investments": {
                             "rmf": s.rmf_investment,
-                            "ssf": s.ssf_investment,
                             "thai_esg": s.thai_esg_investment,
                             "total": s.total_investment
                         },
@@ -559,8 +662,7 @@ async def generate_scenarios(request: ScenarioRequest):
                 annual_income=request.profile.annual_income,
                 available_budget=(request.profile.annual_income / 12 - request.profile.monthly_expenses) * 12 * 0.5,
                 existing_rmf=request.profile.existing_rmf,
-                existing_ssf=request.profile.existing_ssf,
-                existing_thai_esg=request.profile.existing_thai_esg,
+                    existing_thai_esg=request.profile.existing_thai_esg,
                 priority='balanced'
             )
 
@@ -604,7 +706,6 @@ async def generate_scenarios(request: ScenarioRequest):
 async def simulate_scenario(
     annual_income: float = Body(..., gt=0),
     rmf_investment: float = Body(0, ge=0),
-    ssf_investment: float = Body(0, ge=0),
     thai_esg_investment: float = Body(0, ge=0),
     cash_reserve: float = Body(0, ge=0)
 ):
@@ -617,16 +718,15 @@ async def simulate_scenario(
         raise HTTPException(503, "Tax fund service not initialized")
 
     try:
-        # Calculate tax savings
+        # Calculate tax savings (ปี 2568 - ไม่รวม SSF)
         savings = tax_fund_service.calculate_tax_savings(
             annual_income=annual_income,
             rmf_investment=rmf_investment,
-            ssf_investment=ssf_investment,
             thai_esg_investment=thai_esg_investment
         )
 
         # Calculate remaining budget
-        total_investment = rmf_investment + ssf_investment + thai_esg_investment
+        total_investment = rmf_investment + thai_esg_investment
         estimated_monthly_savings = annual_income / 12 * 0.3  # Assume 30% savings rate
         annual_savings = estimated_monthly_savings * 12
         cash_after_investment = annual_savings - total_investment + cash_reserve
@@ -637,7 +737,6 @@ async def simulate_scenario(
                 "inputs": {
                     "annual_income": annual_income,
                     "rmf": rmf_investment,
-                    "ssf": ssf_investment,
                     "thai_esg": thai_esg_investment,
                     "total_investment": total_investment,
                     "cash_reserve": cash_reserve
@@ -657,6 +756,356 @@ async def simulate_scenario(
 
     except Exception as e:
         logger.error(f"Simulation failed: {e}")
+        raise HTTPException(500, str(e))
+
+
+# ============================================================
+# Smart Fund Analyzer Endpoints (4 Intelligence Layers)
+# ============================================================
+
+@router.get("/smart-fund/{fund_code}")
+async def analyze_fund_smart(
+    fund_code: str,
+    annual_income: float = Query(
+        1000000,
+        gt=0,
+        description="User's annual income for tax bracket calculation"
+    )
+):
+    """
+    Deep analysis of a single fund with 4 Intelligence Layers
+
+    Returns comprehensive analysis including:
+    - **Layer 1: True Exposure** - Feeder Fund detection (CIV/FIF/FOF), Master Fund identification, FX risk
+    - **Layer 2: Performance Intelligence** - Alpha/Beta with benchmark context, Sharpe ratio analysis
+    - **Layer 3: Tax Efficiency** - Dividend policy (Y/N), tax leakage calculation for your bracket
+    - **Layer 4: Compliance Evidence** - Official SEC factsheet URLs, data freshness, disclaimers
+
+    Example:
+        GET /api/ai/smart-fund/KFGTECH-A?annual_income=1200000
+    """
+    if smart_fund_analyzer is None:
+        raise HTTPException(
+            503,
+            "SmartFundAnalyzer not available. Set SEC_API_KEY environment variable."
+        )
+
+    try:
+        # Calculate user's tax bracket
+        tax_bracket = smart_fund_analyzer.get_user_tax_bracket(annual_income)
+
+        # Perform deep analysis
+        result = await smart_fund_analyzer.analyze_fund(
+            fund_code=fund_code,
+            user_tax_bracket=tax_bracket
+        )
+
+        return {
+            "success": True,
+            "fund_code": fund_code,
+            "user_context": {
+                "annual_income": annual_income,
+                "tax_bracket": f"{tax_bracket:.0%}",
+                "tax_bracket_decimal": tax_bracket
+            },
+            "analysis": result.model_dump(),
+            "summary": {
+                "overall_score": result.overall_score,
+                "is_feeder_fund": result.true_exposure.is_feeder_fund,
+                "tax_efficiency": result.tax_efficiency.tax_efficiency_rating,
+                "dividend_policy": result.tax_efficiency.dividend_policy,
+                "is_recommended": result.tax_efficiency.is_recommended_for_user,
+                "has_factsheet": result.evidence.pdf_factsheet_url is not None
+            }
+        }
+
+    except ValueError as e:
+        raise HTTPException(404, f"Fund not found: {fund_code}")
+    except Exception as e:
+        logger.error(f"Smart fund analysis failed for {fund_code}: {e}")
+        raise HTTPException(500, str(e))
+
+
+@router.post("/smart-funds/batch")
+async def analyze_funds_batch(request: SmartFundBatchRequest):
+    """
+    Batch analysis of multiple funds with filtering and ranking
+
+    Analyzes funds using 4 Intelligence Layers and returns ranked results
+    based on overall suitability score for the user's tax bracket.
+
+    Filters available:
+    - `filter_accumulating_only`: Only funds with dividend_policy="N" (tax-efficient)
+    - `max_risk_level`: Maximum risk spectrum (1-8)
+    - `min_return_1y`: Minimum 1-year return percentage
+    - `fund_type`: RMF or ThaiESG
+
+    Example:
+        POST /api/ai/smart-funds/batch
+        {
+            "annual_income": 1200000,
+            "filter_accumulating_only": true,
+            "max_risk_level": 6,
+            "fund_type": "RMF",
+            "limit": 10
+        }
+    """
+    if smart_fund_analyzer is None:
+        raise HTTPException(
+            503,
+            "SmartFundAnalyzer not available. Set SEC_API_KEY environment variable."
+        )
+
+    try:
+        # Calculate user's tax bracket
+        tax_bracket = smart_fund_analyzer.get_user_tax_bracket(request.annual_income)
+
+        # Parse fund type filter
+        fund_type_filter = None
+        if request.fund_type:
+            try:
+                fund_type_filter = FundType(request.fund_type.upper())
+            except ValueError:
+                raise HTTPException(400, f"Invalid fund_type: {request.fund_type}. Use RMF or ThaiESG.")
+
+        # Perform batch analysis
+        result = await smart_fund_analyzer.analyze_funds_batch(
+            fund_codes=request.fund_codes,
+            user_tax_bracket=tax_bracket,
+            fund_type_filter=fund_type_filter,
+            filter_accumulating_only=request.filter_accumulating_only,
+            max_risk_level=request.max_risk_level,
+            min_return_1y=request.min_return_1y,
+            limit=request.limit
+        )
+
+        # Convert to response format
+        funds_summary = []
+        for fund in result.funds:
+            funds_summary.append({
+                "rank": fund.recommendation_rank,
+                "fund_code": fund.fund_info.fund_code,
+                "fund_name": fund.fund_info.fund_name_th or fund.fund_info.fund_name_en,
+                "fund_type": fund.fund_info.fund_type,
+                "overall_score": fund.overall_score,
+                "nav": fund.fund_info.nav_per_unit,
+                "nav_date": str(fund.fund_info.nav_date) if fund.fund_info.nav_date else None,
+                "return_1y": fund.performance.return_1y,
+                "risk_level": fund.fund_info.risk_spectrum,
+                "intelligence": {
+                    "is_feeder_fund": fund.true_exposure.is_feeder_fund,
+                    "exposure_type": fund.true_exposure.exposure_type,
+                    "master_fund": fund.true_exposure.master_fund_name,
+                    "alpha": fund.performance_intelligence.alpha,
+                    "sharpe_ratio": fund.performance_intelligence.sharpe_ratio,
+                    "dividend_policy": fund.tax_efficiency.dividend_policy,
+                    "tax_efficiency": fund.tax_efficiency.tax_efficiency_rating,
+                    "is_recommended": fund.tax_efficiency.is_recommended_for_user
+                },
+                "factsheet_url": fund.evidence.pdf_factsheet_url
+            })
+
+        return {
+            "success": True,
+            "user_context": {
+                "annual_income": request.annual_income,
+                "tax_bracket": f"{tax_bracket:.0%}",
+                "tax_bracket_decimal": tax_bracket
+            },
+            "filters_applied": result.filters_applied,
+            "statistics": {
+                "total_analyzed": result.total_funds_analyzed,
+                "after_filters": result.recommended_funds_count,
+                "returned": len(funds_summary),
+                "analysis_time_ms": result.analysis_duration_ms
+            },
+            "funds": funds_summary,
+            "full_analysis": [f.model_dump() for f in result.funds]  # Full data for detailed view
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Batch fund analysis failed: {e}")
+        raise HTTPException(500, str(e))
+
+
+@router.post("/smart-funds/top-picks")
+async def get_smart_top_picks(request: TopPicksRequest):
+    """
+    Get AI-recommended top fund picks for a user
+
+    Returns the best funds based on:
+    - User's tax bracket (high income → prefer accumulating funds)
+    - Risk tolerance
+    - Fund type preference
+    - 4 Intelligence Layers scoring
+
+    Example:
+        POST /api/ai/smart-funds/top-picks
+        {
+            "annual_income": 1500000,
+            "risk_tolerance": "moderate",
+            "fund_type": "RMF",
+            "top_n": 5
+        }
+    """
+    if smart_fund_analyzer is None:
+        raise HTTPException(
+            503,
+            "SmartFundAnalyzer not available. Set SEC_API_KEY environment variable."
+        )
+
+    try:
+        # Calculate user's tax bracket
+        tax_bracket = smart_fund_analyzer.get_user_tax_bracket(request.annual_income)
+
+        # Determine filters based on user profile
+        filter_accumulating = tax_bracket >= 0.25  # High income → prefer no dividend
+
+        # Map risk tolerance to max risk level
+        risk_level_map = {
+            "conservative": 4,
+            "moderate": 6,
+            "aggressive": 8
+        }
+        max_risk = risk_level_map.get(request.risk_tolerance, 6)
+
+        # Parse fund type
+        fund_type_filter = None
+        if request.fund_type:
+            try:
+                fund_type_filter = FundType(request.fund_type.upper())
+            except ValueError:
+                pass
+
+        # Get top picks
+        result = await smart_fund_analyzer.analyze_funds_batch(
+            user_tax_bracket=tax_bracket,
+            fund_type_filter=fund_type_filter,
+            filter_accumulating_only=filter_accumulating,
+            max_risk_level=max_risk,
+            limit=request.top_n
+        )
+
+        # Format response
+        top_picks = []
+        for fund in result.funds:
+            # Generate recommendation reason
+            reasons = []
+            if fund.tax_efficiency.is_recommended_for_user:
+                reasons.append(f"เหมาะกับฐานภาษี {tax_bracket:.0%}")
+            if fund.tax_efficiency.dividend_policy == "N":
+                reasons.append("ไม่จ่ายปันผล (ประหยัดภาษี)")
+            if fund.performance_intelligence.alpha and fund.performance_intelligence.alpha > 0:
+                reasons.append(f"Alpha +{fund.performance_intelligence.alpha:.2f}%")
+            if fund.performance.return_1y and fund.performance.return_1y > 5:
+                reasons.append(f"ผลตอบแทน 1 ปี {fund.performance.return_1y:.1f}%")
+            if not fund.true_exposure.is_feeder_fund:
+                reasons.append("ลงทุนโดยตรง")
+
+            top_picks.append({
+                "rank": fund.recommendation_rank,
+                "fund_code": fund.fund_info.fund_code,
+                "fund_name": fund.fund_info.fund_name_th or fund.fund_info.fund_name_en,
+                "fund_type": fund.fund_info.fund_type,
+                "amc": fund.fund_info.amc_name_th,
+                "overall_score": fund.overall_score,
+                "recommendation_reasons": reasons,
+                "key_metrics": {
+                    "nav": fund.fund_info.nav_per_unit,
+                    "return_1y": fund.performance.return_1y,
+                    "return_3y": fund.performance.return_3y,
+                    "risk_level": fund.fund_info.risk_spectrum,
+                    "alpha": fund.performance_intelligence.alpha,
+                    "sharpe": fund.performance_intelligence.sharpe_ratio
+                },
+                "tax_analysis": {
+                    "dividend_policy": fund.tax_efficiency.dividend_policy,
+                    "tax_efficiency": fund.tax_efficiency.tax_efficiency_rating,
+                    "recommendation": fund.tax_efficiency.recommendation
+                },
+                "exposure": {
+                    "is_feeder_fund": fund.true_exposure.is_feeder_fund,
+                    "type": fund.true_exposure.exposure_type,
+                    "master_fund": fund.true_exposure.master_fund_name,
+                    "warnings_count": len(fund.true_exposure.warnings)
+                },
+                "evidence": {
+                    "factsheet_url": fund.evidence.pdf_factsheet_url,
+                    "data_fresh": fund.evidence.is_data_fresh
+                }
+            })
+
+        return {
+            "success": True,
+            "user_profile": {
+                "annual_income": request.annual_income,
+                "tax_bracket": f"{tax_bracket:.0%}",
+                "risk_tolerance": request.risk_tolerance,
+                "fund_type_preference": request.fund_type
+            },
+            "selection_criteria": {
+                "prefer_accumulating": filter_accumulating,
+                "max_risk_level": max_risk,
+                "reason": f"ฐานภาษี {tax_bracket:.0%} {'ควรเลือกกองทุนไม่จ่ายปันผล' if filter_accumulating else 'สามารถเลือกกองทุนจ่ายปันผลได้'}"
+            },
+            "top_picks": top_picks,
+            "disclaimer": "การลงทุนมีความเสี่ยง ผู้ลงทุนควรศึกษาข้อมูลก่อนตัดสินใจลงทุน"
+        }
+
+    except Exception as e:
+        logger.error(f"Top picks generation failed: {e}")
+        raise HTTPException(500, str(e))
+
+
+@router.get("/smart-fund/{fund_code}/compare")
+async def compare_with_benchmark(
+    fund_code: str,
+    annual_income: float = Query(1000000, gt=0)
+):
+    """
+    Get fund analysis with detailed benchmark comparison
+
+    Returns Layer 2 (Performance Intelligence) in detail with
+    contextualized narratives in Thai.
+    """
+    if smart_fund_analyzer is None:
+        raise HTTPException(503, "SmartFundAnalyzer not available.")
+
+    try:
+        tax_bracket = smart_fund_analyzer.get_user_tax_bracket(annual_income)
+        result = await smart_fund_analyzer.analyze_fund(fund_code, tax_bracket)
+
+        perf = result.performance_intelligence
+
+        return {
+            "success": True,
+            "fund_code": fund_code,
+            "benchmark_analysis": {
+                "benchmark_name": perf.benchmark.benchmark_name,
+                "fund_return_1y": perf.benchmark.fund_return,
+                "alpha": perf.alpha,
+                "beta": perf.beta,
+                "sharpe_ratio": perf.sharpe_ratio,
+                "max_drawdown": perf.max_drawdown,
+                "tracking_error": perf.tracking_error
+            },
+            "narratives": {
+                "alpha": perf.alpha_narrative,
+                "beta": perf.beta_narrative,
+                "sharpe": perf.sharpe_narrative,
+                "overall": perf.overall_verdict
+            },
+            "assessment": {
+                "shows_manager_skill": perf.shows_manager_skill,
+                "recommend_index_alternative": perf.recommend_index_alternative,
+                "verdict": "ผู้จัดการกองทุนสร้างผลตอบแทนเหนือตลาด" if perf.shows_manager_skill else "ควรพิจารณากองทุน Index ที่ค่าธรรมเนียมถูกกว่า" if perf.recommend_index_alternative else "ผลงานอยู่ในเกณฑ์ปกติ"
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(500, str(e))
 
 

@@ -139,11 +139,9 @@ class TaxCalculationRequest(BaseModel):
     health_insurance_parents: int = Field(0, description="เบี้ยประกันสุขภาพบิดามารดา (สูงสุด 4 คน)", ge=0, le=60000)
     social_security: int = Field(0, description="ประกันสังคม", ge=0, le=9000)
     
-    # กลุ่มกองทุนและการลงทุน
+    # กลุ่มกองทุนและการลงทุน (สำหรับ 40(6) และ 40(8) เท่านั้น)
+    # หมายเหตุ: PVD, กบข., กบศ. ลบออกแล้ว เพราะใช้ได้เฉพาะ 40(1) เงินเดือน
     pension_insurance: int = Field(0, description="เบี้ยประกันบำนาญ", ge=0, le=200000)
-    provident_fund: int = Field(0, description="กองทุนสำรองเลี้ยงชีพ (PVD)", ge=0, le=500000)
-    gpf: int = Field(0, description="กองทุนบำเหน็จบำนาญข้าราชการ (กบข.)", ge=0, le=500000)
-    pvd_teacher: int = Field(0, description="กองทุนสงเคราะห์ครูโรงเรียนเอกชน", ge=0, le=500000)
     rmf: int = Field(0, description="RMF", ge=0, le=500000)
     
     # กลุ่มกองทุน ESG (ใหม่ปี 2568 - แทน SSF)

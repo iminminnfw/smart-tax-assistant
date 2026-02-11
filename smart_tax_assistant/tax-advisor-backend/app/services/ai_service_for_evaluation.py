@@ -81,20 +81,19 @@ class AIServiceForEvaluation:
         taxable = tax_result.taxable_income
         current_tax = tax_result.tax_amount
         
-        # คำนวณวงเงินที่เหลือ - ปี 2568
+        # คำนวณวงเงินที่เหลือ - ปี 2568 (สำหรับ 40(6) และ 40(8) เท่านั้น)
+        # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
         max_rmf = min(gross * 0.30, 500000)
         max_thai_esg = 300000  # ใหม่ปี 2568
         max_thai_esgx_new = 300000  # ใหม่ปี 2568
         max_thai_esgx_ltf = 300000  # ใหม่ปี 2568
         max_pension = min(gross * 0.15, 200000)
-        max_pvd = min(gross * 0.15, 500000)
-        
+
         remaining_rmf = max_rmf - request.rmf
         remaining_thai_esg = max_thai_esg - request.thai_esg
         remaining_thai_esgx_new = max_thai_esgx_new - request.thai_esgx_new
         remaining_thai_esgx_ltf = max_thai_esgx_ltf - request.thai_esgx_ltf
         remaining_pension = max_pension - request.pension_insurance
-        remaining_pvd = max_pvd - request.provident_fund
         remaining_life = 100000 - request.life_insurance
         remaining_life_pension = 10000 - request.life_insurance_pension
         remaining_health = 25000 - request.health_insurance
@@ -245,30 +244,8 @@ class AIServiceForEvaluation:
                     "สภาพคล่องต่ำ"
                 ]
             },
-            "กองทุนสำรองเลี้ยงชีพ": {
-                "pros": [
-                    "ลดหย่อนภาษีได้สูงถึง 15% หรือ 500,000 บาท",
-                    "นายจ้างสมทบเงิน",
-                    "สะสมเงินเกษียณระยะยาว"
-                ],
-                "cons": [
-                    "ถอนได้เมื่อลาออกหรือเกษียณเท่านั้น",
-                    "ผลตอบแทนขึ้นกับนโยบายของบริษัท",
-                    "ไม่เหมาะสำหรับผู้ที่เปลี่ยนงานบ่อย"
-                ]
-            },
-            "กองทุนบำเหน็จบำนาญข้าราชการ": {
-                "pros": [
-                    "ลดหย่อนภาษีได้สูงถึง 500,000 บาท",
-                    "รัฐบาลสมทบเงิน",
-                    "ความมั่นคงสูง"
-                ],
-                "cons": [
-                    "เฉพาะข้าราชการเท่านั้น",
-                    "ถอนได้เมื่อเกษียณ",
-                    "ผลตอบแทนค่อนข้างต่ำ"
-                ]
-            },
+            # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
+            # โปรเจกต์นี้เน้น 40(6) และ 40(8) เท่านั้น
             "เงินบริจาคทั่วไป": {
                 "pros": [
                     "ลดหย่อนภาษีได้ 10% ของรายได้",
@@ -381,13 +358,13 @@ class AIServiceForEvaluation:
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
 - ระดับความเสี่ยงที่ลูกค้าเลือก: {risk_thai}
 
-💰 วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568):
+💰 วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568 - สำหรับ 40(6) และ 40(8)):
 - RMF: เหลือ {remaining_rmf:,.0f} บาท (สูงสุด {max_rmf:,.0f})
 - ThaiESG: เหลือ {remaining_thai_esg:,.0f} บาท (สูงสุด {max_thai_esg:,.0f})
 - ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} บาท (สูงสุด {max_thai_esgx_new:,.0f})
 - ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} บาท (สูงสุด {max_thai_esgx_ltf:,.0f})
-- กองทุนสำรองเลี้ยงชีพ: เหลือ {remaining_pvd:,.0f} บาท (สูงสุด {max_pvd:,.0f})
 - ประกันบำนาญ: เหลือ {remaining_pension:,.0f} บาท (สูงสุด {max_pension:,.0f})
+(หมายเหตุ: PVD/กบข./กบศ. ไม่รวมเพราะใช้ได้เฉพาะ 40(1) เงินเดือน)
 - ประกันชีวิต: เหลือ {remaining_life:,.0f} บาท
 - ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} บาท
 - ประกันสุขภาพ: เหลือ {remaining_health:,.0f} บาท

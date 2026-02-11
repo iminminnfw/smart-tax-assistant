@@ -7,14 +7,18 @@ from typing import Optional
 
 
 class TaxCalculationRequest(BaseModel):
-    """Request model"""
+    """Request model สำหรับ 40(6) และ 40(8)
+
+    หมายเหตุ: PVD/กบข./กบศ./SSF ลบออกแล้ว
+    - PVD/กบข./กบศ. ใช้ได้เฉพาะ 40(1) เงินเดือน
+    - SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567)
+    """
     gross_income: int
     personal_deduction: int = 60000
     life_insurance: int = 0
     health_insurance: int = 0
-    provident_fund: int = 0
     rmf: int = 0
-    ssf: int = 0
+    thai_esg: int = 0  # แทน SSF
     pension_insurance: int = 0
     donation: int = 0
     risk_tolerance: str = 'medium'
@@ -44,14 +48,13 @@ class TaxService:
         Returns:
             ผลการคำนวณภาษี
         """
-        # คำนวณค่าลดหย่อนรวม
+        # คำนวณค่าลดหย่อนรวม (สำหรับ 40(6) และ 40(8))
         total_deductions = (
             request.personal_deduction +
             request.life_insurance +
             request.health_insurance +
-            request.provident_fund +
             request.rmf +
-            request.ssf +
+            request.thai_esg +
             request.pension_insurance +
             request.donation
         )

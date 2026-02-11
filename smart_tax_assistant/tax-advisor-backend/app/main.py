@@ -15,13 +15,14 @@ from app.services.rag_service import RAGService
 from app.services.ai_service import AIService
 from app.config import settings
 
-# Import AI Optimizer router
-from app.routers.ai_optimizer import router as ai_optimizer_router
+# Import AI Optimizer router and lifespan
+from app.routers.ai_optimizer import router as ai_optimizer_router, lifespan
 
 app = FastAPI(
     title="AI Tax Advisor API",
-    description="ระบบแนะนำการวางแผนภาษีด้วย AI + Qdrant RAG",
-    version="3.2-qdrant"
+    description="ระบบแนะนำการวางแผนภาษีด้วย AI + Qdrant RAG + SEC API",
+    version="3.3-sec-api",
+    lifespan=lifespan
 )
 
 app.add_middleware(

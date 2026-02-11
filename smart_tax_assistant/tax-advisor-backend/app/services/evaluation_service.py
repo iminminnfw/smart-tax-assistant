@@ -88,15 +88,15 @@ class EvaluationService:
         """
         ตรวจสอบว่าแผนการลงทุนถูกต้องตามกฎหมายหรือไม่
 
-        ตรวจสอบ:
+        ตรวจสอบ (สำหรับ 40(6) และ 40(8) เท่านั้น):
         1. ประกันบำนาญ: ≤ min(15% of income, 200,000)
         2. RMF: ≤ min(30% of income, 500,000)
         3. ThaiESG/ThaiESGX: ≤ min(30% of income, 300,000)
-        4. PVD: ≤ min(15% of income, 500,000)
-        5. GPF: ≤ min(30% of income, 500,000)
-        6. Life Insurance: ≤ 100,000
-        7. Health Insurance: ≤ 25,000
-        8. Combined Life + Health: ≤ 125,000
+        4. Life Insurance: ≤ 100,000
+        5. Health Insurance: ≤ 25,000
+        6. Combined Life + Health: ≤ 125,000
+
+        หมายเหตุ: PVD/กบข./กบศ. ไม่รวมเพราะใช้ได้เฉพาะ 40(1) เงินเดือน
 
         Returns:
             {
@@ -109,14 +109,12 @@ class EvaluationService:
         violations = []
         warnings = []
 
-        # คำนวณเพดานตามกฎหมาย
+        # คำนวณเพดานตามกฎหมาย (สำหรับ 40(6) และ 40(8) - ไม่รวม PVD/กบข./กบศ.)
         limits = {
             "pension_insurance": min(int(gross_income * 0.15), 200000),
             "rmf": min(int(gross_income * 0.30), 500000),
             "thai_esg": min(int(gross_income * 0.30), 300000),
             "thai_esgx": min(int(gross_income * 0.30), 300000),
-            "pvd": min(int(gross_income * 0.15), 500000),
-            "gpf": min(int(gross_income * 0.30), 500000),
             "life_insurance": 100000,
             "health_insurance": 25000,
             "combined_insurance": 125000

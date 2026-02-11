@@ -42,6 +42,11 @@ model User {
   taxFilings             TaxFiling[]
   tokens                 UserToken[]
 
+  // AI Optimizer relations
+  financialProfile UserFinancialProfile?
+  goals            UserGoal[]
+  aiScenarios      AIScenario[]
+
   @@map("users")
 }
 
@@ -274,4 +279,163 @@ enum DeductionType {
   DONATION
   HOME_LOAN
   OTHER
+}
+
+// ============================================================
+// AI Optimizer Models
+// ============================================================
+
+// เก็บโปรไฟล์ทางการเงินเพิ่มเติมสำหรับ AI วิเคราะห์
+model UserFinancialProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // ข้อมูลการเงิน
+  monthlyExpenses Decimal? @db.Decimal(12, 2)
+  existingSavings Decimal? @db.Decimal(12, 2)
+  emergencyFund   Decimal? @db.Decimal(12, 2)
+
+  // ความเสี่ยง
+  riskTolerance     RiskTolerance @default(MODERATE)
+  investmentHorizon Int? // จำนวนปีที่ต้องการลงทุน
+
+  // สถานะครอบครัว
+  maritalStatus MaritalStatus @default(SINGLE)
+  numChildren   Int           @default(0)
+  numParents    Int           @default(0) // บิดามารดาที่อุปการะ
+  hasDisability Boolean       @default(false)
+
+  // สิทธิลดหย่อนที่ใช้ไปแล้ว (ปีปัจจุบัน)
+  usedRmf             Decimal? @default(0) @db.Decimal(12, 2)
+  usedSsf             Decimal? @default(0) @db.Decimal(12, 2)
+  usedThaiEsg         Decimal? @default(0) @db.Decimal(12, 2)
+  usedLifeInsurance   Decimal? @default(0) @db.Decimal(12, 2)
+  usedHealthInsurance Decimal? @default(0) @db.Decimal(12, 2)
+  usedPensionFund     Decimal? @default(0) @db.Decimal(12, 2)
+  usedProvidentFund   Decimal? @default(0) @db.Decimal(12, 2)
+  usedSocialSecurity  Decimal? @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_financial_profiles")
+}
+
+// เก็บเป้าหมายที่ผู้ใช้บอก AI
+model UserGoal {
+  id     String @id @default(cuid())
+  userId String
+
+  // เป้าหมายดิบจากผู้ใช้
+  rawGoalText String // "อยากประหยัดภาษี 80,000 บาท"
+
+  // เป้าหมายที่ AI แปลงแล้ว
+  goalType     GoalType
+  targetAmount Decimal?     @db.Decimal(12, 2)
+  deadline     DateTime?
+  priority     GoalPriority @default(BALANCED)
+
+  // ข้อจำกัด (เก็บเป็น JSON)
+  constraints Json? // [{"type": "minimum_cash", "amount": 1000000}]
+
+  // สถานะ
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenarios AIScenario[]
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("user_goals")
+}
+
+// เก็บ scenarios ที่ AI สร้าง
+model AIScenario {
+  id     String  @id @default(cuid())
+  userId String
+  goalId String?
+
+  // ข้อมูลพื้นฐาน
+  name        String  @db.VarChar(200)
+  description String?
+  badge       String? @db.VarChar(50) // "🥇 สูงสุด", "⚖️ สมดุล"
+
+  // การจัดสรรการลงทุน
+  rmfInvestment     Decimal @default(0) @db.Decimal(12, 2)
+  ssfInvestment     Decimal @default(0) @db.Decimal(12, 2)
+  thaiEsgInvestment Decimal @default(0) @db.Decimal(12, 2)
+  lifeInsurance     Decimal @default(0) @db.Decimal(12, 2)
+  pensionFund       Decimal @default(0) @db.Decimal(12, 2)
+  totalInvestment   Decimal @default(0) @db.Decimal(12, 2)
+
+  // ผลลัพธ์
+  taxSavings    Decimal @default(0) @db.Decimal(12, 2)
+  cashRemaining Decimal @default(0) @db.Decimal(12, 2)
+  riskLevel     Int     @default(5) // 1-10
+  riskLabel     String? @db.VarChar(50) // "ต่ำ", "ปานกลาง", "สูง"
+
+  // AI Analysis
+  explanation String? // คำอธิบายจาก AI
+  pros        String[] @default([])
+  cons        String[] @default([])
+  suitableFor String? // "คนที่มีรายได้สูง..."
+  actionSteps String[] @default([])
+
+  // กองทุนที่แนะนำ (เก็บเป็น JSON)
+  recommendedFunds Json? // [{fundCode, fundName, amount, reason}]
+
+  // Scores
+  confidenceScore  Decimal? @db.Decimal(5, 2) // 0-100
+  suitabilityScore Decimal? @db.Decimal(5, 2) // 0-100
+
+  // สถานะ
+  isSelected Boolean   @default(false) // ผู้ใช้เลือกแผนนี้
+  selectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal UserGoal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, isSelected])
+  @@index([goalId])
+  @@map("ai_scenarios")
+}
+
+// ============================================================
+// AI Optimizer Enums
+// ============================================================
+
+enum RiskTolerance {
+  CONSERVATIVE // ระมัดระวัง
+  MODERATE // ปานกลาง
+  AGGRESSIVE // กล้าเสี่ยง
+}
+
+enum MaritalStatus {
+  SINGLE // โสด
+  MARRIED // แต่งงาน
+  DIVORCED // หย่าร้าง
+  WIDOWED // หม้าย
+}
+
+enum GoalType {
+  TAX_SAVING // ประหยัดภาษี
+  CASH_FLOW // เน้นเงินสด
+  RETIREMENT // เกษียณ
+  LIFE_EVENT // เป้าหมายชีวิต (ซื้อบ้าน, แต่งงาน)
+  HYBRID // ผสมผสาน
+}
+
+enum GoalPriority {
+  AGGRESSIVE // เน้นภาษีสูงสุด
+  BALANCED // สมดุล
+  CONSERVATIVE // เน้นเงินสด
 }

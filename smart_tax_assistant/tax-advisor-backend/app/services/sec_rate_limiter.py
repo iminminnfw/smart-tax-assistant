@@ -1,9 +1,9 @@
 """
 SEC API Rate Limiter
-Complies with SEC Open API rate limits:
-- 3,000 requests per 300 seconds
-- Minimum 10ms between requests
-- HTTP 421 handling
+Complies with SEC Open API rate limits (New Portal - Jan 2026):
+- 5,000 requests per 300 seconds
+- Minimum 16ms between requests
+- HTTP 421 handling with Retry-After
 """
 
 import time
@@ -31,10 +31,10 @@ class SECRateLimiter:
 
     def __init__(
         self,
-        max_requests: int = 3000,
+        max_requests: int = 5000,  # Updated: New SEC portal limit (was 3000)
         time_window: int = 300,  # seconds
-        min_interval: float = 0.01,  # 10ms minimum
-        safe_buffer: float = 0.11  # 110ms recommended (safer than 100ms)
+        min_interval: float = 0.016,  # 16ms minimum (updated from 10ms)
+        safe_buffer: float = 0.02  # 20ms recommended (safer than 16ms)
     ):
         self.max_requests = max_requests
         self.time_window = time_window

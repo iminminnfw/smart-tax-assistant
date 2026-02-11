@@ -90,7 +90,8 @@ class AIService:
         # [เทคนิค 1] Pre-calculation
         legal_limits = self._calculate_legal_limits(gross)
 
-        # คำนวณวงเงินที่เหลือ - ปี 2568
+        # คำนวณวงเงินที่เหลือ - ปี 2568 (สำหรับ 40(6) และ 40(8) เท่านั้น)
+        # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
         max_rmf = legal_limits['rmf']
         max_thai_esg = legal_limits['thai_esg']
         max_thai_esgx_new = legal_limits['thai_esg']
@@ -103,7 +104,6 @@ class AIService:
         remaining_thai_esgx_new = max_thai_esgx_new - request.thai_esgx_new
         remaining_thai_esgx_ltf = max_thai_esgx_ltf - request.thai_esgx_ltf
         remaining_pension = max_pension - request.pension_insurance
-        remaining_pvd = max_pvd - request.provident_fund
         remaining_life = 100000 - request.life_insurance
         remaining_life_pension = 10000 - request.life_insurance_pension  # ใหม่ปี 2568
         remaining_health = 25000 - request.health_insurance
@@ -284,20 +284,27 @@ STEP 3: ตรวจสอบก่อนตอบ
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
 - ระดับความเสี่ยง: {risk_thai}
 
-วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568):
-- RMF: เหลือ {remaining_rmf:,.0f} (สูงสุด {max_rmf:,.0f})
-- ThaiESG: เหลือ {remaining_thai_esg:,.0f} (สูงสุด {max_thai_esg:,.0f})
-- ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} (สูงสุด {max_thai_esgx_new:,.0f})
-- ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} (สูงสุด {max_thai_esgx_ltf:,.0f})
-- กองทุนสำรองเลี้ยงชีพ: เหลือ {remaining_pvd:,.0f} (สูงสุด {max_pvd:,.0f})
-- ประกันบำนาญ: เหลือ {remaining_pension:,.0f} (สูงสุด {max_pension:,.0f})
-- ประกันชีวิต: เหลือ {remaining_life:,.0f} (สูงสุด 100,000)
-- ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} (สูงสุด 10,000)
-- ประกันสุขภาพ: เหลือ {remaining_health:,.0f} (สูงสุด 25,000)
+วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568 - สำหรับ 40(6) และ 40(8)):
+- RMF: เหลือ {remaining_rmf:,.0f} บาท (สูงสุด {max_rmf:,.0f})
+- ThaiESG: เหลือ {remaining_thai_esg:,.0f} บาท (สูงสุด {max_thai_esg:,.0f})
+- ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} บาท (สูงสุด {max_thai_esgx_new:,.0f})
+- ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} บาท (สูงสุด {max_thai_esgx_ltf:,.0f})
+- กองทุนสำรองเลี้ยงชีพ: เหลือ {remaining_pvd:,.0f} บาท (สูงสุด {max_pvd:,.0f})
+- ประกันบำนาญ: เหลือ {remaining_pension:,.0f} บาท (สูงสุด {max_pension:,.0f})
+(หมายเหตุ: PVD/กบข./กบศ. ใช้ได้เฉพาะ 40(1) เงินเดือน)
+- ประกันชีวิต: เหลือ {remaining_life:,.0f} บาท (สูงสุด 100,000 บาท)
+- ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} บาท (สูงสุด 10,000 บาท)
+- ประกันสุขภาพ: เหลือ {remaining_health:,.0f} บาท (สูงสุด 25,000 บาท)
 
 สถานะประกัน:
 - ประกันชีวิต: {'มีแล้ว' if has_life_insurance else 'ยังไม่มี - ควรมี'}
 - ประกันสุขภาพ: {'มีแล้ว' if has_health_insurance else 'ยังไม่มี - ควรมี'}
+
+สิ่งที่เปลี่ยนแปลงในปี 2568:
+- SSF ยกเลิกแล้ว
+- ThaiESG/ThaiESGX มาแทน (วงเงิน 300,000 บาท ยกเว้น 30%)
+- Easy e-Receipt เพิ่มเป็น 50,000 บาท
+- ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
 
 ข้อมูลจาก Knowledge Base:
 {retrieved_context}
@@ -426,21 +433,14 @@ REQUIRED FIELDS ในแต่ละ allocation (ห้ามขาด):
         }},
         {{
           "category": "ThaiESG/ThaiESGX",
-          "percentage": 25.0,
+          "percentage": 30.0,
           "risk_level": "{risk_level}",
           "pros": ["ยกเว้นภาษี 30%", "ลงทุนใน ESG", "ยืดหยุ่น"],
           "cons": ["ต้องถือ 8 ปี", "กองทุนใหม่"]
         }},
         {{
-          "category": "กองทุนสำรองเลี้ยงชีพ (PVD)",
-          "percentage": 20.0,
-          "risk_level": "medium",
-          "pros": ["บริษัทจ่ายเพิ่มให้", "ผลตอบแทนมั่นคง"],
-          "cons": ["ต้องเป็นพนักงาน", "ถอนยาก"]
-        }},
-        {{
           "category": "ประกันบำนาญ",
-          "percentage": 10.0,
+          "percentage": 15.0,
           "risk_level": "low",
           "pros": ["รับประกันผลตอบแทน", "ลดหย่อนได้ 15%"],
           "cons": ["ผูกพันยาว"]
@@ -541,10 +541,9 @@ REQUIRED FIELDS ในแต่ละ allocation (ห้ามขาด):
                 rmf_total = 0
                 thai_esg_total = 0
 
-                # Calculate income-based limits
+                # Calculate income-based limits (สำหรับ 40(6) และ 40(8) - ไม่รวม PVD/กบข./กบศ.)
                 max_pension = min(200000, int(tax_result.gross_income * 0.15))
                 max_rmf_limit = min(500000, int(tax_result.gross_income * 0.30))
-                max_pvd = min(500000, int(tax_result.gross_income * 0.15))
                 max_thai_esg_limit = min(300000, int(tax_result.gross_income * 0.30))
 
                 for j, alloc in enumerate(plan["allocations"]):
@@ -773,26 +772,17 @@ REQUIRED FIELDS ในแต่ละ allocation (ห้ามขาด):
                         },
                         {
                             "category": "ThaiESG",
-                            "investment_amount": int(base_investment * 0.35),
-                            "percentage": 22,
-                            "tax_saving": int(base_investment * 0.0875),
+                            "investment_amount": int(base_investment * 0.45),
+                            "percentage": 28,
+                            "tax_saving": int(base_investment * 0.1125),
                             "risk_level": risk,
                             "pros": ["ยืดหยุ่น", "ยกเว้นภาษี 30%"],
                             "cons": ["ถือ 8 ปี"]
                         },
                         {
-                            "category": "PVD",
-                            "investment_amount": int(base_investment * 0.3),
-                            "percentage": 19,
-                            "tax_saving": int(base_investment * 0.075),
-                            "risk_level": "medium",
-                            "pros": ["บริษัทจ่ายเพิ่ม"],
-                            "cons": ["ถอนยาก"]
-                        },
-                        {
                             "category": "ประกันบำนาญ",
-                            "investment_amount": int(base_investment * 0.15),
-                            "percentage": 9,
+                            "investment_amount": int(base_investment * 0.2),
+                            "percentage": 12,
                             "tax_saving": int(base_investment * 0.0375),
                             "risk_level": "low",
                             "pros": ["รับประกัน"],
