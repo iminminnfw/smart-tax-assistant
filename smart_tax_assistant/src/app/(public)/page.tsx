@@ -246,7 +246,7 @@ export default function Home() {
         </h1>
         
         <p className="text-lg text-gray-600 leading-relaxed mb-8 max-w-md">
-          ทำให้เรื่องภาษีเป็นเรื่องง่าย คำนวณภาษีแม่นยำ วางแผนลดหย่อนภาษี พร้อม AI ปรึกษาฟรี 24 ชั่วโมง
+          ทำให้เรื่องภาษีเป็นเรื่องง่าย คำนวณภาษีแม่นยำ<br />วางแผนลดหย่อนภาษีด้วย AI
         </p>
         
         <div className="flex items-center space-x-4">
