@@ -5,10 +5,10 @@
 
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
-// AWS Configuration
-const AWS_REGION = process.env.AWS_REGION || 'ap-southeast-1';
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+// AWS Configuration (ใช้ key ชุด SES โดยเฉพาะ)
+const AWS_REGION = process.env.AWS_SES_REGION || 'ap-southeast-1';
+const AWS_ACCESS_KEY_ID = process.env.AWS_SES_ACCESS_KEY_ID;
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SES_SECRET_ACCESS_KEY;
 
 // SES Configuration
 const SES_FROM_EMAIL = process.env.AWS_SES_FROM_EMAIL || 'noreply@smarttax.com';

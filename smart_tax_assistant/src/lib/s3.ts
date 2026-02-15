@@ -4,9 +4,9 @@
  * Handles file uploads, deletions, and signed URL generation for private S3 bucket
  *
  * Configuration: Uses environment variables
- * - AWS_ACCESS_KEY_ID
- * - AWS_SECRET_ACCESS_KEY
- * - AWS_REGION
+ * - AWS_S3_ACCESS_KEY_ID
+ * - AWS_S3_SECRET_ACCESS_KEY
+ * - AWS_S3_REGION
  * - AWS_S3_BUCKET_NAME
  */
 
@@ -42,16 +42,16 @@ export interface S3Config {
  */
 function loadS3Config(): S3Config {
   const config: S3Config = {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    region: process.env.AWS_REGION || 'ap-southeast-1',
+    accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY || '',
+    region: process.env.AWS_S3_REGION || 'ap-southeast-1',
     bucketName: process.env.AWS_S3_BUCKET_NAME || '',
   };
 
   // Validate required fields
   const missing: string[] = [];
-  if (!config.accessKeyId) missing.push('AWS_ACCESS_KEY_ID');
-  if (!config.secretAccessKey) missing.push('AWS_SECRET_ACCESS_KEY');
+  if (!config.accessKeyId) missing.push('AWS_S3_ACCESS_KEY_ID');
+  if (!config.secretAccessKey) missing.push('AWS_S3_SECRET_ACCESS_KEY');
   if (!config.bucketName) missing.push('AWS_S3_BUCKET_NAME');
 
   if (missing.length > 0) {

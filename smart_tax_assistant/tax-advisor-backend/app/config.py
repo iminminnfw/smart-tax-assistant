@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     Application Settings - จัดการ Environment Variables
     """
     
-    # OpenAI Configuration
-    openai_api_key: str
+    # OpenAI Configuration (optional ถ้าใช้ Ollama แทน)
+    openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     openai_temperature: float = 0.7
 
