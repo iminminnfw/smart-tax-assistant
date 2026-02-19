@@ -85,7 +85,11 @@ export async function POST(req: Request) {
     const fundTypes: string[] = fund_types;
     const limit: number = Math.min(top_n_funds, 20);
 
-    // Map risk tolerance to max risk spectrum
+    // Map risk tolerance to risk spectrum range
+    const minRisk =
+      riskTolerance === 'conservative' ? 1
+        : riskTolerance === 'aggressive' ? 7
+          : 4; // moderate
     const maxRisk =
       riskTolerance === 'conservative' ? 3
         : riskTolerance === 'aggressive' ? 8
@@ -112,7 +116,7 @@ export async function POST(req: Request) {
           id: { in: eligibleFundIds },
           fundStatus: { in: ['Registered', 'IPO'] },
           riskSpectrums: {
-            some: { riskSpectrum: { lte: maxRisk } },
+            some: { riskSpectrum: { gte: minRisk, lte: maxRisk } },
           },
         },
         select: {
@@ -133,20 +137,20 @@ export async function POST(req: Request) {
         },
       });
 
-      // Only keep funds whose latest risk spectrum is within max
+      // Only keep funds whose latest risk spectrum is within range
       const filteredFunds = fundsWithRisk.filter((f) => {
         const latestRisk = f.riskSpectrums[0]?.riskSpectrum;
-        return latestRisk !== undefined && latestRisk <= maxRisk;
+        return latestRisk !== undefined && latestRisk >= minRisk && latestRisk <= maxRisk;
       });
 
       if (filteredFunds.length > 0) {
         const filteredFundIds = filteredFunds.map((f) => f.id);
 
-        // Get latest performance data
+        // Get latest performance data (ไม่ filter performanceTypeDesc เพื่อให้ครอบคลุมมากขึ้น)
         const performances = await prisma.fundPerformance.findMany({
           where: {
             fundId: { in: filteredFundIds },
-            performanceTypeDesc: 'ผลตอบแทนกองทุนรวม',
+            referencePeriod: { in: ['1 year', '3 years', '5 years'] },
           },
           orderBy: { endDate: 'desc' },
           select: {
@@ -245,8 +249,15 @@ export async function POST(req: Request) {
           };
         });
 
-        // Sort by score descending, take top N
-        scoredFunds.sort((a, b) => b.score - a.score);
+        // Sort by Sharpe Ratio descending (primary), fallback to score
+        scoredFunds.sort((a, b) => {
+          const aSharpe = a.statistics.sharpeRatio;
+          const bSharpe = b.statistics.sharpeRatio;
+          if (bSharpe !== null && aSharpe === null) return 1;
+          if (aSharpe !== null && bSharpe === null) return -1;
+          if (aSharpe !== null && bSharpe !== null) return bSharpe - aSharpe;
+          return b.score - a.score;
+        });
         preFilteredFunds = scoredFunds.slice(0, limit);
       }
     }

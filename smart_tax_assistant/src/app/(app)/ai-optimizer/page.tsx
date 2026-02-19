@@ -284,14 +284,23 @@ export default function AIOptimizerPage() {
 
       // Map profile_analysis from backend
       if (data.profile_analysis) {
-        setProfileAnalysis(data.profile_analysis);
+        // ai_advisor.analyze_profile() returns nested structure
+        const pa = data.profile_analysis;
+        setProfileAnalysis({
+          tax_bracket: pa.tax_info?.marginal_rate_percent || 0,
+          marginal_rate: pa.tax_info?.marginal_rate_percent || 0,
+          current_tax: pa.tax_info?.total_tax_before_deductions || 0,
+          max_potential_savings: pa.opportunity?.potential_tax_savings || 0,
+          recommended_focus: [],
+          warnings: pa.warnings || [],
+        });
       } else if (data.tax_info) {
-        // Construct profile analysis from tax_info
+        // Fallback: construct from tax_info when AI advisor not available
         const taxInfo = data.tax_info;
         setProfileAnalysis({
           tax_bracket: taxInfo.tax_bracket?.marginal_rate_percent || 0,
           marginal_rate: taxInfo.tax_bracket?.marginal_rate_percent || 0,
-          current_tax: taxInfo.tax_bracket?.tax_amount || 0,
+          current_tax: taxInfo.tax_bracket?.total_tax || 0,
           max_potential_savings: taxInfo.deduction_remaining?.total || 0,
           recommended_focus: [],
           warnings: [],
@@ -310,8 +319,8 @@ export default function AIOptimizerPage() {
         total_investment: s.total_investment || 0,
         tax_savings: s.tax_saved || 0,
         cash_remaining: s.cash_remaining || 0,
-        risk_level: s.risk_level || 50,
-        risk_label: (s.risk_level || 50) <= 30 ? 'ต่ำ' : (s.risk_level || 50) <= 60 ? 'ปานกลาง' : 'สูง',
+        risk_level: (s.risk_level || 5) * 10,
+        risk_label: (s.risk_level || 5) <= 3 ? 'ต่ำ' : (s.risk_level || 5) <= 6 ? 'ปานกลาง' : 'สูง',
         allocations: [
           ...(s.rmf_investment ? [{ category: 'RMF', amount: s.rmf_investment }] : []),
           ...(s.thai_esg_investment ? [{ category: 'ThaiESG', amount: s.thai_esg_investment }] : []),
