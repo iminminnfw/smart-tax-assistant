@@ -439,3 +439,223 @@ enum GoalPriority {
   BALANCED // สมดุล
   CONSERVATIVE // เน้นเงินสด
 }
+
+// ============================================================
+// SEC Fund Database Models
+// ============================================================
+
+// บลจ. (Asset Management Company)
+model FundAmc {
+  id         String   @id // unique_id from SEC e.g. C0000000021
+  nameTh     String // ชื่อ บลจ. ภาษาไทย
+  nameEn     String // ชื่อ บลจ. ภาษาอังกฤษ
+  lastUpdDate DateTime
+
+  funds Fund[]
+
+  @@map("fund_amcs")
+}
+
+// กองทุนหลัก
+model Fund {
+  id              String   @id // proj_id e.g. M0001_2558
+  amcId           String
+  regisId         String?
+  projNameTh      String // ชื่อกองทุนภาษาไทย
+  projNameEn      String // ชื่อกองทุนภาษาอังกฤษ
+  projAbbrName    String // ชื่อย่อ (K-EQUITY)
+  fundStatus      String // RG/SE/EX/LI/CA
+  policyDesc      String? // ประเภท (ตราสารหนี้, ตราสารทุน)
+  investmentPolicyDesc  String? // นโยบายการลงทุนละเอียด
+  managementStyle       String?
+  feederFundMasterFund  String?
+  feederFundCountry     String?
+  fxHedgingPolicy       String?
+  investCountryFlag     Int?    // 0=domestic, 1=foreign
+  retailType            String?
+  termFlag              String?
+  termDay               Int?
+  termMonth             Int?
+  termYear              Int?
+  initDate              DateTime?
+  regisDate             DateTime?
+  cancelDate            DateTime?
+  fundClassName         String?
+  fundClassDetail       String?
+  fundClassDescription  String?
+  taxIncentiveType      String? // SSF/RMF/ThaiESG - สำคัญมากสำหรับ tax optimizer
+  isinCode              String?
+  lastUpdDate           DateTime
+
+  amc              FundAmc              @relation(fields: [amcId], references: [id])
+  riskSpectrums    FundRiskSpectrum[]
+  statistics       FundStatistics[]
+  performances     FundPerformance[]
+  dividendPolicies FundDividendPolicy[]
+  topHoldings      FundTopHolding[]
+  benchmarks       FundBenchmark[]
+  specs            FundSpec[]
+  factsheetUrls    FundFactsheetUrl[]
+
+  @@index([fundStatus])
+  @@index([amcId])
+  @@index([taxIncentiveType])
+  @@index([policyDesc])
+  @@map("funds")
+}
+
+// ระดับความเสี่ยง
+model FundRiskSpectrum {
+  id              String   @id @default(cuid())
+  fundId          String
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  riskSpectrum    Int // 1-8 (stripped from RS1-RS8)
+  riskSpectrumDesc String?
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate])
+  @@index([riskSpectrum])
+  @@map("fund_risk_spectrums")
+}
+
+// สถิติกองทุน
+model FundStatistics {
+  id              String   @id @default(cuid())
+  fundId          String
+  fundClassName   String?
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  turnoverRatio         Float?
+  recoveringPeriod      Float?
+  portfolioDurationPeriod Float?
+  maxDrawdown           Float?
+  sharpeRatio           Float?
+  beta                  Float?
+  alpha                 Float?
+  fxHedging             Float?
+  trackingError         Float?
+  yieldToMaturity       Float?
+  lastUpdDate           DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate])
+  @@index([sharpeRatio])
+  @@map("fund_statistics")
+}
+
+// ผลตอบแทน
+model FundPerformance {
+  id              String   @id @default(cuid())
+  fundId          String
+  fundClassName   String?
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  performanceTypeDesc  String
+  referencePeriod      String
+  performanceValue     Float?
+  lastUpdDate          DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate, referencePeriod])
+  @@map("fund_performances")
+}
+
+// นโยบายปันผล
+model FundDividendPolicy {
+  id              String   @id @default(cuid())
+  fundId          String
+  fundClassName   String?
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  dividendPolicy  String // Y/N
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate])
+  @@map("fund_dividend_policies")
+}
+
+// สินทรัพย์ที่ถือ Top 5
+model FundTopHolding {
+  id              String   @id @default(cuid())
+  fundId          String
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  assetSeq        Int // ลำดับ (1-5)
+  assetName       String
+  assetRatio      Float?
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate])
+  @@map("fund_top_holdings")
+}
+
+// ดัชนีอ้างอิง
+model FundBenchmark {
+  id              String   @id @default(cuid())
+  fundId          String
+  startDate       DateTime
+  endDate         DateTime
+  prospectusType  String
+  groupSeq        Int
+  benchmark       String
+  benchmarkRemark String?
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([fundId, endDate])
+  @@map("fund_benchmarks")
+}
+
+// คุณสมบัติกองทุน
+model FundSpec {
+  id              String   @id @default(cuid())
+  fundId          String
+  fundClassName   String?
+  specCode        String // CIV, RMF, TESG, etc.
+  specDesc        String?
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@index([specCode])
+  @@map("fund_specs")
+}
+
+// ลิงก์ Factsheet
+model FundFactsheetUrl {
+  id              String    @id @default(cuid())
+  fundId          String
+  fundClassName   String?
+  prospectusType  String?
+  amcUrlFactsheet String?
+  pdfFactsheet    String?
+  asOfDate        DateTime?
+  lastUpdDate     DateTime
+
+  fund Fund @relation(fields: [fundId], references: [id], onDelete: Cascade)
+
+  @@index([fundId])
+  @@map("fund_factsheet_urls")
+}

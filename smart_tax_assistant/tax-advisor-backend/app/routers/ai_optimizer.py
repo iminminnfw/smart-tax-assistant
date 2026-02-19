@@ -45,6 +45,7 @@ from ..services.smart_fund_analyzer import (
     create_smart_analyzer
 )
 from ..services.sec_api_client import SECAPIClient
+from ..services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,7 @@ tax_fund_service: Optional[TaxFundService] = None
 ai_advisor: Optional[AITaxAdvisor] = None
 smart_fund_analyzer: Optional[SmartFundAnalyzer] = None
 sec_api_client: Optional[SECAPIClient] = None
+rag_service: Optional[RAGService] = None
 
 
 # ============================================================
@@ -197,7 +199,7 @@ async def lifespan(app):
     Add to FastAPI app:
         app = FastAPI(lifespan=lifespan)
     """
-    global sec_service, tax_fund_service, ai_advisor, smart_fund_analyzer, sec_api_client
+    global sec_service, tax_fund_service, ai_advisor, smart_fund_analyzer, sec_api_client, rag_service
 
     # Startup
     logger.info("Initializing AI Optimizer services...")
@@ -212,19 +214,27 @@ async def lifespan(app):
         # Initialize Tax Fund Service
         tax_fund_service = TaxFundService(sec_service)
 
-        # Initialize AI Advisor (if API key available)
+        # Initialize AI Advisor
+        use_ollama = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
         openai_key = os.getenv("OPENAI_API_KEY")
         anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
-        if openai_key:
+        if use_ollama:
+            try:
+                ai_advisor = AITaxAdvisor(provider="ollama")
+                logger.info(f"✅ AI Advisor initialized with Ollama ({os.getenv('OLLAMA_MODEL', 'qwen2.5:14b')})")
+            except Exception as e:
+                logger.warning(f"⚠️ Ollama init failed: {e}, falling back to OpenAI/Anthropic")
+                ai_advisor = None
+
+        if ai_advisor is None and openai_key:
             ai_advisor = AITaxAdvisor(provider="openai", api_key=openai_key)
             logger.info("✅ AI Advisor initialized with OpenAI")
-        elif anthropic_key:
+        elif ai_advisor is None and anthropic_key:
             ai_advisor = AITaxAdvisor(provider="anthropic", api_key=anthropic_key)
             logger.info("✅ AI Advisor initialized with Anthropic")
-        else:
-            logger.warning("⚠️ No LLM API key found. AI features will be limited.")
-            ai_advisor = None
+        elif ai_advisor is None:
+            logger.warning("⚠️ No LLM provider available. AI features will be limited.")
 
         # Initialize SEC API Client and SmartFundAnalyzer
         sec_api_key = os.getenv("SEC_API_KEY")
@@ -236,6 +246,17 @@ async def lifespan(app):
             logger.warning("⚠️ SEC_API_KEY not set. SmartFundAnalyzer will not be available.")
             sec_api_client = None
             smart_fund_analyzer = None
+
+        # Initialize RAG Service (Qdrant) for tax law context
+        try:
+            rag_service = RAGService()
+            if rag_service.is_available():
+                logger.info("✅ RAG Service (Qdrant) initialized for AI Optimizer")
+            else:
+                logger.warning("⚠️ RAG Service not available - AI will work without tax law context")
+        except Exception as e:
+            logger.warning(f"⚠️ RAG Service initialization failed: {e}")
+            rag_service = None
 
         logger.info("✅ AI Optimizer services initialized")
 
@@ -276,7 +297,8 @@ async def health_check():
             "ai_advisor": ai_advisor is not None,
             "ai_provider": ai_advisor.provider if ai_advisor else None,
             "smart_fund_analyzer": smart_fund_analyzer is not None,
-            "sec_api_client": sec_api_client is not None
+            "sec_api_client": sec_api_client is not None,
+            "rag_service": rag_service is not None and rag_service.is_available()
         },
         "features": {
             "4_intelligence_layers": smart_fund_analyzer is not None,
@@ -606,16 +628,40 @@ async def generate_scenarios(request: ScenarioRequest):
             except Exception as e:
                 logger.warning(f"Could not fetch funds: {e}")
 
+        # Retrieve tax law context from RAG (Qdrant)
+        rag_context = ""
+        if rag_service and rag_service.is_available():
+            try:
+                rag_query = f"""
+                กฎหมายภาษีไทย ลดหย่อนภาษี RMF ThaiESG
+                รายได้ {request.profile.annual_income} บาท
+                อายุ {request.profile.age} ปี
+                ระดับความเสี่ยง {request.profile.risk_tolerance}
+                {request.goal}
+                """
+                retrieved_docs = await rag_service.retrieve_relevant_documents(
+                    rag_query, k=5
+                )
+                if retrieved_docs:
+                    rag_context = "\n\n".join([
+                        doc.page_content for doc in retrieved_docs
+                        if hasattr(doc, 'page_content')
+                    ])
+                    logger.info(f"RAG context retrieved: {len(rag_context)} chars from {len(retrieved_docs)} docs")
+            except Exception as e:
+                logger.warning(f"RAG retrieval failed: {e}")
+
         # Generate scenarios
         if ai_advisor:
             # Parse goal first
             parsed_goal = await ai_advisor.parse_goal(request.goal, user_profile)
 
-            # Generate AI scenarios
+            # Generate AI scenarios with RAG context
             scenarios = await ai_advisor.generate_scenarios(
                 user_profile,
                 parsed_goal,
-                available_funds
+                available_funds,
+                rag_context=rag_context
             )
 
             return {
@@ -1107,6 +1153,305 @@ async def compare_with_benchmark(
     except Exception as e:
         logger.error(f"Benchmark comparison failed: {e}")
         raise HTTPException(500, str(e))
+
+
+# ============================================================
+# Unified Optimize Endpoint (Code-Heavy, LLM-Light)
+# ============================================================
+
+class OptimizeRequest(BaseModel):
+    """Single unified request - code does filtering/calculation, LLM only explains"""
+    profile: UserProfileRequest
+    goal: str = Field(..., min_length=1, description="User's goal in Thai/English")
+    risk_tolerance: str = Field(default="moderate", description="conservative, moderate, aggressive")
+    fund_types: List[str] = Field(default=["RMF", "ThaiESG"], description="Fund types to consider")
+    top_n_funds: int = Field(default=5, ge=1, le=20)
+    include_ai_explanation: bool = Field(default=True, description="Call LLM for Thai explanations")
+    # Pre-filtered funds from Next.js (Prisma DB)
+    pre_filtered_funds: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Pre-filtered funds from frontend DB query"
+    )
+
+
+@router.post("/optimize")
+async def optimize(request: OptimizeRequest):
+    """
+    Unified AI Optimizer endpoint (Code-Heavy, LLM-Light)
+
+    Flow:
+    1. Code calculates tax (brackets, deductions, savings)
+    2. Code creates 3 scenarios (tax_max / balanced / conservative)
+    3. Code assigns pre-filtered funds to scenarios
+    4. (Optional) LLM explains WHY these plans fit the user
+
+    No SEC API calls - uses pre-filtered funds from Prisma DB.
+    """
+    if tax_fund_service is None:
+        raise HTTPException(503, "Tax fund service not initialized")
+
+    try:
+        # ============================================================
+        # Step 1: Calculate tax info (CODE)
+        # ============================================================
+        tax_bracket = tax_fund_service.calculate_tax_bracket(request.profile.annual_income)
+        limits = tax_fund_service.calculate_deduction_limits(request.profile.annual_income)
+
+        remaining_rmf = max(0, limits['rmf_max'] - request.profile.existing_rmf)
+        remaining_thai_esg = max(0, limits['thai_esg_max'] - request.profile.existing_thai_esg)
+
+        # Calculate available budget
+        annual_savings = (request.profile.annual_income / 12 - request.profile.monthly_expenses) * 12
+        available_budget = max(0, annual_savings * 0.5)  # Conservative: 50% of savings
+
+        logger.info(f"Tax bracket: {tax_bracket['marginal_rate_percent']}%, "
+                     f"Budget: {available_budget:,.0f}, "
+                     f"RMF remaining: {remaining_rmf:,.0f}, "
+                     f"ThaiESG remaining: {remaining_thai_esg:,.0f}")
+
+        # ============================================================
+        # Step 2: Generate 3 scenarios (CODE)
+        # ============================================================
+        strategies = [
+            {
+                "id": 1,
+                "strategy": "tax_max",
+                "name": "แผนประหยัดภาษีสูงสุด",
+                "description": "เน้นใช้สิทธิลดหย่อนเต็มที่ ประหยัดภาษีได้มากที่สุด",
+                "badge": "🎯"
+            },
+            {
+                "id": 2,
+                "strategy": "balanced",
+                "name": "แผนสมดุล",
+                "description": "สมดุลระหว่างการประหยัดภาษีและเงินสดคงเหลือ",
+                "badge": "⚖️"
+            },
+            {
+                "id": 3,
+                "strategy": "conservative",
+                "name": "แผนอนุรักษ์นิยม",
+                "description": "เน้นรักษาเงินสดและความปลอดภัย ลงทุนน้อย",
+                "badge": "🛡️"
+            },
+        ]
+
+        scenarios = []
+        for strat in strategies:
+            # Use TaxFundService to calculate optimal allocation per strategy
+            allocation = tax_fund_service.calculate_optimal_allocation(
+                annual_income=request.profile.annual_income,
+                available_budget=available_budget,
+                existing_rmf=request.profile.existing_rmf,
+                existing_thai_esg=request.profile.existing_thai_esg,
+                priority=strat["strategy"]
+            )
+
+            rmf_amount = allocation['recommended_allocation'].get('rmf', 0)
+            thai_esg_amount = allocation['recommended_allocation'].get('thai_esg', 0)
+            total_investment = rmf_amount + thai_esg_amount
+
+            # Calculate accurate tax savings
+            savings = tax_fund_service.calculate_tax_savings(
+                annual_income=request.profile.annual_income,
+                rmf_investment=request.profile.existing_rmf + rmf_amount,
+                thai_esg_investment=request.profile.existing_thai_esg + thai_esg_amount,
+            )
+
+            cash_remaining = available_budget - total_investment
+
+            # Risk level mapping
+            risk_map = {"tax_max": 7, "balanced": 5, "conservative": 3}
+
+            # Code-generated pros/cons
+            pros, cons = _generate_pros_cons(
+                strat["strategy"], total_investment, savings['tax_saved'],
+                cash_remaining, available_budget, limits
+            )
+
+            scenario = {
+                "id": strat["id"],
+                "name": strat["name"],
+                "strategy": strat["strategy"],
+                "description": strat["description"],
+                "badge": strat["badge"],
+                "rmf_investment": rmf_amount,
+                "thai_esg_investment": thai_esg_amount,
+                "total_investment": total_investment,
+                "tax_before": savings.get('tax_before', 0),
+                "tax_after": savings.get('tax_after', 0),
+                "tax_saved": savings.get('tax_saved', 0),
+                "effective_return_percent": savings.get('effective_return', 0),
+                "cash_remaining": cash_remaining,
+                "risk_level": risk_map.get(strat["strategy"], 5),
+                "pros": pros,
+                "cons": cons,
+                "recommended_funds": [],
+                "ai_explanation": "",
+            }
+            scenarios.append(scenario)
+
+        # ============================================================
+        # Step 3: Assign pre-filtered funds to scenarios (CODE)
+        # ============================================================
+        pre_funds = request.pre_filtered_funds or []
+
+        # Split funds by type
+        rmf_funds = [f for f in pre_funds if f.get('fundType', '').upper() in ('RMF',)]
+        esg_funds = [f for f in pre_funds if f.get('fundType', '').upper() in ('TESG', 'TESGX', 'THAIESG')]
+
+        for scenario in scenarios:
+            fund_picks = []
+            if scenario['rmf_investment'] > 0 and rmf_funds:
+                fund_picks.extend(rmf_funds[:3])
+            if scenario['thai_esg_investment'] > 0 and esg_funds:
+                fund_picks.extend(esg_funds[:3])
+            scenario['recommended_funds'] = fund_picks
+
+        # ============================================================
+        # Step 4: Profile analysis (CODE - no LLM)
+        # ============================================================
+        profile_analysis = None
+        if ai_advisor:
+            try:
+                user_profile = UserProfile(
+                    age=request.profile.age,
+                    annual_income=request.profile.annual_income,
+                    monthly_expenses=request.profile.monthly_expenses,
+                    existing_savings=request.profile.existing_savings,
+                    emergency_fund=request.profile.emergency_fund,
+                    risk_tolerance=request.profile.risk_tolerance,
+                    occupation=request.profile.occupation,
+                    marital_status=request.profile.marital_status,
+                    dependents=request.profile.dependents,
+                    existing_rmf=request.profile.existing_rmf,
+                    existing_thai_esg=request.profile.existing_thai_esg,
+                    existing_insurance=request.profile.existing_insurance
+                )
+                profile_analysis = await ai_advisor.analyze_profile(user_profile)
+            except Exception as e:
+                logger.warning(f"Profile analysis failed: {e}")
+
+        # ============================================================
+        # Step 5: LLM explains WHY (Optional)
+        # ============================================================
+        ai_powered = False
+        overall_recommendation = ""
+
+        if request.include_ai_explanation and ai_advisor:
+            try:
+                # Retrieve RAG context
+                rag_context = ""
+                if rag_service and rag_service.is_available():
+                    try:
+                        rag_query = f"ลดหย่อนภาษี RMF ThaiESG รายได้ {request.profile.annual_income} {request.goal}"
+                        retrieved_docs = await rag_service.retrieve_relevant_documents(rag_query, k=3)
+                        if retrieved_docs:
+                            rag_context = "\n".join([
+                                doc.page_content for doc in retrieved_docs
+                                if hasattr(doc, 'page_content')
+                            ])
+                    except Exception as e:
+                        logger.warning(f"RAG retrieval failed: {e}")
+
+                explanation_result = await ai_advisor.generate_explanation_only(
+                    profile=user_profile,
+                    goal=request.goal,
+                    scenarios=scenarios,
+                    recommended_funds=pre_funds,
+                    rag_context=rag_context,
+                )
+
+                # Merge explanations into scenarios
+                explanations = explanation_result.get("scenario_explanations", [])
+                for exp in explanations:
+                    sid = exp.get("scenario_id")
+                    for scenario in scenarios:
+                        if scenario["id"] == sid:
+                            scenario["ai_explanation"] = exp.get("explanation", "")
+                            if exp.get("fund_reasons"):
+                                scenario["ai_explanation"] += "\n\n" + exp["fund_reasons"]
+
+                overall_recommendation = explanation_result.get("overall_recommendation", "")
+                ai_powered = True
+                logger.info("AI explanations generated successfully")
+
+            except Exception as e:
+                logger.warning(f"AI explanation failed (returning without): {e}")
+
+        # ============================================================
+        # Build response
+        # ============================================================
+        return {
+            "success": True,
+            "ai_powered": ai_powered,
+            "profile_analysis": profile_analysis,
+            "tax_info": {
+                "tax_bracket": tax_bracket,
+                "deduction_limits": limits,
+                "deduction_remaining": {
+                    "rmf": remaining_rmf,
+                    "thai_esg": remaining_thai_esg,
+                    "total": remaining_rmf + remaining_thai_esg,
+                },
+            },
+            "scenarios": scenarios,
+            "recommended_funds": pre_funds,
+            "overall_recommendation": overall_recommendation,
+            "disclaimer": "การลงทุนมีความเสี่ยง ผู้ลงทุนควรศึกษาข้อมูลก่อนตัดสินใจลงทุน",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Optimize failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, str(e))
+
+
+def _generate_pros_cons(
+    strategy: str,
+    total_investment: float,
+    tax_saved: float,
+    cash_remaining: float,
+    available_budget: float,
+    limits: Dict,
+) -> tuple:
+    """Generate rule-based pros and cons for a scenario"""
+    pros = []
+    cons = []
+
+    total_limit = limits.get('total_potential', limits.get('rmf_max', 0) + limits.get('thai_esg_max', 0))
+    utilization = total_investment / total_limit if total_limit > 0 else 0
+
+    if strategy == "tax_max":
+        if tax_saved > 0:
+            pros.append(f"ประหยัดภาษีได้สูงสุด ฿{tax_saved:,.0f}")
+        if utilization > 0.7:
+            pros.append("ใช้สิทธิลดหย่อนได้เกือบเต็ม")
+        pros.append("ผลตอบแทนจากการลดภาษีสูง")
+        if cash_remaining < available_budget * 0.3:
+            cons.append("เงินสดเหลือน้อย ต้องวางแผนค่าใช้จ่ายดี")
+        cons.append("ต้องถือกองทุนตามเงื่อนไข (RMF ถึงอายุ 55, ThaiESG 8 ปี)")
+
+    elif strategy == "balanced":
+        pros.append("สมดุลระหว่างภาษีและสภาพคล่อง")
+        if tax_saved > 0:
+            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}")
+        pros.append("ยังมีเงินสดเหลือใช้จ่าย")
+        cons.append("ไม่ได้ประหยัดภาษีสูงสุด")
+        cons.append("ต้องถือกองทุนตามเงื่อนไข")
+
+    elif strategy == "conservative":
+        pros.append("เงินสดเหลือเยอะ สภาพคล่องสูง")
+        pros.append("ความเสี่ยงต่ำ เหมาะกับผู้ที่ต้องการความปลอดภัย")
+        if tax_saved > 0:
+            pros.append(f"ยังประหยัดภาษีได้ ฿{tax_saved:,.0f}")
+        cons.append("ประหยัดภาษีได้น้อยกว่าแผนอื่น")
+        cons.append("ไม่ได้ใช้สิทธิลดหย่อนเต็มที่")
+
+    return pros, cons
 
 
 # ============================================================

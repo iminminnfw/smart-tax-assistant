@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 // Increase timeout for long AI processing
 export const maxDuration = 3600; // 1 hour for Vercel
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to connect to backend',
         detail: String(error),
-        hint: 'Make sure Python backend is running on port 8001'
+        hint: 'Make sure Python backend is running on port 8000'
       },
       { status: 500 }
     );

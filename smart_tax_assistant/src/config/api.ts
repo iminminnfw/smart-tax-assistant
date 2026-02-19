@@ -1,7 +1,7 @@
 // API Configuration
 export const API_CONFIG = {
   // Tax Advisor Backend API
-  TAX_ADVISOR_BASE_URL: process.env.NEXT_PUBLIC_TAX_ADVISOR_API_URL || 'http://localhost:8001',
+  TAX_ADVISOR_BASE_URL: process.env.NEXT_PUBLIC_TAX_ADVISOR_API_URL || 'http://localhost:8000',
 
   // API Endpoints
   ENDPOINTS: {

@@ -34,6 +34,15 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
     logger.warning("Anthropic package not installed. Install with: pip install anthropic")
 
+# Try to import Ollama (via langchain)
+try:
+    from langchain_ollama import ChatOllama
+    from langchain_core.messages import SystemMessage, HumanMessage
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+    logger.warning("langchain-ollama not installed. Install with: pip install langchain-ollama")
+
 
 class GoalType(str, Enum):
     """Types of financial goals"""
@@ -200,15 +209,17 @@ class AITaxAdvisor:
         self,
         provider: str = "openai",
         api_key: Optional[str] = None,
-        model: Optional[str] = None
+        model: Optional[str] = None,
+        ollama_base_url: Optional[str] = None
     ):
         """
         Initialize AI Tax Advisor
 
         Args:
-            provider: "openai" or "anthropic"
+            provider: "openai", "anthropic", or "ollama"
             api_key: API key (or use env var)
-            model: Model to use (default: gpt-4o or claude-3-5-sonnet)
+            model: Model to use (default: gpt-4o, claude-3-5-sonnet, or qwen2.5:14b)
+            ollama_base_url: Ollama server URL (default: http://localhost:11434)
         """
         self.provider = provider
 
@@ -233,6 +244,19 @@ class AITaxAdvisor:
 
             self.model = model or "claude-3-5-sonnet-20241022"
             self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
+
+        elif provider == "ollama":
+            if not OLLAMA_AVAILABLE:
+                raise ImportError("langchain-ollama not installed. pip install langchain-ollama")
+
+            self.model = model or os.getenv("OLLAMA_MODEL", "qwen2.5:14b")
+            self.ollama_base_url = ollama_base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            self.client = ChatOllama(
+                model=self.model,
+                base_url=self.ollama_base_url,
+                temperature=0.3,
+                format="json",
+            )
 
         else:
             raise ValueError(f"Unknown provider: {provider}")
@@ -279,6 +303,24 @@ class AITaxAdvisor:
                     ]
                 )
                 return response.content[0].text
+
+            elif self.provider == "ollama":
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=user_message)
+                ]
+                response = await self.client.ainvoke(messages)
+                result = response.content
+
+                # Clean up markdown code blocks if present
+                if result.startswith("```json"):
+                    result = result[7:]
+                if result.startswith("```"):
+                    result = result[3:]
+                if result.endswith("```"):
+                    result = result[:-3]
+
+                return result.strip()
 
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
@@ -364,7 +406,8 @@ class AITaxAdvisor:
         self,
         profile: UserProfile,
         goal: ParsedGoal,
-        available_funds: Optional[List[Dict]] = None
+        available_funds: Optional[List[Dict]] = None,
+        rag_context: str = ""
     ) -> List[TaxScenario]:
         """
         Generate personalized tax optimization scenarios
@@ -373,6 +416,7 @@ class AITaxAdvisor:
             profile: User's financial profile
             goal: Parsed goal
             available_funds: List of available tax funds
+            rag_context: Tax law context from RAG (Qdrant)
 
         Returns:
             List of 3 TaxScenario objects
@@ -395,6 +439,20 @@ class AITaxAdvisor:
             fund_info = "\n\nกองทุนที่แนะนำ (จาก SEC API):\n"
             for fund in available_funds[:10]:
                 fund_info += f"- {fund.get('fund_code')}: {fund.get('fund_name_th')} (ความเสี่ยง: {fund.get('risk_level')})\n"
+
+        # Build RAG context section
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+
+=== ข้อมูลกฎหมายภาษีจากฐานข้อมูล (RAG) ===
+{rag_context[:3000]}
+=== จบข้อมูลกฎหมาย ===
+
+สำคัญ: กรุณาใช้ข้อมูลกฎหมายภาษีด้านบนประกอบการวิเคราะห์และแนะนำ
+ตรวจสอบว่าสิทธิลดหย่อนที่แนะนำถูกต้องตามกฎหมายปี 2568
+"""
+            logger.info(f"Including RAG context ({len(rag_context)} chars) in scenario generation")
 
         prompt = f"""
 โปรไฟล์ผู้ใช้:
@@ -424,7 +482,7 @@ class AITaxAdvisor:
 - ลำดับความสำคัญ: {goal.priority.value}
 - คำบอกของผู้ใช้: "{goal.raw_input}"
 {fund_info}
-
+{rag_section}
 กรุณาสร้าง 3 สถานการณ์ที่ตอบโจทย์ผู้ใช้:
 1. สถานการณ์แนะนำสูงสุด (ตอบโจทย์ทุกเป้าหมาย)
 2. สถานการณ์ทางเลือก (เน้นด้านใดด้านหนึ่งมากกว่า)
@@ -709,6 +767,132 @@ class AITaxAdvisor:
 
         return warnings
 
+    # ============================================================
+    # Explanation Only (Code-Heavy Flow)
+    # ============================================================
+
+    SYSTEM_PROMPT_EXPLAIN_ONLY = """คุณเป็น AI Tax Advisor ภาษาไทย
+หน้าที่ของคุณคือ "อธิบาย" เท่านั้น ห้ามเปลี่ยนแปลงตัวเลขใดๆ
+
+คุณจะได้รับ:
+1. โปรไฟล์ผู้ใช้
+2. เป้าหมายของผู้ใช้
+3. 3 แผนการลงทุนที่คำนวณเรียบร้อยแล้ว (ตัวเลขถูกต้อง 100%)
+4. กองทุนที่คัดเลือกจากฐานข้อมูลแล้ว
+
+กรุณาอธิบายแต่ละแผนว่า:
+- ทำไมแผนนี้เหมาะกับผู้ใช้คนนี้
+- ข้อดีข้อเสียของแผนนี้คืออะไร
+- กองทุนที่แนะนำเหมาะกับผู้ใช้อย่างไร
+
+สำคัญ:
+- ห้ามแก้ไขตัวเลขใดๆ ทั้งสิ้น
+- อธิบายเป็นภาษาไทยที่เข้าใจง่าย
+- ตอบเป็น JSON เท่านั้น
+
+รูปแบบ JSON:
+{
+  "scenario_explanations": [
+    {
+      "scenario_id": 1,
+      "explanation": "คำอธิบายว่าทำไมแผนนี้เหมาะ...",
+      "fund_reasons": "อธิบายว่าทำไมกองทุนที่แนะนำเหมาะกับผู้ใช้..."
+    }
+  ],
+  "overall_recommendation": "สรุปว่าแผนไหนเหมาะที่สุดและทำไม"
+}"""
+
+    async def generate_explanation_only(
+        self,
+        profile: UserProfile,
+        goal: str,
+        scenarios: List[Dict],
+        recommended_funds: List[Dict],
+        rag_context: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Generate Thai-language explanations for pre-computed scenarios.
+        LLM only explains WHY, never changes numbers.
+
+        Args:
+            profile: User's financial profile
+            goal: User's goal text
+            scenarios: Pre-computed scenarios (from code)
+            recommended_funds: Pre-filtered funds (from DB)
+            rag_context: Tax law context from RAG
+
+        Returns:
+            Dict with scenario_explanations and overall_recommendation
+        """
+        logger.info("Generating AI explanations for pre-computed scenarios...")
+
+        # Build fund summary for LLM context
+        fund_summary = ""
+        if recommended_funds:
+            fund_summary = "\nกองทุนที่คัดเลือกมาแล้ว:\n"
+            for f in recommended_funds[:10]:
+                fund_summary += (
+                    f"- {f.get('abbr', f.get('fund_code', 'N/A'))}: "
+                    f"{f.get('nameTh', f.get('fund_name', 'N/A'))} "
+                    f"(ประเภท: {f.get('fundType', 'N/A')}, "
+                    f"ความเสี่ยง: {f.get('riskSpectrum', 'N/A')}, "
+                    f"ผลตอบแทน 1 ปี: {f.get('return1y', 'N/A')}%)\n"
+                )
+
+        # Build scenarios summary
+        scenarios_summary = "\nแผนที่คำนวณเรียบร้อยแล้ว:\n"
+        for s in scenarios:
+            scenarios_summary += (
+                f"\nแผนที่ {s.get('id', '?')}: {s.get('name', 'N/A')}\n"
+                f"  - Strategy: {s.get('strategy', 'N/A')}\n"
+                f"  - ลงทุน RMF: ฿{s.get('rmf_investment', 0):,.0f}\n"
+                f"  - ลงทุน ThaiESG: ฿{s.get('thai_esg_investment', 0):,.0f}\n"
+                f"  - ลงทุนรวม: ฿{s.get('total_investment', 0):,.0f}\n"
+                f"  - ภาษีที่ประหยัดได้: ฿{s.get('tax_saved', 0):,.0f}\n"
+                f"  - เงินสดเหลือ: ฿{s.get('cash_remaining', 0):,.0f}\n"
+            )
+
+        # Build RAG section
+        rag_section = ""
+        if rag_context:
+            rag_section = f"\n=== ข้อมูลกฎหมายภาษี ===\n{rag_context[:2000]}\n"
+
+        prompt = f"""
+โปรไฟล์ผู้ใช้:
+- อายุ: {profile.age} ปี
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ค่าใช้จ่าย/เดือน: ฿{profile.monthly_expenses:,.0f}
+- ความเสี่ยงที่รับได้: {profile.risk_tolerance}
+- สถานะ: {profile.marital_status}, บุตร/ผู้อุปการะ {profile.dependents} คน
+
+เป้าหมายของผู้ใช้: "{goal}"
+{scenarios_summary}
+{fund_summary}
+{rag_section}
+กรุณาอธิบายแต่ละแผนว่าทำไมเหมาะกับผู้ใช้คนนี้ ตอบเป็น JSON
+"""
+
+        try:
+            response = await self._call_llm(
+                self.SYSTEM_PROMPT_EXPLAIN_ONLY,
+                prompt,
+                temperature=0.5
+            )
+
+            data = json.loads(response)
+            return data
+
+        except Exception as e:
+            logger.error(f"Explanation generation failed: {e}")
+            # Return empty explanations on failure
+            return {
+                "scenario_explanations": [
+                    {"scenario_id": s.get("id", i+1), "explanation": "", "fund_reasons": ""}
+                    for i, s in enumerate(scenarios)
+                ],
+                "overall_recommendation": ""
+            }
+
 
 # ============================================================
 # Factory Function
@@ -731,14 +915,17 @@ def create_ai_advisor(
     if provider:
         return AITaxAdvisor(provider=provider, api_key=api_key)
 
-    # Auto-detect best provider
-    if os.getenv("OPENAI_API_KEY"):
+    # Auto-detect best provider — prefer Ollama if enabled
+    use_ollama = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
+    if use_ollama and OLLAMA_AVAILABLE:
+        return AITaxAdvisor(provider="ollama")
+    elif os.getenv("OPENAI_API_KEY"):
         return AITaxAdvisor(provider="openai")
     elif os.getenv("ANTHROPIC_API_KEY"):
         return AITaxAdvisor(provider="anthropic")
     else:
         raise ValueError(
-            "No API key found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY"
+            "No AI provider available. Set USE_OLLAMA=true, OPENAI_API_KEY, or ANTHROPIC_API_KEY"
         )
 
 

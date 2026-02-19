@@ -17,11 +17,15 @@ import {
   Loader2,
   RefreshCw,
   User,
-  Heart
+  Heart,
+  Shield,
+  BarChart3,
+  Award,
+  Building2
 } from 'lucide-react';
 
-// Backend API URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_TAX_API_URL || 'http://localhost:8000';
+// Unified optimize endpoint (Next.js API route → Python Backend)
+// No direct backend calls from frontend anymore
 
 // Types matching the backend
 interface UserProfile {
@@ -86,6 +90,34 @@ interface ProfileAnalysis {
   warnings: string[];
 }
 
+interface RecommendedFund {
+  rank: number;
+  fundId: string;
+  abbr: string;
+  nameTh: string;
+  nameEn: string;
+  amcNameTh: string;
+  amcNameEn: string;
+  fundType: string;
+  policyDesc: string | null;
+  riskSpectrum: number;
+  riskLabel: string;
+  riskLabelEn: string;
+  performance: {
+    return1y: number | null;
+    return3y: number | null;
+    return5y: number | null;
+  };
+  statistics: {
+    sharpeRatio: number | null;
+    maxDrawdown: number | null;
+    alpha: number | null;
+    beta: number | null;
+  };
+  topHoldings: { assetName: string; assetRatio: number | null }[];
+  score: number;
+}
+
 // Default profile for demo
 const DEFAULT_PROFILE: UserProfile = {
   annual_income: 1200000,
@@ -129,6 +161,8 @@ export default function AIOptimizerPage() {
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
   const [, setParsedGoal] = useState<ParsedGoal | null>(null);
   const [profileAnalysis, setProfileAnalysis] = useState<ProfileAnalysis | null>(null);
+  const [recommendedFunds, setRecommendedFunds] = useState<RecommendedFund[]>([]);
+  const [expandedFund, setExpandedFund] = useState<string | null>(null);
 
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -182,7 +216,7 @@ export default function AIOptimizerPage() {
     loadProfile();
   }, [status]);
 
-  // API Functions
+  // Save profile to DB (background)
   const saveProfile = async (): Promise<boolean> => {
     try {
       const response = await fetch('/api/user/financial-profile', {
@@ -194,7 +228,6 @@ export default function AIOptimizerPage() {
         console.warn('Failed to save profile to DB');
         return false;
       }
-      console.log('Profile saved to DB');
       return true;
     } catch (err) {
       console.error('Error saving profile:', err);
@@ -202,59 +235,8 @@ export default function AIOptimizerPage() {
     }
   };
 
-  const analyzeProfile = async (): Promise<ProfileAnalysis | null> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai-optimizer/analyze-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
-      if (!response.ok) throw new Error('Failed to analyze profile');
-      return await response.json();
-    } catch (err) {
-      console.error('Profile analysis error:', err);
-      return null;
-    }
-  };
-
-  const parseGoal = async (goal: string): Promise<ParsedGoal | null> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai-optimizer/parse-goal`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          goal_text: goal,
-          profile: profile,
-        }),
-      });
-      if (!response.ok) throw new Error('Failed to parse goal');
-      return await response.json();
-    } catch (err) {
-      console.error('Goal parsing error:', err);
-      return null;
-    }
-  };
-
-  const generateScenarios = async (goal: ParsedGoal): Promise<TaxScenario[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/ai-optimizer/generate-scenarios`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile: profile,
-          goal: goal,
-        }),
-      });
-      if (!response.ok) throw new Error('Failed to generate scenarios');
-      const data = await response.json();
-      return data.scenarios || [];
-    } catch (err) {
-      console.error('Scenario generation error:', err);
-      return [];
-    }
-  };
-
-  const handleGenerateScenarios = async () => {
+  // Unified optimize handler - 1 API call instead of 4
+  const handleOptimize = async () => {
     if (!userGoal.trim()) return;
 
     setLoading(true);
@@ -262,31 +244,116 @@ export default function AIOptimizerPage() {
     setError(null);
 
     try {
-      // Step 0: Save profile to DB (background, don't block)
+      // Save profile in background (don't block)
       saveProfile();
 
-      // Step 1: Analyze profile
+      // Step 1: Sending request
       setLoadingStep(1);
-      const analysis = await analyzeProfile();
-      setProfileAnalysis(analysis);
 
-      // Step 2: Parse goal
+      const response = await fetch('/api/ai-optimizer/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          goal: userGoal,
+          risk_tolerance: profile.risk_tolerance,
+          fund_types: ['RMF', 'TESG', 'TESGX'],
+          top_n_funds: 5,
+          include_ai_explanation: true,
+        }),
+      });
+
+      // Step 2: Processing response
       setLoadingStep(2);
-      const parsed = await parseGoal(userGoal);
-      if (!parsed) throw new Error('ไม่สามารถวิเคราะห์เป้าหมายได้');
-      setParsedGoal(parsed);
 
-      // Step 3: Generate scenarios
+      console.log('Optimize response status:', response.status, response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Optimize error:', response.status, errorData);
+        throw new Error('ไม่สามารถวิเคราะห์ได้ กรุณาลองใหม่อีกครั้ง');
+      }
+
+      const data = await response.json();
+      console.log('Optimize data keys:', Object.keys(data));
+      console.log('Optimize scenarios count:', data.scenarios?.length);
+      console.log('Optimize scenarios:', data.scenarios);
+
+      // Step 3: Map profile analysis
       setLoadingStep(3);
-      const generatedScenarios = await generateScenarios(parsed);
 
-      if (generatedScenarios.length === 0) {
+      // Map profile_analysis from backend
+      if (data.profile_analysis) {
+        setProfileAnalysis(data.profile_analysis);
+      } else if (data.tax_info) {
+        // Construct profile analysis from tax_info
+        const taxInfo = data.tax_info;
+        setProfileAnalysis({
+          tax_bracket: taxInfo.tax_bracket?.marginal_rate_percent || 0,
+          marginal_rate: taxInfo.tax_bracket?.marginal_rate_percent || 0,
+          current_tax: taxInfo.tax_bracket?.tax_amount || 0,
+          max_potential_savings: taxInfo.deduction_remaining?.total || 0,
+          recommended_focus: [],
+          warnings: [],
+        });
+      }
+
+      // Step 4: Map scenarios from backend
+      setLoadingStep(4);
+
+      const backendScenarios = data.scenarios || [];
+      const mappedScenarios: TaxScenario[] = backendScenarios.map((s: any) => ({
+        id: s.id?.toString() || `scenario-${s.id}`,
+        name: s.name || '',
+        description: s.description || '',
+        badge: s.badge || '📊',
+        total_investment: s.total_investment || 0,
+        tax_savings: s.tax_saved || 0,
+        cash_remaining: s.cash_remaining || 0,
+        risk_level: s.risk_level || 50,
+        risk_label: (s.risk_level || 50) <= 30 ? 'ต่ำ' : (s.risk_level || 50) <= 60 ? 'ปานกลาง' : 'สูง',
+        allocations: [
+          ...(s.rmf_investment ? [{ category: 'RMF', amount: s.rmf_investment }] : []),
+          ...(s.thai_esg_investment ? [{ category: 'ThaiESG', amount: s.thai_esg_investment }] : []),
+        ].filter((a) => a.amount > 0),
+        explanation: s.ai_explanation || s.description || '',
+        pros: s.pros || [],
+        cons: s.cons || [],
+        suitable_for: s.description || '',
+        action_steps: (s.recommended_funds || []).map((f: any) =>
+          typeof f === 'string' ? f : `${f.abbr || f.fundType || ''} - ${f.nameTh || ''}`
+        ),
+      }));
+
+      if (mappedScenarios.length === 0) {
         throw new Error('ไม่สามารถสร้างแผนการลงทุนได้');
       }
 
-      // Step 4: Complete
-      setLoadingStep(4);
-      setScenarios(generatedScenarios);
+      setScenarios(mappedScenarios);
+
+      // Map recommended funds from enriched DB data
+      const funds: RecommendedFund[] = (data.recommended_funds || []).map((f: any) => ({
+        rank: f.rank || 0,
+        fundId: f.fundId || '',
+        abbr: f.abbr || '',
+        nameTh: f.nameTh || '',
+        nameEn: f.nameEn || '',
+        amcNameTh: f.amcNameTh || '',
+        amcNameEn: f.amcNameEn || '',
+        fundType: f.fundType || '',
+        policyDesc: f.policyDesc || null,
+        riskSpectrum: f.riskSpectrum || 0,
+        riskLabel: f.riskLabel || '',
+        riskLabelEn: f.riskLabelEn || '',
+        performance: f.performance || { return1y: null, return3y: null, return5y: null },
+        statistics: f.statistics || { sharpeRatio: null, maxDrawdown: null, alpha: null, beta: null },
+        topHoldings: f.topHoldings || [],
+        score: f.score || 0,
+      }));
+      setRecommendedFunds(funds);
+
+      // Step 5: Complete
+      setLoadingStep(5);
       setShowProfileForm(false);
 
     } catch (err: any) {
@@ -302,6 +369,8 @@ export default function AIOptimizerPage() {
     setSelectedScenario(null);
     setParsedGoal(null);
     setProfileAnalysis(null);
+    setRecommendedFunds([]);
+    setExpandedFund(null);
     setUserGoal('');
     setShowProfileForm(true);
     setError(null);
@@ -530,7 +599,7 @@ export default function AIOptimizerPage() {
 
                   {/* Generate Button */}
                   <button
-                    onClick={handleGenerateScenarios}
+                    onClick={handleOptimize}
                     disabled={loading || !userGoal.trim()}
                     className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
@@ -557,9 +626,10 @@ export default function AIOptimizerPage() {
 
                       <div className="space-y-3">
                         {[
-                          'วิเคราะห์โปรไฟล์และสถานะภาษี...',
-                          'ตีความเป้าหมายของคุณ...',
-                          'สร้างแผนการลงทุนที่เหมาะสม...',
+                          'ส่งข้อมูลไปวิเคราะห์...',
+                          'คำนวณภาษีและกรองกองทุนจากฐานข้อมูล...',
+                          'วิเคราะห์โปรไฟล์และสร้างแผน...',
+                          'AI สร้าง 3 แผนการลงทุน...',
                           'เสร็จสิ้น!'
                         ].map((step, index) => (
                           <div key={index} className="flex items-center gap-3">
@@ -585,7 +655,7 @@ export default function AIOptimizerPage() {
                         <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-blue-600 transition-all duration-500"
-                            style={{ width: `${(loadingStep / 4) * 100}%` }}
+                            style={{ width: `${(loadingStep / 5) * 100}%` }}
                           />
                         </div>
                       </div>
@@ -669,6 +739,177 @@ export default function AIOptimizerPage() {
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Recommended Funds Section */}
+              {recommendedFunds.length > 0 && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center">
+                      <Award className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        Top {recommendedFunds.length} กองทุนแนะนำ
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        คัดเลือกจากฐานข้อมูล SEC Thailand ตามระดับความเสี่ยงและผลตอบแทนย้อนหลัง
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {recommendedFunds.map((fund) => {
+                      const isExpanded = expandedFund === fund.fundId;
+                      const riskColor = fund.riskSpectrum <= 3
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : fund.riskSpectrum <= 6
+                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                          : 'bg-red-100 text-red-800 border-red-200';
+
+                      const typeColor = fund.fundType === 'RMF'
+                        ? 'bg-blue-100 text-blue-700'
+                        : fund.fundType === 'TESG' || fund.fundType === 'TESGX'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-700';
+
+                      return (
+                        <div
+                          key={fund.fundId}
+                          className={`border rounded-xl p-4 cursor-pointer transition-all ${
+                            isExpanded ? 'border-blue-400 ring-1 ring-blue-200 bg-blue-50/30' : 'border-slate-200 hover:border-slate-300'
+                          }`}
+                          onClick={() => setExpandedFund(isExpanded ? null : fund.fundId)}
+                        >
+                          {/* Fund Header */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
+                                {fund.rank}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-semibold text-slate-800">{fund.abbr}</p>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}`}>
+                                    {fund.fundType === 'TESG' ? 'ThaiESG' : fund.fundType === 'TESGX' ? 'ThaiESGX' : fund.fundType}
+                                  </span>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${riskColor}`}>
+                                    <Shield className="w-3 h-3 inline mr-0.5" />
+                                    ความเสี่ยง {fund.riskSpectrum} ({fund.riskLabel})
+                                  </span>
+                                </div>
+                                <p className="text-sm text-slate-600 truncate mt-0.5">{fund.nameTh}</p>
+                              </div>
+                            </div>
+
+                            {/* Performance Badge */}
+                            <div className="text-right flex-shrink-0">
+                              {fund.performance.return1y !== null && (
+                                <div>
+                                  <p className={`text-lg font-bold ${fund.performance.return1y >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {fund.performance.return1y >= 0 ? '+' : ''}{fund.performance.return1y.toFixed(2)}%
+                                  </p>
+                                  <p className="text-xs text-slate-500">ผลตอบแทน 1 ปี</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="mt-4 pt-4 border-t border-slate-200 space-y-4">
+                              {/* AMC Info */}
+                              <div className="flex items-center gap-2 text-sm text-slate-600">
+                                <Building2 className="w-4 h-4" />
+                                <span>บลจ. {fund.amcNameTh}</span>
+                              </div>
+
+                              {/* Performance Grid */}
+                              <div className="grid grid-cols-3 gap-3">
+                                {[
+                                  { label: 'ผลตอบแทน 1 ปี', value: fund.performance.return1y },
+                                  { label: 'ผลตอบแทน 3 ปี', value: fund.performance.return3y },
+                                  { label: 'ผลตอบแทน 5 ปี', value: fund.performance.return5y },
+                                ].map((item) => (
+                                  <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
+                                    <p className={`text-base font-bold ${
+                                      item.value === null ? 'text-slate-400' :
+                                      item.value >= 0 ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                      {item.value !== null
+                                        ? `${item.value >= 0 ? '+' : ''}${item.value.toFixed(2)}%`
+                                        : 'N/A'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Statistics */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {[
+                                  { label: 'Sharpe Ratio', value: fund.statistics.sharpeRatio, format: (v: number) => v.toFixed(2) },
+                                  { label: 'Max Drawdown', value: fund.statistics.maxDrawdown, format: (v: number) => `${v.toFixed(2)}%` },
+                                  { label: 'Alpha', value: fund.statistics.alpha, format: (v: number) => v.toFixed(2) },
+                                  { label: 'Beta', value: fund.statistics.beta, format: (v: number) => v.toFixed(2) },
+                                ].map((item) => (
+                                  <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      {item.value !== null ? item.format(item.value) : 'N/A'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Top Holdings */}
+                              {fund.topHoldings.length > 0 && (
+                                <div>
+                                  <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1.5">
+                                    <BarChart3 className="w-4 h-4" />
+                                    สินทรัพย์ที่ถือครอง Top 5
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {fund.topHoldings.map((h, idx) => (
+                                      <div key={idx} className="flex justify-between text-sm">
+                                        <span className="text-slate-600 truncate mr-2">{h.assetName}</span>
+                                        <span className="font-medium text-slate-800 flex-shrink-0">
+                                          {h.assetRatio !== null ? `${h.assetRatio.toFixed(2)}%` : '-'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Policy Description */}
+                              {fund.policyDesc && (
+                                <div className="bg-blue-50 rounded-lg p-3">
+                                  <p className="text-xs text-blue-600 mb-1 font-medium">ประเภทกองทุน</p>
+                                  <p className="text-sm text-slate-700">{fund.policyDesc}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {!isExpanded && (
+                            <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                              {fund.performance.return3y !== null && (
+                                <span>3 ปี: <strong className={fund.performance.return3y >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {fund.performance.return3y >= 0 ? '+' : ''}{fund.performance.return3y.toFixed(2)}%
+                                </strong></span>
+                              )}
+                              {fund.statistics.sharpeRatio !== null && (
+                                <span>Sharpe: <strong>{fund.statistics.sharpeRatio.toFixed(2)}</strong></span>
+                              )}
+                              <span className="ml-auto text-slate-400">คลิกเพื่อดูเพิ่มเติม</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
