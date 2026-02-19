@@ -5,10 +5,10 @@
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
-// AWS Configuration
-const AWS_REGION = process.env.AWS_REGION || 'ap-southeast-1';
-const AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-const AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+// AWS Configuration (ใช้ key ชุด SES เดียวกับ aws-ses.ts)
+const AWS_REGION = process.env.AWS_SES_REGION || 'ap-southeast-1';
+const AWS_ACCESS_KEY_ID = process.env.AWS_SES_ACCESS_KEY_ID;
+const AWS_SECRET_ACCESS_KEY = process.env.AWS_SES_SECRET_ACCESS_KEY;
 
 // SQS Configuration
 const SQS_QUEUE_URL = process.env.AWS_SQS_QUEUE_URL;
