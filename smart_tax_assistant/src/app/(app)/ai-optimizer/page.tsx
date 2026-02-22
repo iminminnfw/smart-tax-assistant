@@ -47,6 +47,7 @@ interface UserProfile {
   num_parents: number;
   has_disability: boolean;
   monthly_expenses: number;
+  emergency_fund: number;
   financial_goals: string[];
 }
 
@@ -104,6 +105,7 @@ interface RecommendedFund {
   riskLabel: string;
   riskLabelEn: string;
   performance: {
+    return3m: number | null;
     return1y: number | null;
     return3y: number | null;
     return5y: number | null;
@@ -115,6 +117,7 @@ interface RecommendedFund {
     beta: number | null;
   };
   topHoldings: { assetName: string; assetRatio: number | null }[];
+  factsheet: { amcUrl: string | null; pdfUrl: string | null };
   score: number;
 }
 
@@ -129,17 +132,37 @@ const DEFAULT_PROFILE: UserProfile = {
   num_parents: 0,
   has_disability: false,
   monthly_expenses: 40000,
+  emergency_fund: 0,
   financial_goals: []
 };
 
-const GOAL_EXAMPLES = [
-  'อยากประหยัดภาษีสูงสุด แต่ยังมีเงินเหลือใช้',
-  'อยากซื้อบ้าน 3 ล้านบาท ใน 3 ปี',
-  'อยากเกษียณอายุ 50 สบายๆ',
-  'อยากมีเงินสดเหลือ 200,000 บาท/ปี',
-  'อยากปกป้องครอบครัว มีเงินออมพอประมาณ',
-  'อยากสมดุลระหว่างการออมและการใช้ชีวิต',
-];
+interface GoalForm {
+  planMarriage: boolean;
+  planChildren: boolean;
+  numChildren: number;
+  targetSavings: number;
+}
+
+function buildGoalFromForm(form: GoalForm): string {
+  const parts: string[] = [];
+
+  if (form.planMarriage) {
+    if (form.planChildren && form.numChildren > 0) {
+      parts.push(`วางแผนแต่งงานในปีนี้ และวางแผนมีลูก ${form.numChildren} คน`);
+    } else {
+      parts.push('วางแผนแต่งงานในปีนี้');
+    }
+  } else {
+    parts.push('ยังไม่มีแผนแต่งงานหรือมีลูกในปีนี้');
+  }
+
+  if (form.targetSavings > 0) {
+    parts.push(`ต้องการมีเงินออมเป้าหมาย ${form.targetSavings.toLocaleString('th-TH')} บาท`);
+  }
+
+  parts.push('ต้องการวางแผนภาษีและการออมให้เหมาะสม');
+  return parts.join(' ');
+}
 
 const RISK_OPTIONS = [
   { value: 'conservative', label: 'ระมัดระวัง', description: 'เน้นความปลอดภัย ผลตอบแทนต่ำ' },
@@ -157,6 +180,7 @@ export default function AIOptimizerPage() {
 
   // Goal & Results state
   const [userGoal, setUserGoal] = useState<string>('');
+  const [goalForm, setGoalForm] = useState<GoalForm>({ planMarriage: false, planChildren: false, numChildren: 0, targetSavings: 0 });
   const [scenarios, setScenarios] = useState<TaxScenario[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
   const [, setParsedGoal] = useState<ParsedGoal | null>(null);
@@ -200,6 +224,7 @@ export default function AIOptimizerPage() {
             num_parents: data.num_parents || 0,
             has_disability: data.has_disability || false,
             monthly_expenses: data.monthly_expenses || DEFAULT_PROFILE.monthly_expenses,
+            emergency_fund: data.emergency_fund || 0,
             financial_goals: data.financial_goals || [],
           });
 
@@ -237,11 +262,12 @@ export default function AIOptimizerPage() {
 
   // Unified optimize handler - 1 API call instead of 4
   const handleOptimize = async () => {
-    if (!userGoal.trim()) return;
-
     setLoading(true);
     setLoadingStep(0);
     setError(null);
+
+    const goal = buildGoalFromForm(goalForm);
+    setUserGoal(goal);
 
     try {
       // Save profile in background (don't block)
@@ -255,7 +281,7 @@ export default function AIOptimizerPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           profile,
-          goal: userGoal,
+          goal,
           risk_tolerance: profile.risk_tolerance,
           fund_types: ['RMF', 'TESG', 'TESGX'],
           top_n_funds: 5,
@@ -354,9 +380,10 @@ export default function AIOptimizerPage() {
         riskSpectrum: f.riskSpectrum || 0,
         riskLabel: f.riskLabel || '',
         riskLabelEn: f.riskLabelEn || '',
-        performance: f.performance || { return1y: null, return3y: null, return5y: null },
+        performance: f.performance || { return3m: null, return1y: null, return3y: null, return5y: null },
         statistics: f.statistics || { sharpeRatio: null, maxDrawdown: null, alpha: null, beta: null },
         topHoldings: f.topHoldings || [],
+        factsheet: f.factsheet || { amcUrl: null, pdfUrl: null },
         score: f.score || 0,
       }));
       setRecommendedFunds(funds);
@@ -463,11 +490,23 @@ export default function AIOptimizerPage() {
                       </label>
                       <input
                         type="number"
-                        value={profile.annual_income}
-                        onChange={(e) => setProfile({ ...profile, annual_income: Number(e.target.value) })}
+                        value={profile.annual_income || ''}
+                        onChange={(e) => setProfile({ ...profile, annual_income: e.target.value === '' ? 0 : Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                         disabled={loading}
                       />
+                      {(() => {
+                        const income = profile.annual_income;
+                        const netIncome = income - 60000; // รายได้สุทธิ = รายได้ - ลดหย่อนส่วนตัว
+                        if (income > 0 && netIncome <= 150000) {
+                          return (
+                            <p className="mt-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                              ✅ รายได้สุทธิ <strong>{netIncome.toLocaleString('th-TH')} บาท</strong> ≤ 150,000 บาท — <strong>ไม่ต้องเสียภาษี</strong>
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
 
                     {/* Age */}
@@ -477,8 +516,8 @@ export default function AIOptimizerPage() {
                       </label>
                       <input
                         type="number"
-                        value={profile.age}
-                        onChange={(e) => setProfile({ ...profile, age: Number(e.target.value) })}
+                        value={profile.age || ''}
+                        onChange={(e) => setProfile({ ...profile, age: e.target.value === '' ? 0 : Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                         disabled={loading}
                       />
@@ -491,10 +530,25 @@ export default function AIOptimizerPage() {
                       </label>
                       <input
                         type="number"
-                        value={profile.monthly_expenses}
-                        onChange={(e) => setProfile({ ...profile, monthly_expenses: Number(e.target.value) })}
+                        value={profile.monthly_expenses || ''}
+                        onChange={(e) => setProfile({ ...profile, monthly_expenses: e.target.value === '' ? 0 : Number(e.target.value) })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                         disabled={loading}
+                      />
+                    </div>
+
+                    {/* Emergency Fund */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        เงินสำรองฉุกเฉิน (บาท)
+                      </label>
+                      <input
+                        type="number"
+                        value={profile.emergency_fund || ''}
+                        onChange={(e) => setProfile({ ...profile, emergency_fund: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
+                        disabled={loading}
+                        placeholder="เช่น 240000 (= 6 เดือน × ค่าใช้จ่าย)"
                       />
                     </div>
 
@@ -572,44 +626,118 @@ export default function AIOptimizerPage() {
                     <h2 className="text-lg font-semibold text-slate-800">เป้าหมายของคุณ</h2>
                   </div>
 
-                  {/* Goal Textarea */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      บอก AI ว่าคุณต้องการอะไร
-                    </label>
-                    <textarea
-                      value={userGoal}
-                      onChange={(e) => setUserGoal(e.target.value)}
-                      placeholder="เช่น: อยากประหยัดภาษีสูงสุด แต่ยังมีเงินเหลือใช้ในชีวิตประจำวัน หรือ อยากซื้อบ้าน 3 ล้านใน 3 ปี"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-colors min-h-[120px] resize-none text-slate-800"
-                      disabled={loading}
-                    />
-                    <p className="text-sm text-slate-500 mt-2">
-                      บอกเป้าหมายให้ละเอียดเท่าไหร่ AI จะแม่นยำมากขึ้นเท่านั้น
-                    </p>
-                  </div>
+                  {/* Goal Form - Year 1 */}
+                  <div className="mb-6 space-y-4">
+                    <p className="text-sm text-slate-500">ตอบคำถามเพื่อให้ AI วางแผนภาษีได้แม่นยำขึ้น</p>
 
-                  {/* Example Goals */}
-                  <div className="mb-6">
-                    <p className="text-sm font-medium text-slate-700 mb-3">ตัวอย่างเป้าหมาย (คลิกเพื่อใช้):</p>
-                    <div className="flex flex-wrap gap-2">
-                      {GOAL_EXAMPLES.map((example, index) => (
+                    {/* Q1: แต่งงาน */}
+                    <div className="p-4 border border-slate-200 rounded-lg">
+                      <p className="text-sm font-medium text-slate-700 mb-3">
+                        คุณวางแผนที่จะแต่งงานในปีนี้ไหม?
+                      </p>
+                      <div className="flex gap-3">
                         <button
-                          key={index}
-                          onClick={() => setUserGoal(example)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 text-sm rounded-lg transition-colors border border-slate-200 hover:border-blue-300"
+                          type="button"
+                          onClick={() => setGoalForm({ ...goalForm, planMarriage: true })}
                           disabled={loading}
+                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                            goalForm.planMarriage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                          }`}
                         >
-                          {example}
+                          ใช่
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => setGoalForm({ ...goalForm, planMarriage: false, planChildren: false, numChildren: 0 })}
+                          disabled={loading}
+                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                            !goalForm.planMarriage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                          }`}
+                        >
+                          ยังไม่
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Q2: มีลูก */}
+                    <div className={`p-4 border rounded-lg transition-colors ${
+                      goalForm.planMarriage ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'
+                    }`}>
+                      <p className="text-sm font-medium text-slate-700 mb-3">
+                        คุณวางแผนจะมีลูกไหม?
+                        {!goalForm.planMarriage && (
+                          <span className="ml-2 text-xs font-normal text-slate-400">(ต้องแต่งงานก่อน)</span>
+                        )}
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => goalForm.planMarriage && setGoalForm({ ...goalForm, planChildren: true, numChildren: goalForm.numChildren || 1 })}
+                          disabled={loading || !goalForm.planMarriage}
+                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                            goalForm.planChildren && goalForm.planMarriage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-slate-300 border-slate-200'
+                          }`}
+                        >
+                          ใช่
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => goalForm.planMarriage && setGoalForm({ ...goalForm, planChildren: false, numChildren: 0 })}
+                          disabled={loading || !goalForm.planMarriage}
+                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
+                            !goalForm.planChildren && goalForm.planMarriage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-slate-300 border-slate-200'
+                          }`}
+                        >
+                          ยังไม่
+                        </button>
+                      </div>
+                      {goalForm.planMarriage && goalForm.planChildren && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <label className="text-xs text-slate-600">จำนวนลูกที่วางแผน</label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={goalForm.numChildren}
+                            onChange={(e) => setGoalForm({ ...goalForm, numChildren: Math.max(1, Number(e.target.value)) })}
+                            disabled={loading}
+                            className="w-20 px-3 py-1.5 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
+                          />
+                          <span className="text-sm text-slate-600">คน</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Q3: เงินออมเป้าหมาย */}
+                    <div className="p-4 border border-slate-200 rounded-lg">
+                      <p className="text-sm font-medium text-slate-700 mb-3">
+                        คุณต้องการมีเงินออมเป้าหมายเท่าไหร่? (บาท)
+                      </p>
+                      <input
+                        type="number"
+                        min="0"
+                        value={goalForm.targetSavings || ''}
+                        onChange={(e) => setGoalForm({ ...goalForm, targetSavings: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        disabled={loading}
+                        placeholder="เช่น 500000"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">ถ้ายังไม่มีเป้าหมาย ปล่อยว่างได้เลย</p>
                     </div>
                   </div>
 
                   {/* Generate Button */}
                   <button
                     onClick={handleOptimize}
-                    disabled={loading || !userGoal.trim()}
+                    disabled={loading}
                     className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     {loading ? (
@@ -835,11 +963,10 @@ export default function AIOptimizerPage() {
                               </div>
 
                               {/* Performance Grid */}
-                              <div className="grid grid-cols-3 gap-3">
+                              <div className="grid grid-cols-2 gap-3">
                                 {[
+                                  { label: 'ผลตอบแทน 3 เดือน', value: fund.performance.return3m },
                                   { label: 'ผลตอบแทน 1 ปี', value: fund.performance.return1y },
-                                  { label: 'ผลตอบแทน 3 ปี', value: fund.performance.return3y },
-                                  { label: 'ผลตอบแทน 5 ปี', value: fund.performance.return5y },
                                 ].map((item) => (
                                   <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
                                     <p className="text-xs text-slate-500 mb-1">{item.label}</p>
@@ -899,14 +1026,42 @@ export default function AIOptimizerPage() {
                                   <p className="text-sm text-slate-700">{fund.policyDesc}</p>
                                 </div>
                               )}
+
+                              {/* Factsheet Links */}
+                              {(fund.factsheet.amcUrl || fund.factsheet.pdfUrl) && (
+                                <div className="flex gap-2 pt-1">
+                                  {fund.factsheet.amcUrl && (
+                                    <a
+                                      href={fund.factsheet.amcUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                      🌐 ดูข้อมูลกองทุน
+                                    </a>
+                                  )}
+                                  {fund.factsheet.pdfUrl && (
+                                    <a
+                                      href={fund.factsheet.pdfUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 transition-colors"
+                                    >
+                                      📄 PDF Factsheet
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
 
                           {!isExpanded && (
                             <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-                              {fund.performance.return3y !== null && (
-                                <span>3 ปี: <strong className={fund.performance.return3y >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                  {fund.performance.return3y >= 0 ? '+' : ''}{fund.performance.return3y.toFixed(2)}%
+                              {fund.performance.return3m !== null && (
+                                <span>3 เดือน: <strong className={fund.performance.return3m >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                  {fund.performance.return3m >= 0 ? '+' : ''}{fund.performance.return3m.toFixed(2)}%
                                 </strong></span>
                               )}
                               {fund.statistics.sharpeRatio !== null && (

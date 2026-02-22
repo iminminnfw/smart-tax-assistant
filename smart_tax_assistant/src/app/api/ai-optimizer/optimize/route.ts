@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       const fundsWithRisk = await prisma.fund.findMany({
         where: {
           id: { in: eligibleFundIds },
-          fundStatus: { in: ['Registered', 'IPO'] },
+          fundStatus: { in: ['SE', 'RG'] },
           riskSpectrums: {
             some: { riskSpectrum: { gte: minRisk, lte: maxRisk } },
           },
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
         const performances = await prisma.fundPerformance.findMany({
           where: {
             fundId: { in: filteredFundIds },
-            referencePeriod: { in: ['1 year', '3 years', '5 years'] },
+            referencePeriod: { in: ['3 months', '1 year', '3 years', '5 years'] },
           },
           orderBy: { endDate: 'desc' },
           select: {
@@ -164,15 +164,16 @@ export async function POST(req: Request) {
         // Group performance by fund
         const fundPerfMap = new Map<
           string,
-          { perf1y: number | null; perf3y: number | null; perf5y: number | null }
+          { perf3m: number | null; perf1y: number | null; perf3y: number | null; perf5y: number | null }
         >();
         for (const perf of performances) {
           if (!fundPerfMap.has(perf.fundId)) {
-            fundPerfMap.set(perf.fundId, { perf1y: null, perf3y: null, perf5y: null });
+            fundPerfMap.set(perf.fundId, { perf3m: null, perf1y: null, perf3y: null, perf5y: null });
           }
           const entry = fundPerfMap.get(perf.fundId)!;
           const period = perf.referencePeriod.toLowerCase().trim();
-          if (period === '1 year' && entry.perf1y === null) entry.perf1y = perf.performanceValue;
+          if (period === '3 months' && entry.perf3m === null) entry.perf3m = perf.performanceValue;
+          else if (period === '1 year' && entry.perf1y === null) entry.perf1y = perf.performanceValue;
           else if (period === '3 years' && entry.perf3y === null) entry.perf3y = perf.performanceValue;
           else if (period === '5 years' && entry.perf5y === null) entry.perf5y = perf.performanceValue;
         }
@@ -206,7 +207,7 @@ export async function POST(req: Request) {
 
         // Score and rank funds
         const scoredFunds = filteredFunds.map((fund) => {
-          const perf = fundPerfMap.get(fund.id) || { perf1y: null, perf3y: null, perf5y: null };
+          const perf = fundPerfMap.get(fund.id) || { perf3m: null, perf1y: null, perf3y: null, perf5y: null };
           const stats = fundStatsMap.get(fund.id) || {
             sharpeRatio: null, maxDrawdown: null, alpha: null, beta: null,
           };
@@ -219,6 +220,7 @@ export async function POST(req: Request) {
           if (validSharpe) score += stats.sharpeRatio! * 4;
           if (validAlpha) score += stats.alpha! * 3;
           if (validDrawdown) score += (100 + stats.maxDrawdown!) * 0.15;
+          if (perf.perf3m !== null) score += perf.perf3m * 0.05;
           if (perf.perf1y !== null) score += perf.perf1y * 0.1;
           if (perf.perf3y !== null) score += perf.perf3y * 0.03;
           if (perf.perf5y !== null) score += perf.perf5y * 0.02;
@@ -235,6 +237,7 @@ export async function POST(req: Request) {
             riskSpectrum: fund.riskSpectrums[0]?.riskSpectrum || 0,
             riskLabel: (fund.riskSpectrums[0]?.riskSpectrum || 0) <= 3 ? 'ต่ำ' : (fund.riskSpectrums[0]?.riskSpectrum || 0) <= 6 ? 'ปานกลาง' : 'สูง',
             performance: {
+              return3m: perf.perf3m,
               return1y: perf.perf1y,
               return3y: perf.perf3y,
               return5y: perf.perf5y,
@@ -272,7 +275,7 @@ export async function POST(req: Request) {
         annual_income: profile.annual_income,
         monthly_expenses: profile.monthly_expenses,
         existing_savings: 0,
-        emergency_fund: 0,
+        emergency_fund: profile.emergency_fund || 0,
         risk_tolerance: riskTolerance,
         occupation: 'employee',
         marital_status: profile.has_spouse ? 'married' : 'single',
@@ -313,6 +316,7 @@ export async function POST(req: Request) {
     // Get top holdings for the returned funds
     const topFundIds = preFilteredFunds.map((f: any) => f.fundId);
     let fundHoldingsMap = new Map<string, { assetName: string; assetRatio: number | null }[]>();
+    let fundFactsheetMap = new Map<string, { amcUrl: string | null; pdfUrl: string | null }>();
 
     if (topFundIds.length > 0) {
       const holdings = await prisma.fundTopHolding.findMany({
@@ -336,14 +340,34 @@ export async function POST(req: Request) {
           list.push({ assetName: h.assetName, assetRatio: h.assetRatio });
         }
       }
+
+      // Query factsheet URLs (latest per fund)
+      const factsheets = await prisma.fundFactsheetUrl.findMany({
+        where: { fundId: { in: topFundIds } },
+        orderBy: { asOfDate: 'desc' },
+        distinct: ['fundId'],
+        select: {
+          fundId: true,
+          amcUrlFactsheet: true,
+          pdfFactsheet: true,
+        },
+      });
+
+      for (const fs of factsheets) {
+        fundFactsheetMap.set(fs.fundId, {
+          amcUrl: fs.amcUrlFactsheet,
+          pdfUrl: fs.pdfFactsheet,
+        });
+      }
     }
 
-    // Enrich funds with top holdings and rank
+    // Enrich funds with top holdings, factsheet URLs, and rank
     const enrichedFunds = preFilteredFunds.map((f: any, index: number) => ({
       rank: index + 1,
       ...f,
       riskLabelEn: f.riskSpectrum <= 3 ? 'Low' : f.riskSpectrum <= 6 ? 'Medium' : 'High',
       topHoldings: fundHoldingsMap.get(f.fundId) || [],
+      factsheet: fundFactsheetMap.get(f.fundId) || { amcUrl: null, pdfUrl: null },
     }));
 
     return NextResponse.json({
