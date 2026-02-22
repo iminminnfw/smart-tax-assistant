@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_TAX_ADVISOR_API_URL || 'http://localhost:8000';
 
 // Increase timeout for long AI processing
 export const maxDuration = 3600; // 1 hour for Vercel

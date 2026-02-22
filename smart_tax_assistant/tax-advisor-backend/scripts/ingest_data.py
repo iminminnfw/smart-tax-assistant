@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Qdrant
+from langchain_qdrant import QdrantVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from qdrant_client import QdrantClient
@@ -22,12 +22,28 @@ class DataIngestor:
     """
     จัดการการยัดข้อมูลเข้า Vector Database
     """
-    
+
     def __init__(self):
         self.qdrant_client = QdrantClient(url=settings.qdrant_url)
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.openai_api_key
-        )
+
+        # เลือก Embeddings ตาม config
+        if settings.use_ollama:
+            from langchain_ollama import OllamaEmbeddings
+            print(f"🦙 Ingest using Ollama Embeddings: {settings.ollama_model}")
+            self.embeddings = OllamaEmbeddings(
+                model=settings.ollama_model,
+                base_url=settings.ollama_base_url,
+            )
+            # Ollama embedding dimensions ขึ้นอยู่กับ model
+            # qwen2.5:14b = 5120, qwen2.5:7b = 3584, nomic-embed-text = 768
+            self.vector_size = 5120
+        else:
+            print(f"🤖 Ingest using OpenAI Embeddings")
+            self.embeddings = OpenAIEmbeddings(
+                openai_api_key=settings.openai_api_key
+            )
+            self.vector_size = 1536  # text-embedding-ada-002
+
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=settings.rag_chunk_size,
             chunk_overlap=settings.rag_chunk_overlap,
@@ -89,11 +105,12 @@ class DataIngestor:
             except:
                 pass
             
-            # สร้าง collection ใหม่
+            # สร้าง collection ใหม่ (vector size ตาม embedding model)
+            print(f"   Vector size: {self.vector_size}")
             self.qdrant_client.create_collection(
                 collection_name=settings.qdrant_collection_name,
                 vectors_config=VectorParams(
-                    size=1536,
+                    size=self.vector_size,
                     distance=Distance.COSINE
                 )
             )
@@ -110,7 +127,7 @@ class DataIngestor:
         print(f"\nIngesting {len(chunks)} chunks to Qdrant...")
         
         try:
-            Qdrant.from_documents(
+            QdrantVectorStore.from_documents(
                 chunks,
                 self.embeddings,
                 url=settings.qdrant_url,

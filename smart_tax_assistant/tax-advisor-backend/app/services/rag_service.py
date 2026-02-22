@@ -1,6 +1,6 @@
 """
 RAG Service - Qdrant Version
-Version: Support Qdrant Vector Database
+Version: Support Qdrant Vector Database + Ollama Embeddings
 """
 
 from langchain_openai import OpenAIEmbeddings
@@ -14,11 +14,21 @@ from app.config import settings
 
 class RAGService:
     """RAG Service สำหรับ Qdrant Vector Database"""
-    
+
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings(
-            openai_api_key=settings.openai_api_key
-        )
+        # เลือก Embeddings ตาม config (Ollama หรือ OpenAI)
+        if settings.use_ollama:
+            from langchain_ollama import OllamaEmbeddings
+            print(f"🦙 RAG using Ollama Embeddings: {settings.ollama_model} at {settings.ollama_base_url}")
+            self.embeddings = OllamaEmbeddings(
+                model=settings.ollama_model,
+                base_url=settings.ollama_base_url,
+            )
+        else:
+            print(f"🤖 RAG using OpenAI Embeddings")
+            self.embeddings = OpenAIEmbeddings(
+                openai_api_key=settings.openai_api_key
+            )
         self.vector_store = None
         self.qdrant_client = None
         self._connect_to_qdrant()

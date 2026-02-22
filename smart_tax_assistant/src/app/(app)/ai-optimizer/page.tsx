@@ -24,8 +24,8 @@ import {
   Building2
 } from 'lucide-react';
 
-// Unified optimize endpoint (Next.js API route → Python Backend)
-// No direct backend calls from frontend anymore
+// Backend API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_TAX_ADVISOR_API_URL || 'http://localhost:8000';
 
 // Types matching the backend
 interface UserProfile {
