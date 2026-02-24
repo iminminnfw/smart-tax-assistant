@@ -443,24 +443,32 @@ class SECAPIClient:
 
     async def get_fund_list(
         self,
+        search: Optional[str] = None,
         max_pages: Optional[int] = None
     ) -> List[Dict[Any, Any]]:
         """
         Get list of all funds (with automatic pagination)
+        Uses /v1/fund/general-info/profiles endpoint
 
         Args:
+            search: Search by fund name, abbreviation, or company name
             max_pages: Maximum pages to fetch (None = all pages)
 
         Returns:
-            List of all fund objects
+            List of all fund objects with proj_abbr_name, fund_status, etc.
         """
-        logger.info("Fetching fund list from SEC API v1 (paginated)")
+        logger.info("Fetching fund list from SEC API v1 /profiles (paginated)")
+
+        params = {}
+        if search:
+            params["ch"] = search
 
         result = await self._make_paginated_request(
             "GET",
-            "/fund/general-info/amcs",
+            "/fund/general-info/profiles",
             api_type="v1",
-            max_pages=max_pages
+            max_pages=max_pages,
+            params=params
         )
 
         logger.info(
@@ -470,23 +478,68 @@ class SECAPIClient:
 
         return result["items"]
 
-    async def get_fund_list_page(self, page: int = 1) -> Dict[str, Any]:
+    async def get_fund_list_page(self, page: int = 1, search: Optional[str] = None) -> Dict[str, Any]:
         """
         Get a single page of fund list
 
         Args:
             page: Page number (starts at 1)
+            search: Search by fund name, abbreviation, or company name
 
         Returns:
             Paginated response with items and pagination info
         """
         logger.info(f"Fetching fund list page {page}")
 
+        params = {}
+        if search:
+            params["ch"] = search
+
         return await self.get_paginated(
-            "/fund/general-info/amcs",
+            "/fund/general-info/profiles",
             api_type="v1",
-            page=page
+            page=page,
+            params=params
         )
+
+    async def get_fund_specifications(
+        self,
+        search: Optional[str] = None,
+        max_pages: Optional[int] = None
+    ) -> List[Dict[Any, Any]]:
+        """
+        Get fund specifications (fund type classifications)
+        Uses /v1/fund/general-info/specifications endpoint
+
+        Returns spec_code per fund (e.g., RMF, ThaiESG, CIV, etc.)
+
+        Args:
+            search: Search by proj_id or fund_class_name
+            max_pages: Maximum pages to fetch (None = all pages)
+
+        Returns:
+            List of fund specification objects with proj_id, spec_code, spec_desc
+        """
+        logger.info("Fetching fund specifications from SEC API v1 (paginated)")
+
+        params = {}
+        if search:
+            params["search"] = search
+
+        result = await self._make_paginated_request(
+            "GET",
+            "/fund/general-info/specifications",
+            api_type="v1",
+            max_pages=max_pages,
+            params=params
+        )
+
+        logger.info(
+            f"Fund specifications complete: {result['pagination']['fetched_items']} specs "
+            f"from {result['pagination']['fetched_pages']} pages"
+        )
+
+        return result["items"]
 
     async def get_tax_funds(
         self,
@@ -495,6 +548,8 @@ class SECAPIClient:
     ) -> Dict[str, List[Dict[Any, Any]]]:
         """
         Get tax-deductible funds (RMF, ThaiESG)
+        Uses /v1/fund/general-info/profiles with search parameter
+        to fetch only relevant funds (much faster than fetching all)
 
         Note: SSF หมดสิทธิ์ลดหย่อนแล้ว (ซื้อได้ถึง 31 ธ.ค. 2567)
               SSF is no longer tax-deductible (ended Dec 31, 2024)
@@ -518,33 +573,40 @@ class SECAPIClient:
             "pagination": {}
         }
 
-        # Fetch all funds first (SEC API doesn't have filter by type)
-        all_funds = await self.get_fund_list(max_pages=max_pages)
-
-        # Filter by fund type based on fund_code patterns
-        for fund in all_funds:
-            fund_code = fund.get("proj_abbr_name", "").upper()
-            fund_name = fund.get("proj_name_th", "").upper()
-
-            # RMF: Contains "RMF" in code or name
-            if "RMF" in fund_types:
-                if "RMF" in fund_code or "RMF" in fund_name:
+        # Search RMF funds directly using profiles API search
+        if "RMF" in fund_types:
+            logger.info("Searching for RMF funds...")
+            rmf_funds = await self.get_fund_list(search="RMF", max_pages=max_pages)
+            # Filter only active funds (Registered or IPO)
+            for fund in rmf_funds:
+                fund_status = fund.get("fund_status", "")
+                fund_code = fund.get("proj_abbr_name", "").upper()
+                if fund_status in ("Registered", "IPO") and "RMF" in fund_code:
                     results["RMF"].append(fund)
-                    continue
 
-            # ThaiESG: Contains "THAIESG" or "ESG" in code or name
-            if "ThaiESG" in fund_types:
-                if "THAIESG" in fund_code or "THAIESG" in fund_name:
+        # Search ThaiESG funds directly using profiles API search
+        if "ThaiESG" in fund_types:
+            logger.info("Searching for ThaiESG funds...")
+            esg_funds = await self.get_fund_list(search="THAIESG", max_pages=max_pages)
+            # Filter only active funds
+            for fund in esg_funds:
+                fund_status = fund.get("fund_status", "")
+                if fund_status in ("Registered", "IPO"):
                     results["ThaiESG"].append(fund)
-                    continue
-                # Also check for ESG funds registered under specific criteria
-                if "ESG" in fund_code and "THAI" in fund_code:
-                    results["ThaiESG"].append(fund)
-                    continue
+
+            # Also check fund_class_tax_incentive_type field
+            # Some ThaiESG funds might not have "THAIESG" in name
+            if not results["ThaiESG"]:
+                logger.info("Trying broader ESG search...")
+                esg_funds2 = await self.get_fund_list(search="ESG", max_pages=max_pages)
+                for fund in esg_funds2:
+                    fund_status = fund.get("fund_status", "")
+                    tax_type = fund.get("fund_class_tax_incentive_type", "")
+                    if fund_status in ("Registered", "IPO") and "Thai ESG" in tax_type:
+                        results["ThaiESG"].append(fund)
 
         # Add summary
         results["pagination"] = {
-            "total_funds_scanned": len(all_funds),
             "rmf_count": len(results["RMF"]),
             "thai_esg_count": len(results["ThaiESG"]),
             "total_tax_funds": (
@@ -587,20 +649,19 @@ class SECAPIClient:
 
     async def get_fund_info(self, fund_code: str) -> Dict[Any, Any]:
         """
-        Get detailed fund information
+        Get detailed fund information using profiles API search
 
         Args:
             fund_code: Fund code (e.g., "KFRMF")
 
         Returns:
-            Fund info object
+            Fund info object (first match)
         """
         logger.info(f"Fetching fund info for {fund_code}")
-        return await self._make_request(
-            "GET",
-            f"/fund/profile/{fund_code}",
-            api_type="factsheet"
-        )
+        funds = await self.get_fund_list(search=fund_code, max_pages=1)
+        if funds:
+            return funds[0]
+        return {}
 
     async def get_performance(
         self,
@@ -791,9 +852,9 @@ async def example_usage():
             for amc in amcs[:3]:
                 logger.info(f"   - {amc.get('comp_name_th', 'N/A')}")
 
-        # Example 2: Get fund list (single page)
+        # Example 2: Get fund list from /profiles (single page)
         logger.info("\n" + "=" * 60)
-        logger.info("Example 2: Get Fund List (Page 1)")
+        logger.info("Example 2: Get Fund List from /profiles (Page 1)")
         logger.info("=" * 60)
 
         page1 = await client.get_fund_list_page(page=1)
@@ -804,7 +865,11 @@ async def example_usage():
             logger.info(f"   Total items: {page1.get('total_items', 'N/A')}")
             if items:
                 for fund in items[:3]:
-                    logger.info(f"   - {fund.get('proj_abbr_name', 'N/A')}")
+                    logger.info(
+                        f"   - {fund.get('proj_abbr_name', 'N/A')}: "
+                        f"{fund.get('proj_name_th', 'N/A')} "
+                        f"[{fund.get('fund_status', 'N/A')}]"
+                    )
 
         # Example 3: Get tax funds (RMF, ThaiESG) - SSF หมดสิทธิ์แล้ว
         logger.info("\n" + "=" * 60)
@@ -863,15 +928,15 @@ def quick_test():
     try:
         result = client.make_request_sync(
             "GET",
-            "/fund/general-info/amcs",
+            "/fund/general-info/profiles",
             api_type="v1",
-            params={"current_page": 1}
+            params={"current_page": 1, "ch": "RMF"}
         )
 
         items = result.get('items', [])
-        print(f"✅ SUCCESS! Got {len(items)} AMCs")
+        print(f"✅ SUCCESS! Got {len(items)} funds (searching 'RMF')")
         if items:
-            print(f"   First AMC: {items[0].get('comp_name_th', 'N/A')}")
+            print(f"   First fund: {items[0].get('proj_abbr_name', 'N/A')} - {items[0].get('proj_name_th', 'N/A')}")
 
         print(f"   Stats: {client.get_stats()}")
 
