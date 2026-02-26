@@ -49,6 +49,9 @@ interface UserProfile {
   monthly_expenses: number;
   emergency_fund: number;
   financial_goals: string[];
+  available_budget: number;
+  budget_period: 'monthly' | 'yearly';
+  retirement_age: number;
 }
 
 interface TaxScenario {
@@ -56,6 +59,7 @@ interface TaxScenario {
   name: string;
   description: string;
   badge: string;
+  strategy: string;
   total_investment: number;
   tax_savings: number;
   cash_remaining: number;
@@ -71,6 +75,13 @@ interface TaxScenario {
   cons: string[];
   suitable_for: string;
   action_steps: string[];
+  // Goal-based projections (from actual NAV data)
+  expected_return_rate: number;
+  projected_retirement_fund: number;
+  years_to_retire: number;
+  savings_target_amount: number;
+  years_to_target: number | null;
+  monthly_investment: number;
 }
 
 interface ParsedGoal {
@@ -133,34 +144,34 @@ const DEFAULT_PROFILE: UserProfile = {
   has_disability: false,
   monthly_expenses: 40000,
   emergency_fund: 0,
-  financial_goals: []
+  financial_goals: [],
+  available_budget: 0,
+  budget_period: 'monthly',
+  retirement_age: 60,
 };
 
 interface GoalForm {
-  planMarriage: boolean;
-  planChildren: boolean;
-  numChildren: number;
-  targetSavings: number;
+  planMarriage: boolean;       // only for single users
+  savingsTarget: number;       // total savings goal in THB
+  incomeGrowthRate: number;    // expected annual income growth in %
 }
 
-function buildGoalFromForm(form: GoalForm): string {
+function buildGoalFromForm(form: GoalForm, profile: UserProfile): string {
   const parts: string[] = [];
 
-  if (form.planMarriage) {
-    if (form.planChildren && form.numChildren > 0) {
-      parts.push(`วางแผนแต่งงานในปีนี้ และวางแผนมีลูก ${form.numChildren} คน`);
-    } else {
-      parts.push('วางแผนแต่งงานในปีนี้');
-    }
-  } else {
-    parts.push('ยังไม่มีแผนแต่งงานหรือมีลูกในปีนี้');
+  if (!profile.has_spouse && form.planMarriage) {
+    parts.push('วางแผนแต่งงานในปีหน้า');
   }
 
-  if (form.targetSavings > 0) {
-    parts.push(`ต้องการมีเงินออมเป้าหมาย ${form.targetSavings.toLocaleString('th-TH')} บาท`);
+  if (form.incomeGrowthRate > 0) {
+    parts.push(`รายได้คาดว่าจะเพิ่มขึ้น ${form.incomeGrowthRate}% ต่อปี`);
   }
 
-  parts.push('ต้องการวางแผนภาษีและการออมให้เหมาะสม');
+  if (form.savingsTarget > 0) {
+    parts.push(`ต้องการมีเงินออมเป้าหมาย ${form.savingsTarget.toLocaleString('th-TH')} บาท`);
+  }
+
+  parts.push('ต้องการวางแผนภาษีและการลงทุนให้เหมาะสมกับเป้าหมาย');
   return parts.join(' ');
 }
 
@@ -177,10 +188,12 @@ export default function AIOptimizerPage() {
   // Profile state
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [showProfileForm, setShowProfileForm] = useState(true);
+  const [hasLifeInsurance, setHasLifeInsurance] = useState(false);
+  const [hasHealthInsurance, setHasHealthInsurance] = useState(false);
 
   // Goal & Results state
   const [userGoal, setUserGoal] = useState<string>('');
-  const [goalForm, setGoalForm] = useState<GoalForm>({ planMarriage: false, planChildren: false, numChildren: 0, targetSavings: 0 });
+  const [goalForm, setGoalForm] = useState<GoalForm>({ planMarriage: false, savingsTarget: 0, incomeGrowthRate: 0 });
   const [scenarios, setScenarios] = useState<TaxScenario[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
   const [, setParsedGoal] = useState<ParsedGoal | null>(null);
@@ -226,9 +239,13 @@ export default function AIOptimizerPage() {
             monthly_expenses: data.monthly_expenses || DEFAULT_PROFILE.monthly_expenses,
             emergency_fund: data.emergency_fund || 0,
             financial_goals: data.financial_goals || [],
+            available_budget: data.available_budget || 0,
+            budget_period: data.budget_period || 'monthly',
+            retirement_age: data.retirement_age || DEFAULT_PROFILE.retirement_age,
           });
 
-          console.log('Profile loaded from DB:', data.has_profile ? 'existing profile' : 'default values');
+          setHasLifeInsurance((data.current_deductions?.life_insurance || 0) > 0);
+          setHasHealthInsurance((data.current_deductions?.health_insurance || 0) > 0);
         }
       } catch (err) {
         console.error('Failed to load profile:', err);
@@ -250,7 +267,6 @@ export default function AIOptimizerPage() {
         body: JSON.stringify(profile),
       });
       if (!response.ok) {
-        console.warn('Failed to save profile to DB');
         return false;
       }
       return true;
@@ -266,7 +282,7 @@ export default function AIOptimizerPage() {
     setLoadingStep(0);
     setError(null);
 
-    const goal = buildGoalFromForm(goalForm);
+    const goal = buildGoalFromForm(goalForm, profile);
     setUserGoal(goal);
 
     try {
@@ -286,13 +302,15 @@ export default function AIOptimizerPage() {
           fund_types: ['RMF', 'TESG', 'TESGX'],
           top_n_funds: 5,
           include_ai_explanation: true,
+          savings_target: goalForm.savingsTarget > 0 ? goalForm.savingsTarget : null,
+          plan_to_marry: !profile.has_spouse && goalForm.planMarriage,
+          income_growth_rate: goalForm.incomeGrowthRate,
         }),
       });
 
       // Step 2: Processing response
       setLoadingStep(2);
 
-      console.log('Optimize response status:', response.status, response.ok);
 
       if (!response.ok) {
         const errorData = await response.text();
@@ -301,9 +319,6 @@ export default function AIOptimizerPage() {
       }
 
       const data = await response.json();
-      console.log('Optimize data keys:', Object.keys(data));
-      console.log('Optimize scenarios count:', data.scenarios?.length);
-      console.log('Optimize scenarios:', data.scenarios);
 
       // Step 3: Map profile analysis
       setLoadingStep(3);
@@ -342,6 +357,7 @@ export default function AIOptimizerPage() {
         name: s.name || '',
         description: s.description || '',
         badge: s.badge || '📊',
+        strategy: s.strategy || '',
         total_investment: s.total_investment || 0,
         tax_savings: s.tax_saved || 0,
         cash_remaining: s.cash_remaining || 0,
@@ -358,6 +374,13 @@ export default function AIOptimizerPage() {
         action_steps: (s.recommended_funds || []).map((f: any) =>
           typeof f === 'string' ? f : `${f.abbr || f.fundType || ''} - ${f.nameTh || ''}`
         ),
+        // Goal-based projections
+        expected_return_rate: s.expected_return_rate || 0,
+        projected_retirement_fund: s.projected_retirement_fund || 0,
+        years_to_retire: s.years_to_retire || 0,
+        savings_target_amount: s.savings_target || 0,
+        years_to_target: s.years_to_target ?? null,
+        monthly_investment: s.monthly_investment || 0,
       }));
 
       if (mappedScenarios.length === 0) {
@@ -537,21 +560,6 @@ export default function AIOptimizerPage() {
                       />
                     </div>
 
-                    {/* Emergency Fund */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        เงินสำรองฉุกเฉิน (บาท)
-                      </label>
-                      <input
-                        type="number"
-                        value={profile.emergency_fund || ''}
-                        onChange={(e) => setProfile({ ...profile, emergency_fund: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
-                        disabled={loading}
-                        placeholder="เช่น 240000 (= 6 เดือน × ค่าใช้จ่าย)"
-                      />
-                    </div>
-
                     {/* Risk Tolerance */}
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -586,7 +594,7 @@ export default function AIOptimizerPage() {
                     </div>
 
                     {/* Family Status */}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className={`grid gap-3 ${profile.has_spouse ? 'grid-cols-2' : 'grid-cols-1'}`}>
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           <Heart className="w-4 h-4 inline mr-1" />
@@ -594,7 +602,7 @@ export default function AIOptimizerPage() {
                         </label>
                         <select
                           value={profile.has_spouse ? 'married' : 'single'}
-                          onChange={(e) => setProfile({ ...profile, has_spouse: e.target.value === 'married' })}
+                          onChange={(e) => setProfile({ ...profile, has_spouse: e.target.value === 'married', num_children: e.target.value === 'single' ? 0 : profile.num_children })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
                           disabled={loading}
                         >
@@ -602,19 +610,172 @@ export default function AIOptimizerPage() {
                           <option value="married">แต่งงาน</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          จำนวนบุตร
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={profile.num_children}
-                          onChange={(e) => setProfile({ ...profile, num_children: Number(e.target.value) })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
-                          disabled={loading}
-                        />
+                      {profile.has_spouse && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            จำนวนบุตร
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={profile.num_children}
+                            onChange={(e) => setProfile({ ...profile, num_children: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
+                            disabled={loading}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Parents */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        อุปการะพ่อแม่อายุ 60+ ปีไหม?
+                        <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้ 30,000/คน)</span>
+                      </label>
+                      <div className="flex gap-2">
+                        {[0, 1, 2, 3, 4].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setProfile({ ...profile, num_parents: n })}
+                            disabled={loading}
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              profile.num_parents === n
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {n === 0 ? 'ไม่มี' : `${n} คน`}
+                          </button>
+                        ))}
                       </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-slate-100 pt-4">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">ลดหย่อนที่มีอยู่แล้ว</p>
+
+                      {/* Life Insurance */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          <Shield className="w-4 h-4 inline mr-1" />
+                          ประกันชีวิต
+                          <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้สูงสุด 100,000 บาท)</span>
+                        </label>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => { setHasLifeInsurance(true); }}
+                            disabled={loading}
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              hasLifeInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            มี
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setHasLifeInsurance(false); setProfile({ ...profile, current_deductions: { ...profile.current_deductions, life_insurance: 0 } }); }}
+                            disabled={loading}
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              !hasLifeInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            ไม่มี
+                          </button>
+                        </div>
+                        {hasLifeInsurance && (
+                          <div>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100000"
+                              value={profile.current_deductions?.life_insurance || ''}
+                              onChange={(e) => setProfile({ ...profile, current_deductions: { ...profile.current_deductions, life_insurance: e.target.value === '' ? 0 : Number(e.target.value) } })}
+                              placeholder="จ่ายปีละเท่าไหร่ (บาท)"
+                              disabled={loading}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                            />
+                            {(profile.current_deductions?.life_insurance || 0) > 100000 && (
+                              <p className="text-xs text-amber-600 mt-1">เกินสิทธิ์ — ระบบจะใช้ 100,000 บาท</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Health Insurance */}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          <Shield className="w-4 h-4 inline mr-1 text-green-600" />
+                          ประกันสุขภาพ
+                          <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้สูงสุด 25,000 บาท)</span>
+                        </label>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => { setHasHealthInsurance(true); }}
+                            disabled={loading}
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              hasHealthInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            มี
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setHasHealthInsurance(false); setProfile({ ...profile, current_deductions: { ...profile.current_deductions, health_insurance: 0 } }); }}
+                            disabled={loading}
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              !hasHealthInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            ไม่มี
+                          </button>
+                        </div>
+                        {hasHealthInsurance && (
+                          <div>
+                            <input
+                              type="number"
+                              min="0"
+                              max="25000"
+                              value={profile.current_deductions?.health_insurance || ''}
+                              onChange={(e) => setProfile({ ...profile, current_deductions: { ...profile.current_deductions, health_insurance: e.target.value === '' ? 0 : Number(e.target.value) } })}
+                              placeholder="จ่ายปีละเท่าไหร่ (บาท)"
+                              disabled={loading}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                            />
+                            {(profile.current_deductions?.health_insurance || 0) > 25000 && (
+                              <p className="text-xs text-amber-600 mt-1">เกินสิทธิ์ — ระบบจะใช้ 25,000 บาท</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Retirement Age */}
+                    <div className="border-t border-slate-100 pt-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        อายุที่ตั้งใจเกษียณ (ปี)
+                      </label>
+                      <input
+                        type="number"
+                        min={profile.age + 1}
+                        max="80"
+                        value={profile.retirement_age || ''}
+                        onChange={(e) => setProfile({ ...profile, retirement_age: e.target.value === '' ? 60 : Number(e.target.value) })}
+                        disabled={loading}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                      />
+                      {profile.age > 0 && profile.retirement_age > profile.age && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          อีก {profile.retirement_age - profile.age} ปีจากนี้
+                          {profile.retirement_age < 55 && (
+                            <span className="ml-1 text-amber-600">⚠️ RMF ต้องถือถึงอายุ 55 ปี</span>
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -626,108 +787,89 @@ export default function AIOptimizerPage() {
                     <h2 className="text-lg font-semibold text-slate-800">เป้าหมายของคุณ</h2>
                   </div>
 
-                  {/* Goal Form - Year 1 */}
+                  {/* Goal Form */}
                   <div className="mb-6 space-y-4">
-                    <p className="text-sm text-slate-500">ตอบคำถามเพื่อให้ AI วางแผนภาษีได้แม่นยำขึ้น</p>
+                    <p className="text-sm text-slate-500">ตอบคำถามเพื่อให้ AI วางแผนและคาดการณ์ได้แม่นยำขึ้น</p>
 
-                    {/* Q1: แต่งงาน */}
+                    {/* Q1: แต่งงาน — แสดงเฉพาะคนโสด */}
+                    {!profile.has_spouse && (
+                      <div className="p-4 border border-slate-200 rounded-lg">
+                        <p className="text-sm font-medium text-slate-700 mb-3">
+                          คุณวางแผนที่จะแต่งงานในปีหน้าไหม?
+                          <span className="ml-1 text-xs font-normal text-slate-400">(มีผลต่อลดหย่อนคู่สมรส)</span>
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setGoalForm({ ...goalForm, planMarriage: true })}
+                            disabled={loading}
+                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                              goalForm.planMarriage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            ใช่
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setGoalForm({ ...goalForm, planMarriage: false })}
+                            disabled={loading}
+                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
+                              !goalForm.planMarriage
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            ยังไม่
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Q2: รายได้เพิ่มขึ้นไหม */}
                     <div className="p-4 border border-slate-200 rounded-lg">
                       <p className="text-sm font-medium text-slate-700 mb-3">
-                        คุณวางแผนที่จะแต่งงานในปีนี้ไหม?
+                        รายได้ของคุณคาดว่าจะเพิ่มขึ้นเท่าไหร่ต่อปี?
+                        <span className="ml-1 text-xs font-normal text-slate-400">(ใช้คาดการณ์การเติบโต)</span>
                       </p>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setGoalForm({ ...goalForm, planMarriage: true })}
-                          disabled={loading}
-                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-                            goalForm.planMarriage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                          }`}
-                        >
-                          ใช่
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setGoalForm({ ...goalForm, planMarriage: false, planChildren: false, numChildren: 0 })}
-                          disabled={loading}
-                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-                            !goalForm.planMarriage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                          }`}
-                        >
-                          ยังไม่
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Q2: มีลูก */}
-                    <div className={`p-4 border rounded-lg transition-colors ${
-                      goalForm.planMarriage ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'
-                    }`}>
-                      <p className="text-sm font-medium text-slate-700 mb-3">
-                        คุณวางแผนจะมีลูกไหม?
-                        {!goalForm.planMarriage && (
-                          <span className="ml-2 text-xs font-normal text-slate-400">(ต้องแต่งงานก่อน)</span>
-                        )}
-                      </p>
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => goalForm.planMarriage && setGoalForm({ ...goalForm, planChildren: true, numChildren: goalForm.numChildren || 1 })}
-                          disabled={loading || !goalForm.planMarriage}
-                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                            goalForm.planChildren && goalForm.planMarriage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-slate-300 border-slate-200'
-                          }`}
-                        >
-                          ใช่
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => goalForm.planMarriage && setGoalForm({ ...goalForm, planChildren: false, numChildren: 0 })}
-                          disabled={loading || !goalForm.planMarriage}
-                          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors disabled:cursor-not-allowed ${
-                            !goalForm.planChildren && goalForm.planMarriage
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-white text-slate-300 border-slate-200'
-                          }`}
-                        >
-                          ยังไม่
-                        </button>
-                      </div>
-                      {goalForm.planMarriage && goalForm.planChildren && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <label className="text-xs text-slate-600">จำนวนลูกที่วางแผน</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={goalForm.numChildren}
-                            onChange={(e) => setGoalForm({ ...goalForm, numChildren: Math.max(1, Number(e.target.value)) })}
+                      <div className="flex gap-2 mb-2 flex-wrap">
+                        {[0, 3, 5, 10].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => setGoalForm({ ...goalForm, incomeGrowthRate: rate })}
                             disabled={loading}
-                            className="w-20 px-3 py-1.5 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
-                          />
-                          <span className="text-sm text-slate-600">คน</span>
-                        </div>
+                            className={`flex-1 min-w-[60px] py-2 rounded-lg border text-sm font-medium transition-colors ${
+                              goalForm.incomeGrowthRate === rate
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            {rate === 0 ? 'ไม่เพิ่ม' : `+${rate}%`}
+                          </button>
+                        ))}
+                      </div>
+                      {goalForm.incomeGrowthRate > 0 && (
+                        <p className="text-xs text-slate-400">
+                          รายได้ปีหน้า ≈ ฿{Math.round(profile.annual_income * (1 + goalForm.incomeGrowthRate / 100)).toLocaleString('th-TH')}
+                        </p>
                       )}
                     </div>
 
                     {/* Q3: เงินออมเป้าหมาย */}
                     <div className="p-4 border border-slate-200 rounded-lg">
                       <p className="text-sm font-medium text-slate-700 mb-3">
-                        คุณต้องการมีเงินออมเป้าหมายเท่าไหร่? (บาท)
+                        คุณต้องการมีเงินออมทั้งหมดเท่าไหร่? (บาท)
+                        <span className="ml-1 text-xs font-normal text-slate-400">(AI จะคำนวณว่าถึงเป้าใน กี่ปี)</span>
                       </p>
                       <input
                         type="number"
                         min="0"
-                        value={goalForm.targetSavings || ''}
-                        onChange={(e) => setGoalForm({ ...goalForm, targetSavings: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        value={goalForm.savingsTarget || ''}
+                        onChange={(e) => setGoalForm({ ...goalForm, savingsTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
                         disabled={loading}
-                        placeholder="เช่น 500000"
+                        placeholder="เช่น 5000000 (5 ล้านบาท)"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
                       />
                       <p className="text-xs text-slate-400 mt-1">ถ้ายังไม่มีเป้าหมาย ปล่อยว่างได้เลย</p>
@@ -1122,6 +1264,51 @@ export default function AIOptimizerPage() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Projection Card (NAV-based) */}
+                    {scenario.expected_return_rate > 0 && (
+                      <div className="bg-purple-50 rounded-xl p-4 mb-4 border border-purple-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BarChart3 className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-800">การคาดการณ์จาก NAV จริง</span>
+                          <span className="text-xs text-purple-400 ml-auto">ผลตอบแทนเฉลี่ย {scenario.expected_return_rate}%/ปี</span>
+                        </div>
+                        {scenario.strategy === 'tax_max' && scenario.projected_retirement_fund > 0 && (
+                          <div>
+                            <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.projected_retirement_fund)}</p>
+                            <p className="text-xs text-purple-600 mt-0.5">คาดว่าจะมีเมื่อเกษียณ (อีก {scenario.years_to_retire} ปี) | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
+                          </div>
+                        )}
+                        {scenario.strategy === 'balanced' && (
+                          <div>
+                            {scenario.savings_target_amount > 0 ? (
+                              scenario.years_to_target !== null ? (
+                                <>
+                                  <p className="text-xl font-bold text-purple-900">{scenario.years_to_target} ปี</p>
+                                  <p className="text-xs text-purple-600 mt-0.5">ถึงเป้าหมาย ฿{formatCurrency(scenario.savings_target_amount)} | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xl font-bold text-purple-900">&gt; 100 ปี</p>
+                                  <p className="text-xs text-purple-600 mt-0.5">เป้าหมาย ฿{formatCurrency(scenario.savings_target_amount)} ต้องเพิ่มงบลงทุน</p>
+                                </>
+                              )
+                            ) : (
+                              <>
+                                <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.projected_retirement_fund)}</p>
+                                <p className="text-xs text-purple-600 mt-0.5">คาดว่าจะมีเมื่อเกษียณ | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {scenario.strategy === 'conservative' && (
+                          <div>
+                            <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
+                            <p className="text-xs text-purple-600 mt-0.5">ลงทุน | เหลือเงินสด ฿{formatCurrency(Math.round(scenario.cash_remaining / 12))}/เดือน สำหรับแผนชีวิต</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Allocations */}
                     <div className="space-y-2 mb-4">

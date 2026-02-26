@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       const fundsWithRisk = await prisma.fund.findMany({
         where: {
           id: { in: eligibleFundIds },
-          fundStatus: { in: ['SE', 'RG'] },
+          fundStatus: { in: ['Registered', 'IPO'] }, // DB stores full words, not SEC abbreviated codes
           riskSpectrums: {
             some: { riskSpectrum: { gte: minRisk, lte: maxRisk } },
           },
@@ -252,8 +252,12 @@ export async function POST(req: Request) {
           };
         });
 
-        // Sort by Sharpe Ratio descending (primary), fallback to score
+        // Sort: 1) funds with performance data first, 2) Sharpe ratio desc, 3) score desc
         scoredFunds.sort((a, b) => {
+          const aHasPerf = a.performance.return3m !== null || a.performance.return1y !== null;
+          const bHasPerf = b.performance.return3m !== null || b.performance.return1y !== null;
+          if (bHasPerf && !aHasPerf) return 1;
+          if (aHasPerf && !bHasPerf) return -1;
           const aSharpe = a.statistics.sharpeRatio;
           const bSharpe = b.statistics.sharpeRatio;
           if (bSharpe !== null && aSharpe === null) return 1;
@@ -280,9 +284,22 @@ export async function POST(req: Request) {
         occupation: 'employee',
         marital_status: profile.has_spouse ? 'married' : 'single',
         dependents: (profile.num_children || 0) + (profile.num_parents || 0),
+        num_children: profile.num_children || 0,
+        num_parents: profile.num_parents || 0,
         existing_rmf: profile.current_deductions?.rmf || 0,
         existing_thai_esg: profile.current_deductions?.thai_esg || 0,
-        existing_insurance: profile.current_deductions?.life_insurance || 0,
+        existing_insurance: Math.min(profile.current_deductions?.life_insurance || 0, 100000)
+          + Math.min(profile.current_deductions?.health_insurance || 0, 25000),
+        life_insurance_amount: profile.current_deductions?.life_insurance || 0,
+        health_insurance_amount: profile.current_deductions?.health_insurance || 0,
+        // Investment budget — auto-calculated by backend from income/expenses
+        available_budget: null,
+        // Retirement planning
+        retirement_age: profile.retirement_age || null,
+        // Goal-based planning
+        savings_target: body.savings_target || null,
+        plan_to_marry: body.plan_to_marry || false,
+        income_growth_rate: body.income_growth_rate || 0,
       },
       goal,
       risk_tolerance: riskTolerance,

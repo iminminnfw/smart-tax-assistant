@@ -74,7 +74,24 @@ class UserProfileRequest(BaseModel):
     # Existing deductions (ปี 2568 - ไม่รวม SSF)
     existing_rmf: float = Field(default=0, ge=0, description="Existing RMF investment")
     existing_thai_esg: float = Field(default=0, ge=0, description="Existing ThaiESG investment")
-    existing_insurance: float = Field(default=0, ge=0, description="Existing insurance premium")
+    existing_insurance: float = Field(default=0, ge=0, description="Existing insurance premium (life + health, legacy)")
+
+    # Family deductions
+    num_children: int = Field(default=0, ge=0, description="Number of children for tax deduction")
+    num_parents: int = Field(default=0, ge=0, le=4, description="Number of parents (own + spouse) aged 60+, max 4")
+    life_insurance_amount: float = Field(default=0, ge=0, description="Annual life insurance premium (raw, capped at 100,000)")
+    health_insurance_amount: float = Field(default=0, ge=0, description="Annual health insurance premium (raw, capped at 25,000)")
+
+    # Investment budget (user-specified, overrides auto-calc if provided)
+    available_budget: Optional[float] = Field(default=None, ge=0, description="Annual investment budget in THB")
+
+    # Retirement planning
+    retirement_age: Optional[int] = Field(default=None, ge=18, le=100, description="Target retirement age")
+
+    # Goal-based planning
+    savings_target: Optional[float] = Field(default=None, ge=0, description="Total savings goal in THB")
+    plan_to_marry: bool = Field(default=False, description="Single user planning to marry next year")
+    income_growth_rate: float = Field(default=0, ge=0, le=50, description="Expected annual income growth rate %")
 
 
 class GoalRequest(BaseModel):
@@ -1159,6 +1176,80 @@ async def compare_with_benchmark(
 # Unified Optimize Endpoint (Code-Heavy, LLM-Light)
 # ============================================================
 
+def _extract_expected_return(funds: list) -> float:
+    """Extract average 1-year NAV return from pre_filtered_funds (returns decimal, e.g. 0.07 = 7%)"""
+    returns = []
+    for f in funds:
+        perf = f.get('performance', {})
+        r1y = perf.get('return1y')
+        if r1y is not None:
+            returns.append(r1y)
+    if returns:
+        avg = sum(returns) / len(returns) / 100  # % → decimal
+        return max(0.01, min(avg, 0.25))  # Clamp 1%–25%
+    return 0.07  # Default 7% if no NAV data
+
+
+def _calculate_fv(annual_investment: float, rate: float, years: int) -> float:
+    """Future Value of annuity (end-of-period): FV = PMT × ((1+r)^n − 1) / r"""
+    if years <= 0 or annual_investment <= 0:
+        return 0.0
+    if rate < 0.001:
+        return annual_investment * years
+    return annual_investment * ((1 + rate) ** years - 1) / rate
+
+
+def _years_to_target(annual_investment: float, rate: float, target: float) -> Optional[int]:
+    """Return the number of years to accumulate target via annual_investment at rate; None if > 100 yrs"""
+    if annual_investment <= 0 or target <= 0:
+        return None
+    for n in range(1, 101):
+        if _calculate_fv(annual_investment, rate, n) >= target:
+            return n
+    return None
+
+
+def _calculate_family_deductions(profile: "UserProfileRequest") -> float:
+    """
+    คำนวณลดหย่อนครอบครัว + ประกัน + ประกันสังคม สำหรับพนักงานเงินเดือน (ปี 2568)
+
+    ลดหย่อนที่คิด:
+    - คู่สมรส (ไม่มีรายได้): 60,000
+    - บุตร: คนที่ 1 = 30,000, คนที่ 2+ = 60,000
+    - พ่อแม่อายุ 60+ (รวมพ่อแม่คู่สมรส): 30,000/คน สูงสุด 4 คน
+    - ประกันชีวิต: min(จำนวน, 100,000)
+    - ประกันสุขภาพ: min(จำนวน, 25,000)
+    - ประกันสังคม ม.33 (พนักงาน): 9,000/ปี
+    """
+    total = 0.0
+
+    # คู่สมรส
+    if profile.marital_status == 'married':
+        total += 60_000
+
+    # บุตร: คนที่ 1 = 30,000, คนที่ 2+ = 60,000
+    children = profile.num_children or 0
+    if children >= 1:
+        total += 30_000
+    if children >= 2:
+        total += (children - 1) * 60_000
+
+    # พ่อแม่: 30,000/คน สูงสุด 4 คน
+    total += min(profile.num_parents or 0, 4) * 30_000
+
+    # ประกันชีวิต: max 100,000
+    total += min(profile.life_insurance_amount or 0, 100_000)
+
+    # ประกันสุขภาพ: max 25,000
+    total += min(profile.health_insurance_amount or 0, 25_000)
+
+    # ประกันสังคม ม.33 (พนักงานเงินเดือน): 750/เดือน = 9,000/ปี
+    if profile.occupation == 'employee':
+        total += 9_000
+
+    return total
+
+
 class OptimizeRequest(BaseModel):
     """Single unified request - code does filtering/calculation, LLM only explains"""
     profile: UserProfileRequest
@@ -1194,15 +1285,30 @@ async def optimize(request: OptimizeRequest):
         # ============================================================
         # Step 1: Calculate tax info (CODE)
         # ============================================================
-        tax_bracket = tax_fund_service.calculate_tax_bracket(request.profile.annual_income)
+
+        # คำนวณลดหย่อนครอบครัว + ประกัน + ประกันสังคม
+        family_deductions = _calculate_family_deductions(request.profile)
+        logger.info(f"Family deductions: {family_deductions:,.0f} "
+                    f"(spouse={request.profile.marital_status=='married'}, "
+                    f"children={request.profile.num_children}, "
+                    f"parents={request.profile.num_parents}, "
+                    f"life_ins={request.profile.life_insurance_amount}, "
+                    f"health_ins={request.profile.health_insurance_amount})")
+
+        tax_bracket = tax_fund_service.calculate_tax_bracket(
+            request.profile.annual_income, extra_deductions=family_deductions
+        )
         limits = tax_fund_service.calculate_deduction_limits(request.profile.annual_income)
 
         remaining_rmf = max(0, limits['rmf_max'] - request.profile.existing_rmf)
         remaining_thai_esg = max(0, limits['thai_esg_max'] - request.profile.existing_thai_esg)
 
-        # Calculate available budget
-        annual_savings = (request.profile.annual_income / 12 - request.profile.monthly_expenses) * 12
-        available_budget = max(0, annual_savings * 0.5)  # Conservative: 50% of savings
+        # Calculate available budget (use user input if provided, else auto-calc)
+        if request.profile.available_budget is not None:
+            available_budget = request.profile.available_budget
+        else:
+            annual_savings = (request.profile.annual_income / 12 - request.profile.monthly_expenses) * 12
+            available_budget = max(0, annual_savings * 0.5)  # Fallback: 50% of savings
 
         logger.info(f"Tax bracket: {tax_bracket['marginal_rate_percent']}%, "
                      f"Budget: {available_budget:,.0f}, "
@@ -1210,41 +1316,53 @@ async def optimize(request: OptimizeRequest):
                      f"ThaiESG remaining: {remaining_thai_esg:,.0f}")
 
         # ============================================================
-        # Step 2: Generate 3 scenarios (CODE)
+        # Step 2: Generate 3 goal-based scenarios (CODE + NAV projections)
         # ============================================================
-        strategies = [
+
+        # Extract expected return from actual NAV data in pre-filtered funds
+        pre_funds = request.pre_filtered_funds or []
+        expected_return = _extract_expected_return(pre_funds)
+        years_to_retire = max(1, (request.profile.retirement_age or 60) - request.profile.age)
+        savings_target = request.profile.savings_target or 0
+
+        logger.info(f"NAV expected return: {expected_return*100:.1f}%, "
+                    f"years to retire: {years_to_retire}, "
+                    f"savings_target: {savings_target:,.0f}")
+
+        goal_strategies = [
             {
                 "id": 1,
                 "strategy": "tax_max",
-                "name": "แผนประหยัดภาษีสูงสุด",
-                "description": "เน้นใช้สิทธิลดหย่อนเต็มที่ ประหยัดภาษีได้มากที่สุด",
-                "badge": "🎯"
+                "name": "เกษียณตามเป้า",
+                "description": f"ลงทุนเต็มที่เพื่อสะสมเงินเกษียณ อีก {years_to_retire} ปี",
+                "badge": "🎯",
             },
             {
                 "id": 2,
                 "strategy": "balanced",
-                "name": "แผนสมดุล",
-                "description": "สมดุลระหว่างการประหยัดภาษีและเงินสดคงเหลือ",
-                "badge": "⚖️"
+                "name": "ออมตามเป้า",
+                "description": "สมดุลระหว่างการออมและการลงทุน ให้ถึงเป้าหมายได้เร็วขึ้น",
+                "badge": "💰",
             },
             {
                 "id": 3,
                 "strategy": "conservative",
-                "name": "แผนอนุรักษ์นิยม",
-                "description": "เน้นรักษาเงินสดและความปลอดภัย ลงทุนน้อย",
-                "badge": "🛡️"
+                "name": "สมดุลชีวิต",
+                "description": "ยืดหยุ่น ลงทุนน้อยลงเพื่อมีเงินสดสำหรับแผนชีวิต",
+                "badge": "⚖️",
             },
         ]
 
         scenarios = []
-        for strat in strategies:
+        for strat in goal_strategies:
             # Use TaxFundService to calculate optimal allocation per strategy
             allocation = tax_fund_service.calculate_optimal_allocation(
                 annual_income=request.profile.annual_income,
                 available_budget=available_budget,
                 existing_rmf=request.profile.existing_rmf,
                 existing_thai_esg=request.profile.existing_thai_esg,
-                priority=strat["strategy"]
+                priority=strat["strategy"],
+                family_deductions=family_deductions,
             )
 
             rmf_amount = allocation['recommended_allocation'].get('rmf', 0)
@@ -1256,17 +1374,30 @@ async def optimize(request: OptimizeRequest):
                 annual_income=request.profile.annual_income,
                 rmf_investment=request.profile.existing_rmf + rmf_amount,
                 thai_esg_investment=request.profile.existing_thai_esg + thai_esg_amount,
+                family_deductions=family_deductions,
             )
 
             cash_remaining = available_budget - total_investment
 
+            # Projection calculations using actual NAV returns
+            projected_retirement_fund = _calculate_fv(total_investment, expected_return, years_to_retire)
+            years_to_target = (
+                _years_to_target(total_investment, expected_return, savings_target)
+                if savings_target > 0 and total_investment > 0
+                else None
+            )
+
             # Risk level mapping
             risk_map = {"tax_max": 7, "balanced": 5, "conservative": 3}
 
-            # Code-generated pros/cons
+            # Code-generated pros/cons (goal-aware)
             pros, cons = _generate_pros_cons(
                 strat["strategy"], total_investment, savings['tax_saved'],
-                cash_remaining, available_budget, limits
+                cash_remaining, available_budget, limits,
+                years_to_retire=years_to_retire,
+                projected_value=projected_retirement_fund,
+                savings_target=savings_target,
+                years_to_target=years_to_target,
             )
 
             scenario = {
@@ -1288,13 +1419,20 @@ async def optimize(request: OptimizeRequest):
                 "cons": cons,
                 "recommended_funds": [],
                 "ai_explanation": "",
+                # Projection data (from actual NAV returns)
+                "expected_return_rate": round(expected_return * 100, 2),
+                "projected_retirement_fund": round(projected_retirement_fund),
+                "years_to_retire": years_to_retire,
+                "savings_target": savings_target,
+                "years_to_target": years_to_target,
+                "monthly_investment": round(total_investment / 12),
             }
             scenarios.append(scenario)
 
         # ============================================================
         # Step 3: Assign pre-filtered funds to scenarios (CODE)
         # ============================================================
-        pre_funds = request.pre_filtered_funds or []
+        # pre_funds already defined above
 
         # Split funds by type
         rmf_funds = [f for f in pre_funds if f.get('fundType', '').upper() in ('RMF',)]
@@ -1417,38 +1555,47 @@ def _generate_pros_cons(
     cash_remaining: float,
     available_budget: float,
     limits: Dict,
+    years_to_retire: int = 30,
+    projected_value: float = 0,
+    savings_target: float = 0,
+    years_to_target: Optional[int] = None,
 ) -> tuple:
-    """Generate rule-based pros and cons for a scenario"""
+    """Generate goal-aware pros and cons for each scenario"""
     pros = []
     cons = []
 
     total_limit = limits.get('total_potential', limits.get('rmf_max', 0) + limits.get('thai_esg_max', 0))
     utilization = total_investment / total_limit if total_limit > 0 else 0
 
-    if strategy == "tax_max":
+    if strategy == "tax_max":  # เกษียณตามเป้า
+        if projected_value > 0:
+            pros.append(f"คาดว่าจะมีเงิน ฿{projected_value:,.0f} เมื่อเกษียณ (อีก {years_to_retire} ปี)")
         if tax_saved > 0:
-            pros.append(f"ประหยัดภาษีได้สูงสุด ฿{tax_saved:,.0f}")
+            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
         if utilization > 0.7:
-            pros.append("ใช้สิทธิลดหย่อนได้เกือบเต็ม")
-        pros.append("ผลตอบแทนจากการลดภาษีสูง")
+            pros.append("ใช้สิทธิลดหย่อนเกือบเต็มที่")
         if cash_remaining < available_budget * 0.3:
             cons.append("เงินสดเหลือน้อย ต้องวางแผนค่าใช้จ่ายดี")
-        cons.append("ต้องถือกองทุนตามเงื่อนไข (RMF ถึงอายุ 55, ThaiESG 8 ปี)")
+        cons.append("ต้องถือ RMF ถึงอายุ 55 ปี และ ThaiESG 8 ปี")
 
-    elif strategy == "balanced":
-        pros.append("สมดุลระหว่างภาษีและสภาพคล่อง")
+    elif strategy == "balanced":  # ออมตามเป้า
+        if years_to_target is not None and savings_target > 0:
+            pros.append(f"ถึงเป้าหมาย ฿{savings_target:,.0f} ใน {years_to_target} ปี")
+        elif savings_target > 0:
+            pros.append("กำลังสะสมเงินสู่เป้าหมาย")
         if tax_saved > 0:
-            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}")
-        pros.append("ยังมีเงินสดเหลือใช้จ่าย")
-        cons.append("ไม่ได้ประหยัดภาษีสูงสุด")
-        cons.append("ต้องถือกองทุนตามเงื่อนไข")
+            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
+        pros.append("ยังมีเงินสดเหลือใช้จ่ายในชีวิตประจำวัน")
+        cons.append("ไม่ได้ประหยัดภาษีสูงสุดเท่าแผน 1")
+        cons.append("สะสมเงินได้ช้ากว่าแผนเกษียณตามเป้า")
 
-    elif strategy == "conservative":
-        pros.append("เงินสดเหลือเยอะ สภาพคล่องสูง")
-        pros.append("ความเสี่ยงต่ำ เหมาะกับผู้ที่ต้องการความปลอดภัย")
+    elif strategy == "conservative":  # สมดุลชีวิต
+        if cash_remaining > 0:
+            pros.append(f"เหลือเงินสด ฿{cash_remaining:,.0f}/ปี พร้อมรับเหตุการณ์ชีวิต")
+        pros.append("ยืดหยุ่นสูง เหมาะกับช่วงเปลี่ยนแปลงในชีวิต")
         if tax_saved > 0:
-            pros.append(f"ยังประหยัดภาษีได้ ฿{tax_saved:,.0f}")
-        cons.append("ประหยัดภาษีได้น้อยกว่าแผนอื่น")
+            pros.append(f"ยังประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
+        cons.append("สะสมเงินเกษียณได้น้อยกว่าแผนอื่น")
         cons.append("ไม่ได้ใช้สิทธิลดหย่อนเต็มที่")
 
     return pros, cons

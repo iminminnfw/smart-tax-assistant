@@ -255,12 +255,13 @@ class TaxFundService:
     # Tax Calculations
     # ============================================================
 
-    def calculate_tax_bracket(self, annual_income: float) -> Dict[str, Any]:
+    def calculate_tax_bracket(self, annual_income: float, extra_deductions: float = 0) -> Dict[str, Any]:
         """
         Calculate tax bracket and rate for given income
 
         Args:
             annual_income: Annual assessable income
+            extra_deductions: Additional personal deductions (family, insurance, social security, etc.)
 
         Returns:
             Tax bracket info with rate and tax amount
@@ -269,7 +270,7 @@ class TaxFundService:
         personal_deduction = 60_000
         expense_deduction = min(annual_income * 0.5, 100_000)
 
-        taxable_income = max(0, annual_income - personal_deduction - expense_deduction)
+        taxable_income = max(0, annual_income - personal_deduction - expense_deduction - extra_deductions)
 
         # Calculate tax
         total_tax = 0
@@ -325,7 +326,8 @@ class TaxFundService:
         annual_income: float,
         rmf_investment: float = 0,
         thai_esg_investment: float = 0,
-        existing_deductions: float = 0
+        existing_deductions: float = 0,
+        family_deductions: float = 0,
     ) -> Dict[str, Any]:
         """
         Calculate tax savings from tax fund investments (ปี 2568)
@@ -336,7 +338,8 @@ class TaxFundService:
             annual_income: Annual assessable income
             rmf_investment: Amount invested in RMF
             thai_esg_investment: Amount invested in ThaiESG
-            existing_deductions: Other existing deductions
+            existing_deductions: Other existing deductions (unused, kept for compat)
+            family_deductions: Deductions from family, insurance, social security
 
         Returns:
             Detailed tax savings breakdown
@@ -349,12 +352,12 @@ class TaxFundService:
 
         total_deduction = actual_rmf + actual_thai_esg
 
-        # Calculate tax without deductions
-        tax_without = self.calculate_tax_bracket(annual_income)
+        # tax_before: with family deductions, but WITHOUT new RMF/ESG investment
+        tax_without = self.calculate_tax_bracket(annual_income, extra_deductions=family_deductions)
 
-        # Calculate tax with deductions (reduce taxable income)
+        # tax_after: with family deductions AND new RMF/ESG investment
         effective_income = annual_income - total_deduction
-        tax_with = self.calculate_tax_bracket(effective_income)
+        tax_with = self.calculate_tax_bracket(effective_income, extra_deductions=family_deductions)
 
         # Tax savings
         tax_saved = tax_without['total_tax'] - tax_with['total_tax']
@@ -387,7 +390,8 @@ class TaxFundService:
         available_budget: float,
         existing_rmf: float = 0,
         existing_thai_esg: float = 0,
-        priority: str = 'balanced'
+        priority: str = 'balanced',
+        family_deductions: float = 0,
     ) -> Dict[str, Any]:
         """
         Calculate optimal allocation across tax fund categories (ปี 2568)
@@ -443,7 +447,8 @@ class TaxFundService:
         savings = self.calculate_tax_savings(
             annual_income,
             rmf_investment=existing_rmf + allocation['rmf'],
-            thai_esg_investment=existing_thai_esg + allocation['thai_esg']
+            thai_esg_investment=existing_thai_esg + allocation['thai_esg'],
+            family_deductions=family_deductions,
         )
 
         return {
