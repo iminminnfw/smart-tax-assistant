@@ -180,7 +180,7 @@ class AITaxAdvisor:
 
 กฎภาษีไทย ปี 2568:
 - RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท (ถือจนอายุ 55 ปี)
-- ThaiESG: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท (ถือ 8 ปี, ถึงปี 2575)
+- ThaiESG/TESGX: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท รวมกัน (ล็อค 5 ปีนับจากวันซื้อ ปี 2569)
 
 หมายเหตุสำคัญ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ SSF
 
@@ -630,8 +630,14 @@ class AITaxAdvisor:
 
         # Calculate basic metrics
         monthly_income = profile.annual_income / 12
-        savings_rate = (monthly_income - profile.monthly_expenses) / monthly_income * 100
-        emergency_months = profile.emergency_fund / profile.monthly_expenses
+        savings_rate = (
+            (monthly_income - profile.monthly_expenses) / monthly_income * 100
+            if monthly_income > 0 else 0
+        )
+        emergency_months = (
+            profile.emergency_fund / profile.monthly_expenses
+            if profile.monthly_expenses > 0 else 0
+        )
 
         # Tax bracket
         from .tax_fund_service import TaxFundService
@@ -805,6 +811,36 @@ class AITaxAdvisor:
   "overall_recommendation": "สรุปว่าแผนไหนเหมาะที่สุดและทำไม"
 }"""
 
+    SYSTEM_PROMPT_RECOMMENDATION = """คุณคือที่ปรึกษาการเงินส่วนตัวระดับสูง (Senior Financial Advisor) ที่เชี่ยวชาญด้านภาษีเงินได้บุคคลธรรมดาของไทยและกองทุนรวมลดหย่อนภาษี คุณผ่านการวางแผนการเงินให้ลูกค้ามาแล้วนับพัน และเข้าใจว่าคนแต่ละคนมีสถานการณ์ชีวิตที่แตกต่างกัน
+
+หน้าที่ของคุณ:
+อธิบาย "ทำไม" แผนการลงทุนที่ระบบแนะนำถึงเหมาะสมกับผู้ใช้คนนี้โดยเฉพาะ ให้ละเอียด ลึกซึ้ง และเชื่อมโยงกับชีวิตจริงของเขา/เธอ
+
+กฎที่ต้องทำตามอย่างเคร่งครัด:
+1. ห้ามแก้ไขหรือคิดตัวเลขใหม่ ใช้เฉพาะตัวเลขจากข้อมูลที่ได้รับ
+2. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอื่นเด็ดขาด
+3. ตอบเป็น JSON ที่ valid เท่านั้น ห้ามมีข้อความนอก JSON
+4. ทุก section ต้องอ้างอิงข้อมูลจริงจากโปรไฟล์ เช่น ระบุอายุ รายได้ หรือเป้าหมายจริงๆ ของผู้ใช้
+5. เขียนเหมือนกำลังคุยกับลูกค้าจริงๆ ไม่ใช่เขียนรายงานทางการ
+
+แนวทางการเขียนที่ดี:
+- ใช้ภาษาเป็นกันเอง ตรงไปตรงมา ไม่ formal เกิน
+- ยกตัวอย่างที่จับต้องได้ เช่น "ถ้าซื้อ ThaiESG วันนี้ (ปี 2569) คุณจะถอนได้ปี 2574 (ล็อค 5 ปี)"
+- บอกผลกระทบต่อชีวิตจริง ไม่ใช่แค่ศัพท์การเงิน
+- แต่ละ section ควรมี 4-6 ประโยค ครอบคลุมแต่ไม่ยืดเยื้อ
+
+รูปแบบ JSON ที่ต้องตอบ (ทุก field บังคับ):
+{
+  "age_analysis": "อธิบายว่าอายุของผู้ใช้ส่งผลต่อการเลือก RMF กับ ThaiESG อย่างไร ระบุจำนวนปีที่ต้องล็อคเงินใน RMF ก่อนถอนได้ และทำไมสัดส่วนที่แนะนำจึงสมเหตุสมผลสำหรับอายุนี้โดยเฉพาะ",
+  "goal_analysis": "อธิบายว่าเป้าหมายการใช้เงินที่ผู้ใช้เลือกนำไปสู่สัดส่วนนี้อย่างไร เชื่อมโยงว่าถ้าถอนเงินตามแผน จะสอดคล้องกับระยะเวลาล็อคของแต่ละกองทุนอย่างไร",
+  "risk_analysis": "อธิบายว่าระดับความเสี่ยงที่ผู้ใช้รับได้ส่งผลต่อสัดส่วน ThaiESG กับ TESGX อย่างไร ถ้ามี TESGX ให้อธิบายด้วยว่า TESGX ต่างจาก ThaiESG อย่างไร และเหมาะกับความเสี่ยงระดับนี้อย่างไร",
+  "budget_analysis": "วิเคราะห์งบประมาณที่มีเทียบกับโควตาสิทธิ์ที่ใช้ได้ บอกว่าประหยัดภาษีได้เท่าไหร่คิดเป็นกี่เปอร์เซ็นต์ของเงินลงทุน และคุ้มค่าแค่ไหน",
+  "fund_reasons": "อธิบายว่าทำไมกองทุนที่แนะนำแต่ละกองถึงเหมาะกับผู้ใช้คนนี้ อ้างอิงจากผลตอบแทนย้อนหลัง Sharpe Ratio หรือนโยบายการลงทุนของกองทุน",
+  "warnings": "บอกความเสี่ยงและข้อจำกัดสำคัญที่ผู้ใช้ควรรู้ก่อนตัดสินใจลงทุน เช่น เงื่อนไขการถอน ความผันผวน หรือข้อควรระวังเฉพาะโปรไฟล์นี้",
+  "future_advice": "แนะนำว่าถ้ารายได้เพิ่มขึ้นตามที่คาดหวัง ควรปรับแผนการลงทุนอย่างไร และมีอะไรที่ต้องทำเพิ่มเติมในอนาคต",
+  "summary": "สรุปภาพรวม 2-3 ประโยค ว่าทำไมแผนนี้เหมาะกับผู้ใช้คนนี้โดยเฉพาะ เขียนแบบให้กำลังใจและทำให้ผู้ใช้มั่นใจในการตัดสินใจ"
+}"""
+
     async def generate_explanation_only(
         self,
         profile: UserProfile,
@@ -895,6 +931,156 @@ class AITaxAdvisor:
                 ],
                 "overall_recommendation": ""
             }
+
+
+    async def generate_recommendation_explanation(
+        self,
+        profile: "UserProfile",
+        allocation: Dict,
+        tax_savings: Dict,
+        year_breakdown: Dict,
+        recommended_funds: List[Dict],
+        income_growth_rate: float = 0,
+        monthly_budget: float = 0,
+        rag_context: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Generate detailed Thai-language explanation for the single recommended plan.
+        LLM explains WHY this specific allocation fits this specific user.
+
+        Args:
+            profile: User's financial profile
+            allocation: Result from _calculate_recommended_allocation() — contains
+                        rmf_amount, tesg_amount, tesgx_amount, ratios, decision_factors, etc.
+            tax_savings: Result from calculate_tax_savings() — tax_saved, marginal_rate, etc.
+            year_breakdown: Result from _calculate_3year_breakdown() — cumulative_tax_saved_3y, etc.
+            recommended_funds: Pre-filtered funds from DB (up to 9 funds)
+            income_growth_rate: Expected annual income growth in %
+            monthly_budget: Monthly investment budget in THB
+            rag_context: Tax law context from RAG (Qdrant)
+
+        Returns:
+            Dict with keys: age_analysis, goal_analysis, risk_analysis,
+                           budget_analysis, fund_reasons, warnings, future_advice, summary
+        """
+        logger.info("Generating detailed recommendation explanation...")
+
+        rmf_amount = allocation.get("rmf_amount", 0)
+        tesg_amount = allocation.get("tesg_amount", 0)
+        tesgx_amount = allocation.get("tesgx_amount", 0)
+        total_amount = allocation.get("total_amount", 0)
+        rmf_pct = allocation.get("rmf_pct", 0)
+        tesg_pct = allocation.get("tesg_pct", 0)
+        tesgx_pct = allocation.get("tesgx_pct", 0)
+        years_to_55 = allocation.get("years_to_55", 0)
+        money_goal_label = allocation.get("money_goal_label", "")
+        decision_factors = allocation.get("decision_factors", {})
+
+        tax_saved = tax_savings.get("tax_saved", 0)
+        marginal_rate = tax_savings.get("marginal_rate", 0)
+        cumulative_3y = year_breakdown.get("cumulative_tax_saved_3y", 0)
+
+        annual_budget = monthly_budget * 12 if monthly_budget > 0 else total_amount
+
+        # Build fund summary
+        fund_summary = ""
+        if recommended_funds:
+            rmf_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "RMF"]
+            tesg_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "TESG"]
+            tesgx_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "TESGX"]
+
+            def fmt_funds(funds: list, label: str) -> str:
+                if not funds:
+                    return ""
+                lines = [f"\n{label}:"]
+                for f in funds[:3]:
+                    perf = f.get("performance", {})
+                    stats = f.get("statistics", {})
+                    r1y = perf.get("return1y")
+                    sharpe = stats.get("sharpeRatio")
+                    lines.append(
+                        f"  - {f.get('abbr', 'N/A')} ({f.get('nameTh', 'N/A')}): "
+                        f"ผลตอบแทน 1 ปี {f'{r1y:.1f}%' if r1y is not None else 'N/A'}, "
+                        f"Sharpe {f'{sharpe:.2f}' if sharpe is not None else 'N/A'}"
+                    )
+                return "\n".join(lines)
+
+            fund_summary = (
+                fmt_funds(rmf_funds, "กองทุน RMF ที่แนะนำ")
+                + fmt_funds(tesg_funds, "กองทุน ThaiESG ที่แนะนำ")
+                + fmt_funds(tesgx_funds, "กองทุน TESGX ที่แนะนำ")
+            )
+
+        rag_section = f"\n=== ข้อมูลกฎหมายภาษี ===\n{rag_context[:2000]}\n" if rag_context else ""
+
+        income_growth_text = (
+            f"เพิ่มขึ้น {income_growth_rate}% ต่อปี (รายได้ปีหน้าประมาณ ฿{profile.annual_income * (1 + income_growth_rate / 100):,.0f})"
+            if income_growth_rate > 0
+            else "ไม่มีการเปลี่ยนแปลง"
+        )
+
+        prompt = f"""=== โปรไฟล์ผู้ใช้ ===
+- อายุ: {profile.age} ปี (เหลือ {years_to_55} ปีก่อนถึงอายุ 55 ปี — เงื่อนไขถอน RMF)
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ค่าใช้จ่ายต่อเดือน: ฿{profile.monthly_expenses:,.0f}
+- งบลงทุนต่อเดือน: ฿{monthly_budget:,.0f} (รวม ฿{annual_budget:,.0f}/ปี)
+- ระดับความเสี่ยงที่รับได้: {profile.risk_tolerance}
+- อาชีพ: {profile.occupation}
+- สถานะครอบครัว: {profile.marital_status}
+- ลงทุน RMF อยู่แล้ว: ฿{profile.existing_rmf:,.0f}
+- ลงทุน ThaiESG อยู่แล้ว: ฿{profile.existing_thai_esg:,.0f}
+
+=== เป้าหมายการลงทุน ===
+- เป้าหมาย: {money_goal_label}
+  (retirement=เกษียณระยะยาว, mid_term=ระยะกลาง 5-10 ปี, short_term=ต้องใช้ภายใน 5 ปี)
+- แนวโน้มรายได้: {income_growth_text}
+
+=== เหตุผลที่ระบบเลือกสัดส่วนนี้ ===
+- ปัจจัยอายุ: {decision_factors.get('age_factor', '')}
+- ปัจจัยเป้าหมาย: {decision_factors.get('goal_factor', '')}
+- ปัจจัยความเสี่ยง: {decision_factors.get('risk_factor', '')}
+- ปัจจัยงบประมาณ: {decision_factors.get('budget_factor', '')}
+
+=== แผนที่แนะนำ (ตัวเลขคำนวณแล้ว ห้ามแก้ไข) ===
+- สัดส่วน: RMF {rmf_pct}% : ThaiESG {tesg_pct}% : TESGX {tesgx_pct}%
+- ลงทุน RMF: ฿{rmf_amount:,.0f}/ปี (เดือนละ ฿{rmf_amount // 12:,.0f})
+- ลงทุน ThaiESG: ฿{tesg_amount:,.0f}/ปี (เดือนละ ฿{tesg_amount // 12:,.0f})
+- ลงทุน TESGX: ฿{tesgx_amount:,.0f}/ปี (เดือนละ ฿{tesgx_amount // 12:,.0f})
+- รวมลงทุนทั้งหมด: ฿{total_amount:,.0f}/ปี
+- ประหยัดภาษีปีนี้: ฿{tax_saved:,.0f}
+- อัตราภาษีสูงสุด (Marginal Rate): {marginal_rate}%
+- ประหยัดภาษีสะสม 3 ปี: ฿{cumulative_3y:,.0f}
+{fund_summary}
+{rag_section}
+อธิบายแผนนี้ให้ผู้ใช้เข้าใจว่าทำไมจึงเหมาะกับเขา/เธอโดยเฉพาะ ตาม JSON format ที่กำหนด"""
+
+        empty_result = {
+            "age_analysis": "",
+            "goal_analysis": "",
+            "risk_analysis": "",
+            "budget_analysis": "",
+            "fund_reasons": "",
+            "warnings": "",
+            "future_advice": "",
+            "summary": "",
+        }
+
+        try:
+            response = await self._call_llm(
+                self.SYSTEM_PROMPT_RECOMMENDATION,
+                prompt,
+                temperature=0.6,
+            )
+            data = json.loads(response)
+            # Ensure all keys present
+            for key in empty_result:
+                if key not in data:
+                    data[key] = ""
+            return data
+
+        except Exception as e:
+            logger.error(f"Recommendation explanation failed: {e}")
+            return empty_result
 
 
 # ============================================================

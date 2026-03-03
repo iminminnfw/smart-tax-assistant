@@ -82,16 +82,17 @@ class UserProfileRequest(BaseModel):
     life_insurance_amount: float = Field(default=0, ge=0, description="Annual life insurance premium (raw, capped at 100,000)")
     health_insurance_amount: float = Field(default=0, ge=0, description="Annual health insurance premium (raw, capped at 25,000)")
 
-    # Investment budget (user-specified, overrides auto-calc if provided)
-    available_budget: Optional[float] = Field(default=None, ge=0, description="Annual investment budget in THB")
-
-    # Retirement planning
-    retirement_age: Optional[int] = Field(default=None, ge=18, le=100, description="Target retirement age")
+    # Investment budget — monthly (backend multiplies ×12 internally)
+    monthly_budget: Optional[float] = Field(default=None, ge=0, description="Monthly investment budget in THB (0 = auto 15% of income)")
 
     # Goal-based planning
-    savings_target: Optional[float] = Field(default=None, ge=0, description="Total savings goal in THB")
-    plan_to_marry: bool = Field(default=False, description="Single user planning to marry next year")
     income_growth_rate: float = Field(default=0, ge=0, le=50, description="Expected annual income growth rate %")
+
+    # Smart allocation inputs
+    money_goal: str = Field(
+        default="mid_term",
+        description="retirement | mid_term | short_term — determines RMF vs ThaiESG split"
+    )
 
 
 class GoalRequest(BaseModel):
@@ -1250,6 +1251,272 @@ def _calculate_family_deductions(profile: "UserProfileRequest") -> float:
     return total
 
 
+def calculate_allocation(
+    age: int,
+    income: float,
+    goal: str,
+    monthly_budget: float,
+    risk_tolerance: str,
+    income_growth_rate: float = 0.0,
+    existing_rmf: float = 0.0,
+    existing_thai_esg: float = 0.0,
+) -> Dict:
+    """
+    คำนวณสัดส่วนการลงทุน RMF : ThaiESG : TESGX ที่เหมาะสมที่สุด (ปี 2569)
+
+    Phase 1: Base allocation (RMF% vs ESG%) — อิงเป้าหมายและอายุ
+    Phase 2: ESG split (ThaiESG vs TESGX) — อิงระดับความเสี่ยง
+    Phase 3: คำนวณเม็ดเงินจริง + cap ตามโควตากฎหมาย
+    """
+    # ── Auto budget ─────────────────────────────────────────────────
+    if not monthly_budget or monthly_budget <= 0:
+        monthly_budget = income / 12 * 0.15  # 15% ของรายได้/เดือน
+        budget_factor = (
+            f"ไม่ได้ระบุงบลงทุน ระบบประมาณจาก 15% ของรายได้/เดือน "
+            f"= ฿{monthly_budget:,.0f}/เดือน (฿{monthly_budget*12:,.0f}/ปี)"
+        )
+    else:
+        budget_factor = (
+            f"งบลงทุน ฿{monthly_budget:,.0f}/เดือน = ฿{monthly_budget*12:,.0f}/ปี "
+            f"ตามที่ผู้ใช้กำหนด"
+        )
+
+    annual_budget = monthly_budget * 12
+
+    # ── Phase 1: Base RMF vs ESG ratio ──────────────────────────────
+    goal = (goal or "mid_term").lower().strip()
+
+    if goal == "short_term":
+        if age < 47:
+            rmf_pct, esg_pct = 0.0, 1.0
+            age_factor = (
+                f"อายุ {age} ปี เลือกเป้าหมายระยะสั้น (ต้องใช้เงินภายใน 5 ปี) "
+                f"RMF ล็อคถึงอายุ 55 ถอนไม่ทันแน่นอน ระบบจึงไม่จัด RMF เลย "
+                f"เอาเงินทั้งหมดไปลงกลุ่ม ESG ที่ล็อคแค่ 5 ปีแทน"
+            )
+            goal_factor = "ต้องการใช้เงินก้อนในอนาคตอันใกล้ ThaiESG ล็อคแค่ 5 ปีเหมาะที่สุด"
+        else:
+            rmf_pct, esg_pct = 0.30, 0.70
+            age_factor = (
+                f"อายุ {age} ปี แม้เป้าหมายระยะสั้น แต่อายุใกล้ 55 ปีแล้ว "
+                f"RMF จะล็อคไม่นานและลดหย่อนภาษีได้ดี จึงแบ่งบางส่วน"
+            )
+            goal_factor = "ต้องการใช้เงินเร็ว แต่อายุใกล้ 55 RMF บางส่วนยังคุ้มค่าลดหย่อน"
+
+    elif goal == "retirement":
+        if age < 35:
+            rmf_pct, esg_pct = 0.70, 0.30
+            age_factor = (
+                f"อายุ {age} ปี เป้าหมายเกษียณระยะยาว มีเวลาล็อคเงินนาน "
+                f"RMF เหมาะมากเพราะลดหย่อนภาษีได้สูงและบังคับออมระยะยาว"
+            )
+        else:
+            rmf_pct, esg_pct = 0.80, 0.20
+            age_factor = (
+                f"อายุ {age} ปี เป้าหมายเกษียณ อายุ 55 ไม่ไกลมาก "
+                f"เน้น RMF หนักเพื่อประหยัดภาษีสูงสุดและออมเพื่อเกษียณโดยตรง"
+            )
+        goal_factor = "เป้าหมายเกษียณ RMF คือเครื่องมือที่ออกแบบมาเพื่อจุดนี้โดยตรง"
+
+    else:  # mid_term (default)
+        if age < 45:
+            rmf_pct, esg_pct = 0.20, 0.80
+            age_factor = (
+                f"อายุ {age} ปี เป้าหมายระยะกลาง 5-10 ปี ยังมีเวลาพอสมควร "
+                f"เน้น ThaiESG เพื่อสภาพคล่อง RMF แค่ส่วนน้อยเพื่อลดหย่อนเพิ่ม"
+            )
+        else:
+            rmf_pct, esg_pct = 0.50, 0.50
+            age_factor = (
+                f"อายุ {age} ปี เป้าหมายระยะกลาง อายุเริ่มเข้าใกล้ 55 ปี "
+                f"แบ่ง RMF และ ThaiESG เท่ากันเพื่อสมดุลระหว่างการลดหย่อนและสภาพคล่อง"
+            )
+        goal_factor = "ระยะกลาง 5-10 ปี ThaiESG ล็อค 5 ปีพอดี สภาพคล่องดีกว่า RMF"
+
+    # ── Phase 2: ESG split by risk ───────────────────────────────────
+    risk = (risk_tolerance or "moderate").lower().strip()
+
+    if risk == "conservative":
+        tesg_split, tesgx_split = 1.0, 0.0
+        risk_factor = (
+            "ระดับความเสี่ยงต่ำ เลือก ThaiESG ล้วนๆ ไม่มี TESGX "
+            "ThaiESG กระจายหุ้นหลายตลาด ผันผวนน้อยกว่าและเหมาะกับคนรับความเสี่ยงได้จำกัด"
+        )
+    elif risk == "aggressive":
+        tesg_split, tesgx_split = 0.40, 0.60
+        risk_factor = (
+            "กล้าเสี่ยงสูง เทน้ำหนัก TESGX 60% ซึ่งลงทุนในหุ้นไทยขนาดเล็ก-กลาง "
+            "โอกาสเติบโตสูงกว่าแต่ผันผวนมากกว่า เหมาะกับนักลงทุนที่รับ drawdown ได้"
+        )
+    else:  # moderate
+        tesg_split, tesgx_split = 0.80, 0.20
+        risk_factor = (
+            "ความเสี่ยงปานกลาง ผสม ThaiESG 80% กับ TESGX 20% "
+            "ได้โอกาสเติบโตจาก TESGX บางส่วน แต่ยังมีความมั่นคงจาก ThaiESG เป็นหลัก"
+        )
+
+    # ── Phase 3: Quota caps (net of existing investments) ────────────
+    gross_max_rmf  = min(income * 0.30, 500_000)
+    gross_max_esg  = min(income * 0.30, 300_000)
+
+    # หักสิ่งที่ลงทุนไปแล้วในปีนี้
+    max_rmf = max(0.0, gross_max_rmf - existing_rmf)
+    max_esg = max(0.0, gross_max_esg - existing_thai_esg)
+
+    # Raw amounts from Phase 1 ratios
+    rmf_raw = annual_budget * rmf_pct
+    esg_raw = annual_budget * esg_pct
+
+    # Cap RMF, overflow → ESG (ถ้า quota ยังเหลือ)
+    if rmf_raw > max_rmf:
+        overflow  = rmf_raw - max_rmf
+        rmf_amount = max_rmf
+        esg_raw   = min(esg_raw + overflow, max_esg)
+    else:
+        rmf_amount = min(rmf_raw, max_rmf)
+
+    # Cap ESG
+    esg_amount   = min(esg_raw, max_esg)
+    tesg_amount  = esg_amount * tesg_split
+    tesgx_amount = esg_amount * tesgx_split
+
+    rmf_amount   = round(rmf_amount)
+    tesg_amount  = round(tesg_amount)
+    tesgx_amount = round(tesgx_amount)
+
+    total_invested = rmf_amount + tesg_amount + tesgx_amount
+
+    # Final hard cap (งบเกินเพดานรวมกฎหมาย)
+    max_total = max_rmf + max_esg
+    if total_invested > max_total:
+        # กรณีนี้ไม่ควรเกิด แต่ป้องกันไว้
+        ratio = max_total / total_invested
+        rmf_amount   = round(rmf_amount * ratio)
+        tesg_amount  = round(tesg_amount * ratio)
+        tesgx_amount = round(tesgx_amount * ratio)
+        total_invested = rmf_amount + tesg_amount + tesgx_amount
+
+    cash_remaining = max(0.0, annual_budget - total_invested)
+
+    # Actual % after caps
+    if total_invested > 0:
+        actual_rmf_pct   = round(rmf_amount   / total_invested * 100, 1)
+        actual_tesg_pct  = round(tesg_amount  / total_invested * 100, 1)
+        actual_tesgx_pct = round(tesgx_amount / total_invested * 100, 1)
+    else:
+        actual_rmf_pct = actual_tesg_pct = actual_tesgx_pct = 0.0
+
+    # Remaining quota after this recommendation
+    remaining_rmf = max(0.0, max_rmf - rmf_amount)
+    remaining_esg = max(0.0, max_esg - tesg_amount - tesgx_amount)
+
+    years_to_55 = max(0, 55 - age)
+
+    goal_labels = {
+        "retirement": "เก็บยาวเพื่อเกษียณ",
+        "mid_term":   "ลดหย่อน + ถอนได้ระยะกลาง (5-10 ปี)",
+        "short_term": "ต้องการใช้เงินก้อนในอนาคตอันใกล้",
+    }
+
+    budget_note = (
+        f"งบ ฿{annual_budget:,.0f}/ปี, "
+        f"ลงทุนจริง ฿{total_invested:,.0f}/ปี"
+        + (f", เงินสดเหลือ ฿{cash_remaining:,.0f} (เกินโควตาลดหย่อน)" if cash_remaining > 0 else "")
+    )
+    budget_factor = f"{budget_factor} — {budget_note}"
+
+    return {
+        "rmf_amount":   rmf_amount,
+        "tesg_amount":  tesg_amount,
+        "tesgx_amount": tesgx_amount,
+        "total_amount": total_invested,
+        "rmf_pct":      actual_rmf_pct,
+        "tesg_pct":     actual_tesg_pct,
+        "tesgx_pct":    actual_tesgx_pct,
+        "cash_remaining":  round(cash_remaining),
+        "monthly_dca":     round(total_invested / 12),
+        "years_to_55":     years_to_55,
+        "rmf_eligible":    rmf_pct > 0,
+        "money_goal":      goal,
+        "money_goal_label": goal_labels.get(goal, goal),
+        "remaining_quota": {
+            "rmf": round(remaining_rmf),
+            "esg": round(remaining_esg),
+        },
+        "decision_factors": {
+            "age_factor":    age_factor,
+            "goal_factor":   goal_factor,
+            "risk_factor":   risk_factor,
+            "budget_factor": budget_factor,
+        },
+    }
+
+
+def _calculate_3year_breakdown(
+    annual_income: float,
+    available_budget: float,
+    existing_rmf: float,
+    existing_thai_esg: float,
+    family_deductions: float,
+    income_growth_rate: float,
+    strategy: str,
+    tax_fund_svc,
+) -> dict:
+    """คำนวณ tax savings รายปี สำหรับ 3 ปีข้างหน้า (high-credibility, no long-term speculation)"""
+    breakdown = []
+    cumulative_tax_saved = 0.0
+    cumulative_investment = 0.0
+
+    current_tax_year = 2568  # ปี พ.ศ. ปัจจุบัน
+    growth = 1 + (income_growth_rate / 100)
+
+    for yr in range(1, 4):
+        yr_income = annual_income * (growth ** (yr - 1))
+        yr_budget = available_budget * (growth ** (yr - 1))
+
+        # ปีที่ 2+ user ยังไม่ได้ลงทุน → existing reset เป็น 0
+        yr_existing_rmf = existing_rmf if yr == 1 else 0
+        yr_existing_thai_esg = existing_thai_esg if yr == 1 else 0
+
+        alloc = tax_fund_svc.calculate_optimal_allocation(
+            annual_income=yr_income,
+            available_budget=yr_budget,
+            existing_rmf=yr_existing_rmf,
+            existing_thai_esg=yr_existing_thai_esg,
+            priority=strategy,
+            family_deductions=family_deductions,
+        )
+        rmf_amt = alloc['recommended_allocation']['rmf']
+        esg_amt = alloc['recommended_allocation']['thai_esg']
+        total_inv = rmf_amt + esg_amt
+
+        savings = tax_fund_svc.calculate_tax_savings(
+            annual_income=yr_income,
+            rmf_investment=yr_existing_rmf + rmf_amt,
+            thai_esg_investment=yr_existing_thai_esg + esg_amt,
+            family_deductions=family_deductions,
+        )
+
+        cumulative_tax_saved += savings['tax_saved']
+        cumulative_investment += total_inv
+
+        breakdown.append({
+            "year": yr,
+            "tax_year": current_tax_year + (yr - 1),
+            "income": round(yr_income),
+            "rmf_investment": round(rmf_amt),
+            "thai_esg_investment": round(esg_amt),
+            "total_investment": round(total_inv),
+            "tax_saved": round(savings['tax_saved']),
+        })
+
+    return {
+        "year_breakdown": breakdown,
+        "cumulative_tax_saved_3y": round(cumulative_tax_saved),
+        "cumulative_investment_3y": round(cumulative_investment),
+    }
+
+
 class OptimizeRequest(BaseModel):
     """Single unified request - code does filtering/calculation, LLM only explains"""
     profile: UserProfileRequest
@@ -1298,158 +1565,100 @@ async def optimize(request: OptimizeRequest):
         tax_bracket = tax_fund_service.calculate_tax_bracket(
             request.profile.annual_income, extra_deductions=family_deductions
         )
-        limits = tax_fund_service.calculate_deduction_limits(request.profile.annual_income)
-
-        remaining_rmf = max(0, limits['rmf_max'] - request.profile.existing_rmf)
-        remaining_thai_esg = max(0, limits['thai_esg_max'] - request.profile.existing_thai_esg)
-
-        # Calculate available budget (use user input if provided, else auto-calc)
-        if request.profile.available_budget is not None:
-            available_budget = request.profile.available_budget
-        else:
-            annual_savings = (request.profile.annual_income / 12 - request.profile.monthly_expenses) * 12
-            available_budget = max(0, annual_savings * 0.5)  # Fallback: 50% of savings
-
-        logger.info(f"Tax bracket: {tax_bracket['marginal_rate_percent']}%, "
-                     f"Budget: {available_budget:,.0f}, "
-                     f"RMF remaining: {remaining_rmf:,.0f}, "
-                     f"ThaiESG remaining: {remaining_thai_esg:,.0f}")
 
         # ============================================================
-        # Step 2: Generate 3 goal-based scenarios (CODE + NAV projections)
+        # Step 2: calculate_allocation() — Phase 1/2/3 ใหม่ทั้งหมด
         # ============================================================
 
-        # Extract expected return from actual NAV data in pre-filtered funds
-        pre_funds = request.pre_filtered_funds or []
-        expected_return = _extract_expected_return(pre_funds)
-        years_to_retire = max(1, (request.profile.retirement_age or 60) - request.profile.age)
-        savings_target = request.profile.savings_target or 0
+        pre_funds          = request.pre_filtered_funds or []
+        income_growth_rate = request.profile.income_growth_rate or 0.0
+        monthly_budget_raw = request.profile.monthly_budget or 0.0  # monthly, backend คูณ 12 เอง
 
-        logger.info(f"NAV expected return: {expected_return*100:.1f}%, "
-                    f"years to retire: {years_to_retire}, "
-                    f"savings_target: {savings_target:,.0f}")
+        logger.info(
+            f"money_goal={request.profile.money_goal}, "
+            f"monthly_budget={monthly_budget_raw:,.0f}, "
+            f"income_growth_rate={income_growth_rate}%, "
+            f"existing_rmf={request.profile.existing_rmf:,.0f}, "
+            f"existing_thai_esg={request.profile.existing_thai_esg:,.0f}"
+        )
 
-        goal_strategies = [
-            {
-                "id": 1,
-                "strategy": "tax_max",
-                "name": "เกษียณตามเป้า",
-                "description": f"ลงทุนเต็มที่เพื่อสะสมเงินเกษียณ อีก {years_to_retire} ปี",
-                "badge": "🎯",
-            },
-            {
-                "id": 2,
-                "strategy": "balanced",
-                "name": "ออมตามเป้า",
-                "description": "สมดุลระหว่างการออมและการลงทุน ให้ถึงเป้าหมายได้เร็วขึ้น",
-                "badge": "💰",
-            },
-            {
-                "id": 3,
-                "strategy": "conservative",
-                "name": "สมดุลชีวิต",
-                "description": "ยืดหยุ่น ลงทุนน้อยลงเพื่อมีเงินสดสำหรับแผนชีวิต",
-                "badge": "⚖️",
-            },
-        ]
+        allocation = calculate_allocation(
+            age              = request.profile.age,
+            income           = request.profile.annual_income,
+            goal             = request.profile.money_goal or "mid_term",
+            monthly_budget   = monthly_budget_raw,
+            risk_tolerance   = request.profile.risk_tolerance,
+            income_growth_rate = income_growth_rate,
+            existing_rmf     = request.profile.existing_rmf or 0.0,
+            existing_thai_esg= request.profile.existing_thai_esg or 0.0,
+        )
 
-        scenarios = []
-        for strat in goal_strategies:
-            # Use TaxFundService to calculate optimal allocation per strategy
-            allocation = tax_fund_service.calculate_optimal_allocation(
-                annual_income=request.profile.annual_income,
-                available_budget=available_budget,
-                existing_rmf=request.profile.existing_rmf,
-                existing_thai_esg=request.profile.existing_thai_esg,
-                priority=strat["strategy"],
-                family_deductions=family_deductions,
-            )
+        rmf_amount     = allocation["rmf_amount"]
+        tesg_amount    = allocation["tesg_amount"]
+        tesgx_amount   = allocation["tesgx_amount"]
+        total_investment = allocation["total_amount"]
+        annual_budget  = (monthly_budget_raw or (request.profile.annual_income / 12 * 0.15)) * 12
 
-            rmf_amount = allocation['recommended_allocation'].get('rmf', 0)
-            thai_esg_amount = allocation['recommended_allocation'].get('thai_esg', 0)
-            total_investment = rmf_amount + thai_esg_amount
+        # สรุปสิทธิ์คงเหลือสำหรับ tax_info
+        limits           = tax_fund_service.calculate_deduction_limits(request.profile.annual_income)
+        remaining_rmf    = allocation["remaining_quota"]["rmf"]
+        remaining_thai_esg = allocation["remaining_quota"]["esg"]
 
-            # Calculate accurate tax savings
-            savings = tax_fund_service.calculate_tax_savings(
-                annual_income=request.profile.annual_income,
-                rmf_investment=request.profile.existing_rmf + rmf_amount,
-                thai_esg_investment=request.profile.existing_thai_esg + thai_esg_amount,
-                family_deductions=family_deductions,
-            )
+        logger.info(
+            f"Tax bracket: {tax_bracket['marginal_rate_percent']}%, "
+            f"Invested: {total_investment:,.0f}, "
+            f"Cash remaining: {allocation['cash_remaining']:,.0f}"
+        )
 
-            cash_remaining = available_budget - total_investment
+        # Calculate accurate tax savings
+        savings = tax_fund_service.calculate_tax_savings(
+            annual_income      = request.profile.annual_income,
+            rmf_investment     = request.profile.existing_rmf + rmf_amount,
+            thai_esg_investment= request.profile.existing_thai_esg + tesg_amount + tesgx_amount,
+            family_deductions  = family_deductions,
+        )
 
-            # Projection calculations using actual NAV returns
-            projected_retirement_fund = _calculate_fv(total_investment, expected_return, years_to_retire)
-            years_to_target = (
-                _years_to_target(total_investment, expected_return, savings_target)
-                if savings_target > 0 and total_investment > 0
-                else None
-            )
-
-            # Risk level mapping
-            risk_map = {"tax_max": 7, "balanced": 5, "conservative": 3}
-
-            # Code-generated pros/cons (goal-aware)
-            pros, cons = _generate_pros_cons(
-                strat["strategy"], total_investment, savings['tax_saved'],
-                cash_remaining, available_budget, limits,
-                years_to_retire=years_to_retire,
-                projected_value=projected_retirement_fund,
-                savings_target=savings_target,
-                years_to_target=years_to_target,
-            )
-
-            scenario = {
-                "id": strat["id"],
-                "name": strat["name"],
-                "strategy": strat["strategy"],
-                "description": strat["description"],
-                "badge": strat["badge"],
-                "rmf_investment": rmf_amount,
-                "thai_esg_investment": thai_esg_amount,
-                "total_investment": total_investment,
-                "tax_before": savings.get('tax_before', 0),
-                "tax_after": savings.get('tax_after', 0),
-                "tax_saved": savings.get('tax_saved', 0),
-                "effective_return_percent": savings.get('effective_return', 0),
-                "cash_remaining": cash_remaining,
-                "risk_level": risk_map.get(strat["strategy"], 5),
-                "pros": pros,
-                "cons": cons,
-                "recommended_funds": [],
-                "ai_explanation": "",
-                # Projection data (from actual NAV returns)
-                "expected_return_rate": round(expected_return * 100, 2),
-                "projected_retirement_fund": round(projected_retirement_fund),
-                "years_to_retire": years_to_retire,
-                "savings_target": savings_target,
-                "years_to_target": years_to_target,
-                "monthly_investment": round(total_investment / 12),
-            }
-            scenarios.append(scenario)
+        # 3-year breakdown
+        three_year = _calculate_3year_breakdown(
+            annual_income      = request.profile.annual_income,
+            available_budget   = annual_budget,
+            existing_rmf       = request.profile.existing_rmf,
+            existing_thai_esg  = request.profile.existing_thai_esg,
+            family_deductions  = family_deductions,
+            income_growth_rate = income_growth_rate,
+            strategy           = "tax_max",
+            tax_fund_svc       = tax_fund_service,
+        )
 
         # ============================================================
-        # Step 3: Assign pre-filtered funds to scenarios (CODE)
+        # Step 3: Assign pre-filtered funds (CODE)
         # ============================================================
-        # pre_funds already defined above
 
-        # Split funds by type
-        rmf_funds = [f for f in pre_funds if f.get('fundType', '').upper() in ('RMF',)]
-        esg_funds = [f for f in pre_funds if f.get('fundType', '').upper() in ('TESG', 'TESGX', 'THAIESG')]
+        rmf_funds   = [f for f in pre_funds if f.get("fundType", "").upper() == "RMF"]
+        tesg_funds  = [f for f in pre_funds if f.get("fundType", "").upper() == "TESG"]
+        tesgx_funds = [f for f in pre_funds if f.get("fundType", "").upper() == "TESGX"]
 
-        for scenario in scenarios:
-            fund_picks = []
-            if scenario['rmf_investment'] > 0 and rmf_funds:
-                fund_picks.extend(rmf_funds[:3])
-            if scenario['thai_esg_investment'] > 0 and esg_funds:
-                fund_picks.extend(esg_funds[:3])
-            scenario['recommended_funds'] = fund_picks
+        recommended_funds_for_plan = rmf_funds[:3] + tesg_funds[:3] + tesgx_funds[:3]
+
+        recommended_plan = {
+            **allocation,
+            "tax_before":              savings.get("tax_before", 0),
+            "tax_after":               savings.get("tax_after", 0),
+            "tax_saved":               savings.get("tax_saved", 0),
+            "effective_return_percent": round(savings.get("effective_return", 0), 1),
+            "monthly_investment":      allocation["monthly_dca"],
+            "year_breakdown":          three_year["year_breakdown"],
+            "cumulative_tax_saved_3y": three_year["cumulative_tax_saved_3y"],
+            "cumulative_investment_3y": three_year["cumulative_investment_3y"],
+            "recommended_funds":       recommended_funds_for_plan,
+            "ai_explanation":          None,
+        }
 
         # ============================================================
-        # Step 4: Profile analysis (CODE - no LLM)
+        # Step 4: Profile analysis (LLM optional)
         # ============================================================
         profile_analysis = None
+        user_profile = None
         if ai_advisor:
             try:
                 user_profile = UserProfile(
@@ -1464,55 +1673,49 @@ async def optimize(request: OptimizeRequest):
                     dependents=request.profile.dependents,
                     existing_rmf=request.profile.existing_rmf,
                     existing_thai_esg=request.profile.existing_thai_esg,
-                    existing_insurance=request.profile.existing_insurance
+                    existing_insurance=request.profile.existing_insurance,
                 )
                 profile_analysis = await ai_advisor.analyze_profile(user_profile)
             except Exception as e:
                 logger.warning(f"Profile analysis failed: {e}")
 
         # ============================================================
-        # Step 5: LLM explains WHY (Optional)
+        # Step 5: LLM explains WHY — detailed explanation (Optional)
         # ============================================================
         ai_powered = False
-        overall_recommendation = ""
 
-        if request.include_ai_explanation and ai_advisor:
+        if request.include_ai_explanation and ai_advisor and user_profile:
             try:
-                # Retrieve RAG context
                 rag_context = ""
                 if rag_service and rag_service.is_available():
                     try:
-                        rag_query = f"ลดหย่อนภาษี RMF ThaiESG รายได้ {request.profile.annual_income} {request.goal}"
+                        # Keep query short — embedding tokenizers have token limits
+                        # RAG needs keyword concepts, not the full goal sentence
+                        money_goal_val = request.profile.money_goal or "mid_term"
+                        rag_query = f"ลดหย่อนภาษี RMF ThaiESG TESGX กฎหมาย 2568 เงื่อนไขถอน {money_goal_val}"
                         retrieved_docs = await rag_service.retrieve_relevant_documents(rag_query, k=3)
                         if retrieved_docs:
                             rag_context = "\n".join([
                                 doc.page_content for doc in retrieved_docs
-                                if hasattr(doc, 'page_content')
+                                if hasattr(doc, "page_content")
                             ])
                     except Exception as e:
                         logger.warning(f"RAG retrieval failed: {e}")
 
-                explanation_result = await ai_advisor.generate_explanation_only(
+                ai_explanation = await ai_advisor.generate_recommendation_explanation(
                     profile=user_profile,
-                    goal=request.goal,
-                    scenarios=scenarios,
-                    recommended_funds=pre_funds,
+                    allocation=allocation,
+                    tax_savings=savings,
+                    year_breakdown=three_year,
+                    recommended_funds=recommended_funds_for_plan,
+                    income_growth_rate=income_growth_rate,
+                    monthly_budget=monthly_budget_raw,
                     rag_context=rag_context,
                 )
 
-                # Merge explanations into scenarios
-                explanations = explanation_result.get("scenario_explanations", [])
-                for exp in explanations:
-                    sid = exp.get("scenario_id")
-                    for scenario in scenarios:
-                        if scenario["id"] == sid:
-                            scenario["ai_explanation"] = exp.get("explanation", "")
-                            if exp.get("fund_reasons"):
-                                scenario["ai_explanation"] += "\n\n" + exp["fund_reasons"]
-
-                overall_recommendation = explanation_result.get("overall_recommendation", "")
+                recommended_plan["ai_explanation"] = ai_explanation
                 ai_powered = True
-                logger.info("AI explanations generated successfully")
+                logger.info("AI recommendation explanation generated successfully")
 
             except Exception as e:
                 logger.warning(f"AI explanation failed (returning without): {e}")
@@ -1533,9 +1736,8 @@ async def optimize(request: OptimizeRequest):
                     "total": remaining_rmf + remaining_thai_esg,
                 },
             },
-            "scenarios": scenarios,
+            "recommended_plan": recommended_plan,
             "recommended_funds": pre_funds,
-            "overall_recommendation": overall_recommendation,
             "disclaimer": "การลงทุนมีความเสี่ยง ผู้ลงทุนควรศึกษาข้อมูลก่อนตัดสินใจลงทุน",
         }
 
@@ -1548,6 +1750,35 @@ async def optimize(request: OptimizeRequest):
         raise HTTPException(500, str(e))
 
 
+def _generate_action_steps(
+    strategy: str,
+    rmf_amount: float,
+    thai_esg_amount: float,
+    monthly_investment: float,
+) -> list:
+    """สร้างขั้นตอนแนะนำจริงๆ ตาม strategy"""
+    steps = []
+    if strategy == "tax_max":
+        if rmf_amount > 0:
+            steps.append(f"ลงทุน RMF ฿{rmf_amount:,.0f}/ปี — DCA เดือนละ ฿{rmf_amount/12:,.0f}")
+        if thai_esg_amount > 0:
+            steps.append(f"ลงทุน ThaiESG ฿{thai_esg_amount:,.0f}/ปี ควบคู่กัน")
+        steps.append("บันทึกหลักฐานการลงทุนและยื่นลดหย่อนก่อน 31 ธ.ค.")
+    elif strategy == "balanced":
+        if rmf_amount > 0:
+            steps.append(f"ลงทุน RMF ฿{rmf_amount:,.0f}/ปี สม่ำเสมอ (เดือนละ ฿{rmf_amount/12:,.0f})")
+        if thai_esg_amount > 0:
+            steps.append(f"จับคู่ ThaiESG ฿{thai_esg_amount:,.0f}/ปี พร้อมกัน")
+        steps.append("ทบทวนและปรับแผนทุกต้นปีเมื่อรายได้เปลี่ยน")
+    elif strategy == "conservative":
+        if thai_esg_amount > 0:
+            steps.append(f"เริ่มด้วย ThaiESG ฿{thai_esg_amount:,.0f}/ปี ก่อน (ระยะถือสั้นกว่า RMF)")
+        if rmf_amount > 0:
+            steps.append(f"เพิ่ม RMF ฿{rmf_amount:,.0f}/ปี เมื่อพร้อมล็อคเงินระยะยาว")
+        steps.append("รักษาสภาพคล่องไว้ก่อน เพิ่มลงทุนเมื่อรายได้มั่นคงขึ้น")
+    return steps
+
+
 def _generate_pros_cons(
     strategy: str,
     total_investment: float,
@@ -1555,47 +1786,42 @@ def _generate_pros_cons(
     cash_remaining: float,
     available_budget: float,
     limits: Dict,
-    years_to_retire: int = 30,
-    projected_value: float = 0,
-    savings_target: float = 0,
-    years_to_target: Optional[int] = None,
+    cumulative_tax_saved_3y: float = 0,
 ) -> tuple:
-    """Generate goal-aware pros and cons for each scenario"""
+    """Generate 3-year-aware pros and cons for each scenario"""
     pros = []
     cons = []
 
     total_limit = limits.get('total_potential', limits.get('rmf_max', 0) + limits.get('thai_esg_max', 0))
     utilization = total_investment / total_limit if total_limit > 0 else 0
 
-    if strategy == "tax_max":  # เกษียณตามเป้า
-        if projected_value > 0:
-            pros.append(f"คาดว่าจะมีเงิน ฿{projected_value:,.0f} เมื่อเกษียณ (อีก {years_to_retire} ปี)")
+    if strategy == "tax_max":  # ลดหย่อนสูงสุด
+        if cumulative_tax_saved_3y > 0:
+            pros.append(f"รวม 3 ปี ประหยัดภาษีได้ ฿{cumulative_tax_saved_3y:,.0f}")
         if tax_saved > 0:
-            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
+            pros.append(f"ปีนี้ประหยัดภาษีได้ ฿{tax_saved:,.0f}")
         if utilization > 0.7:
             pros.append("ใช้สิทธิลดหย่อนเกือบเต็มที่")
         if cash_remaining < available_budget * 0.3:
             cons.append("เงินสดเหลือน้อย ต้องวางแผนค่าใช้จ่ายดี")
         cons.append("ต้องถือ RMF ถึงอายุ 55 ปี และ ThaiESG 8 ปี")
 
-    elif strategy == "balanced":  # ออมตามเป้า
-        if years_to_target is not None and savings_target > 0:
-            pros.append(f"ถึงเป้าหมาย ฿{savings_target:,.0f} ใน {years_to_target} ปี")
-        elif savings_target > 0:
-            pros.append("กำลังสะสมเงินสู่เป้าหมาย")
+    elif strategy == "balanced":  # สมดุล
+        if cumulative_tax_saved_3y > 0:
+            pros.append(f"รวม 3 ปี ประหยัดภาษีได้ ฿{cumulative_tax_saved_3y:,.0f}")
         if tax_saved > 0:
-            pros.append(f"ประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
+            pros.append(f"ปีนี้ประหยัดภาษีได้ ฿{tax_saved:,.0f}")
         pros.append("ยังมีเงินสดเหลือใช้จ่ายในชีวิตประจำวัน")
-        cons.append("ไม่ได้ประหยัดภาษีสูงสุดเท่าแผน 1")
-        cons.append("สะสมเงินได้ช้ากว่าแผนเกษียณตามเป้า")
+        cons.append("ประหยัดภาษีได้น้อยกว่าแผนลดหย่อนสูงสุด")
+        cons.append("สะสมสิทธิลดหย่อนได้ช้ากว่าแผน 1")
 
-    elif strategy == "conservative":  # สมดุลชีวิต
+    elif strategy == "conservative":  # ยืดหยุ่น
         if cash_remaining > 0:
             pros.append(f"เหลือเงินสด ฿{cash_remaining:,.0f}/ปี พร้อมรับเหตุการณ์ชีวิต")
         pros.append("ยืดหยุ่นสูง เหมาะกับช่วงเปลี่ยนแปลงในชีวิต")
         if tax_saved > 0:
             pros.append(f"ยังประหยัดภาษีได้ ฿{tax_saved:,.0f}/ปี")
-        cons.append("สะสมเงินเกษียณได้น้อยกว่าแผนอื่น")
+        cons.append("ใช้สิทธิลดหย่อนได้น้อยกว่าแผนอื่น")
         cons.append("ไม่ได้ใช้สิทธิลดหย่อนเต็มที่")
 
     return pros, cons
