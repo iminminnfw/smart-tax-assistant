@@ -88,6 +88,25 @@ class UserProfileRequest(BaseModel):
     # Goal-based planning
     income_growth_rate: float = Field(default=0, ge=0, le=50, description="Expected annual income growth rate %")
 
+        # Investment budget (user-specified, overrides auto-calc if provided)
+    available_budget: Optional[float] = Field(default=None, ge=0, description="Annual investment budget in THB")
+
+    # Retirement planning
+    retirement_age: Optional[int] = Field(default=None, ge=18, le=100, description="Target retirement age")
+
+    # Goal-based planning
+    savings_target: Optional[float] = Field(default=None, ge=0, description="Total savings goal in THB")
+    plan_to_marry: bool = Field(default=False, description="Single user planning to marry next year")
+
+    # ประเภทเงินได้
+    income_type: str = "40(8)"  # "40(6)" หรือ "40(8)"
+
+    # วิธีหักค่าใช้จ่าย
+    expense_deduction_type: str = "standard"  # "standard" (เหมา) หรือ "actual" (ตามจริง)
+
+    # จด VAT หรือไม่ (สำหรับ 40(8))
+    is_vat_registered: bool = False
+
 
 class GoalRequest(BaseModel):
     """User's goal in natural language"""
