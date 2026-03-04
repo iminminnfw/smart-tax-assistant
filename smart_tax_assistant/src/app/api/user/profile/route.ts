@@ -21,7 +21,7 @@ export async function GET() {
       dateOfBirth: true, address: true, district: true, province: true, postalCode: true,
       occupation: true, annualIncome: true, taxType: true,
       language: true,
-      notifyEnabled: true, notifyEmail: true, notifySms: true, notifyTaxDeadlines: true, notifyReports: true,
+      notifyEnabled: true, notifyEmail: true,
       createdAt: true,
     },
   });
@@ -51,7 +51,6 @@ export async function GET() {
       notifications: {
         enabled: !!u.notifyEnabled,
         email  : !!u.notifyEmail,
-        sms    : !!u.notifySms,
       },
     },
     meta: {
@@ -121,7 +120,6 @@ export async function PATCH(req: Request) {
   }
   if (typeof noti.enabled === 'boolean') up.notifyEnabled = noti.enabled;
   if (typeof noti.email   === 'boolean') up.notifyEmail   = noti.email;
-  if (typeof noti.sms     === 'boolean') up.notifySms     = noti.sms;
 
   // อัปเดต
   const saved = await prisma.user.update({

@@ -22,7 +22,6 @@ import {
   Eye,
   EyeOff,
   Lock,
-  Smartphone,
   Briefcase,
   Bell,
 } from 'lucide-react';
@@ -54,7 +53,6 @@ interface UserProfileData {
     notifications: {
       enabled: boolean;
       email: boolean;
-      sms: boolean;
     };
   };
   meta?: {
@@ -95,7 +93,6 @@ export default function ProfileSettingsPage() {
       notifications: {
         enabled: false,
         email: false,
-        sms: false,
       },
     },
   });
@@ -128,7 +125,6 @@ export default function ProfileSettingsPage() {
                 notifications: {
                   enabled: data.preferences?.notifications?.enabled ?? false,
                   email:   data.preferences?.notifications?.email   ?? false,
-                  sms:     data.preferences?.notifications?.sms     ?? false,
                 },
               },
             });
@@ -185,8 +181,8 @@ export default function ProfileSettingsPage() {
   const handleSaveProfile = async () => {
     // Validate: ถ้าเปิด notification ต้องเลือกช่องทางอย่างน้อย 1 ช่อง
     const noti = userData.preferences.notifications;
-    if (noti.enabled && !noti.email && !noti.sms) {
-      setNotiError('กรุณาเลือกช่องทางการแจ้งเตือนอย่างน้อย 1 ช่องทาง (อีเมล หรือ SMS)');
+    if (noti.enabled && !noti.email) {
+      setNotiError('กรุณาเปิดรับการแจ้งเตือนทางอีเมลด้วย');
       return;
     }
     setNotiError('');
@@ -817,7 +813,7 @@ export default function ProfileSettingsPage() {
 
                   {/* Sub-options — แสดงเฉพาะเมื่อเปิด master toggle */}
                   {userData.preferences.notifications.enabled && (
-                    <div className="ml-4 space-y-3 border-l-2 border-blue-200 pl-4">
+                    <div className="ml-4 border-l-2 border-blue-200 pl-4">
                       {/* Email */}
                       <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
                         <div className="flex items-center space-x-3">
@@ -838,33 +834,6 @@ export default function ProfileSettingsPage() {
                         </label>
                       </div>
 
-                      {/* SMS */}
-                      <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
-                        <div className="flex items-center space-x-3">
-                          <Smartphone className="w-5 h-5 text-slate-600" />
-                          <div>
-                            <p className="font-medium text-slate-800">SMS</p>
-                            <p className="text-sm text-slate-500">
-                              รับการแจ้งเตือนทาง SMS
-                              {!userData.personalInfo.phone && (
-                                <span className="ml-2 text-orange-500 font-medium">
-                                  (กรุณากรอกเบอร์โทรในข้อมูลส่วนตัวก่อน)
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={userData.preferences.notifications.sms}
-                            disabled={!userData.personalInfo.phone}
-                            onChange={(e) => updateNotificationPreference('sms', e.target.checked)}
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
-                        </label>
-                      </div>
                     </div>
                   )}
 
