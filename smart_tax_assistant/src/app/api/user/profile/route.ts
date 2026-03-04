@@ -21,7 +21,7 @@ export async function GET() {
       dateOfBirth: true, address: true, district: true, province: true, postalCode: true,
       occupation: true, annualIncome: true, taxType: true,
       language: true,
-      notifyEmail: true, notifySms: true, notifyTaxDeadlines: true, notifyReports: true,
+      notifyEnabled: true, notifyEmail: true, notifySms: true, notifyTaxDeadlines: true, notifyReports: true,
       createdAt: true,
     },
   });
@@ -49,10 +49,9 @@ export async function GET() {
     preferences: {
       language: (u.language ?? 'TH').toLowerCase(),            // 'th' | 'en'
       notifications: {
-        email       : !!u.notifyEmail,
-        sms         : !!u.notifySms,
-        taxDeadlines: !!u.notifyTaxDeadlines,
-        reports     : !!u.notifyReports,
+        enabled: !!u.notifyEnabled,
+        email  : !!u.notifyEmail,
+        sms    : !!u.notifySms,
       },
     },
     meta: {
@@ -120,10 +119,9 @@ export async function PATCH(req: Request) {
   if (typeof pref.language === 'string') {
     up.language = (pref.language || 'th').toUpperCase(); // TH | EN
   }
-  if (typeof noti.email        === 'boolean') up.notifyEmail        = noti.email;
-  if (typeof noti.sms          === 'boolean') up.notifySms          = noti.sms;
-  if (typeof noti.taxDeadlines === 'boolean') up.notifyTaxDeadlines = noti.taxDeadlines;
-  if (typeof noti.reports      === 'boolean') up.notifyReports      = noti.reports;
+  if (typeof noti.enabled === 'boolean') up.notifyEnabled = noti.enabled;
+  if (typeof noti.email   === 'boolean') up.notifyEmail   = noti.email;
+  if (typeof noti.sms     === 'boolean') up.notifySms     = noti.sms;
 
   // อัปเดต
   const saved = await prisma.user.update({

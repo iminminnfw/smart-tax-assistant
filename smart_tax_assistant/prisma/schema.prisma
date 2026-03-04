@@ -27,7 +27,8 @@ model User {
   emailVerified          DateTime?
   image                  String?
   notifyOnPasswordChange NotificationChannel @default(EMAIL)
-  notifyEmail            Boolean             @default(true)
+  notifyEnabled          Boolean             @default(false)
+  notifyEmail            Boolean             @default(false)
   notifySms              Boolean             @default(false)
   notifyTaxDeadlines     Boolean             @default(true)
   notifyReports          Boolean             @default(true)

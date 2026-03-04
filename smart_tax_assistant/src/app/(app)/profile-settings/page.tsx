@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 import { AppNavigation } from '@/components/AppNavigation';
 import {
   User,
-  BarChart3,
   Loader2,
   Home,
   Camera,
@@ -25,6 +24,7 @@ import {
   Lock,
   Smartphone,
   Briefcase,
+  Bell,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -49,10 +49,9 @@ interface UserProfileData {
   preferences: {
     language: string;
     notifications: {
+      enabled: boolean;
       email: boolean;
       sms: boolean;
-      taxDeadlines: boolean;
-      reports: boolean;
     };
   };
   meta?: {
@@ -88,10 +87,9 @@ export default function ProfileSettingsPage() {
     preferences: {
       language: 'th',
       notifications: {
-        email: true,
+        enabled: false,
+        email: false,
         sms: false,
-        taxDeadlines: true,
-        reports: true,
       },
     },
   });
@@ -106,6 +104,7 @@ export default function ProfileSettingsPage() {
   const [loadingChangePass, setLoadingChangePass] = useState(false);
   const [message, setMessage] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [notiError, setNotiError] = useState('');
 
   // Fetch user profile
   useEffect(() => {
@@ -115,7 +114,18 @@ export default function ProfileSettingsPage() {
           const response = await fetch('/api/user/profile');
           if (response.ok) {
             const data: UserProfileData = await response.json();
-            setUserData(data);
+            // Merge notifications with defaults to prevent undefined → defined transition
+            setUserData({
+              ...data,
+              preferences: {
+                ...data.preferences,
+                notifications: {
+                  enabled: data.preferences?.notifications?.enabled ?? false,
+                  email:   data.preferences?.notifications?.email   ?? false,
+                  sms:     data.preferences?.notifications?.sms     ?? false,
+                },
+              },
+            });
           } else {
             console.error('Failed to fetch user profile');
           }
@@ -152,6 +162,7 @@ export default function ProfileSettingsPage() {
   };
 
   const updateNotificationPreference = (field: string, value: boolean) => {
+    setNotiError('');
     setUserData(prev => ({
       ...prev,
       preferences: {
@@ -166,6 +177,14 @@ export default function ProfileSettingsPage() {
 
   // Save profile
   const handleSaveProfile = async () => {
+    // Validate: ถ้าเปิด notification ต้องเลือกช่องทางอย่างน้อย 1 ช่อง
+    const noti = userData.preferences.notifications;
+    if (noti.enabled && !noti.email && !noti.sms) {
+      setNotiError('กรุณาเลือกช่องทางการแจ้งเตือนอย่างน้อย 1 ช่องทาง (อีเมล หรือ SMS)');
+      return;
+    }
+    setNotiError('');
+
     setIsSaving(true);
     setSaveMessage('');
 
@@ -657,27 +676,6 @@ export default function ProfileSettingsPage() {
                   )}
                 </div>
 
-                {/* Two-Factor Authentication */}
-                <div className="mt-8 pt-6 border-t border-slate-200">
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">
-                    การยืนยันตัวตน 2 ขั้นตอน
-                  </h3>
-                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Smartphone className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="font-medium text-slate-800">SMS Authentication</p>
-                        <p className="text-sm text-slate-500">
-                          รับรหัสยืนยันทาง SMS เมื่อเข้าสู่ระบบ
-                        </p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked={false} />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                </div>
               </div>
 
               {/* Notification Preferences */}
@@ -690,85 +688,85 @@ export default function ProfileSettingsPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Email Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                  {/* Master Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <Mail className="w-5 h-5 text-slate-600" />
+                      <Bell className="w-5 h-5 text-blue-600" />
                       <div>
-                        <p className="font-medium text-slate-800">การแจ้งเตือนทางอีเมล</p>
-                        <p className="text-sm text-slate-500">รับข่าวสารและการแจ้งเตือนทางอีเมล</p>
+                        <p className="font-medium text-slate-800">รับการแจ้งเตือน</p>
+                        <p className="text-sm text-slate-500">เปิด/ปิดการแจ้งเตือนกำหนดยื่นภาษีทั้งหมด</p>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={userData.preferences.notifications.email}
-                        onChange={(e) => updateNotificationPreference('email', e.target.checked)}
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={userData.preferences.notifications.enabled}
+                        onChange={(e) => updateNotificationPreference('enabled', e.target.checked)}
                       />
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
 
-                  {/* SMS Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Smartphone className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="font-medium text-slate-800">การแจ้งเตือนทาง SMS</p>
-                        <p className="text-sm text-slate-500">รับข้อความแจ้งเตือนทางโทรศัพท์</p>
+                  {/* Sub-options — แสดงเฉพาะเมื่อเปิด master toggle */}
+                  {userData.preferences.notifications.enabled && (
+                    <div className="ml-4 space-y-3 border-l-2 border-blue-200 pl-4">
+                      {/* Email */}
+                      <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
+                        <div className="flex items-center space-x-3">
+                          <Mail className="w-5 h-5 text-slate-600" />
+                          <div>
+                            <p className="font-medium text-slate-800">อีเมล</p>
+                            <p className="text-sm text-slate-500">รับการแจ้งเตือนทางอีเมล</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={userData.preferences.notifications.email}
+                            onChange={(e) => updateNotificationPreference('email', e.target.checked)}
+                          />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
                       </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={userData.preferences.notifications.sms}
-                        onChange={(e) => updateNotificationPreference('sms', e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
 
-                  {/* Tax Deadline Reminders */}
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="font-medium text-slate-800">เตือนกำหนดยื่นภาษี</p>
-                        <p className="text-sm text-slate-500">แจ้งเตือนก่อนครบกำหนดยื่นภาษี</p>
+                      {/* SMS */}
+                      <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg bg-white">
+                        <div className="flex items-center space-x-3">
+                          <Smartphone className="w-5 h-5 text-slate-600" />
+                          <div>
+                            <p className="font-medium text-slate-800">SMS</p>
+                            <p className="text-sm text-slate-500">
+                              รับการแจ้งเตือนทาง SMS
+                              {!userData.personalInfo.phone && (
+                                <span className="ml-2 text-orange-500 font-medium">
+                                  (กรุณากรอกเบอร์โทรในข้อมูลส่วนตัวก่อน)
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={userData.preferences.notifications.sms}
+                            disabled={!userData.personalInfo.phone}
+                            onChange={(e) => updateNotificationPreference('sms', e.target.checked)}
+                          />
+                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+                        </label>
                       </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={userData.preferences.notifications.taxDeadlines}
-                        onChange={(e) => updateNotificationPreference('taxDeadlines', e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                  )}
 
-                  {/* Report Notifications */}
-                  <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <BarChart3 className="w-5 h-5 text-slate-600" />
-                      <div>
-                        <p className="font-medium text-slate-800">รายงานผลการคำนวณ</p>
-                        <p className="text-sm text-slate-500">แจ้งเตือนเมื่อมีรายงานใหม่</p>
-                      </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={userData.preferences.notifications.reports}
-                        onChange={(e) => updateNotificationPreference('reports', e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
+                  {/* Notification channel error */}
+                  {notiError && (
+                    <p className="text-sm text-red-500 font-medium pl-1">
+                      ❌ {notiError}
+                    </p>
+                  )}
                 </div>
               </div>
 
