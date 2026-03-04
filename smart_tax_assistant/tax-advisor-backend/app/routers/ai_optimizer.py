@@ -88,11 +88,25 @@ class UserProfileRequest(BaseModel):
     # Goal-based planning
     income_growth_rate: float = Field(default=0, ge=0, le=50, description="Expected annual income growth rate %")
 
-    # Smart allocation inputs
-    money_goal: str = Field(
-        default="mid_term",
-        description="retirement | mid_term | short_term — determines RMF vs ThaiESG split"
-    )
+        # Investment budget (user-specified, overrides auto-calc if provided)
+    available_budget: Optional[float] = Field(default=None, ge=0, description="Annual investment budget in THB")
+
+    # Retirement planning
+    retirement_age: Optional[int] = Field(default=None, ge=18, le=100, description="Target retirement age")
+
+    # Goal-based planning
+    savings_target: Optional[float] = Field(default=None, ge=0, description="Total savings goal in THB")
+    plan_to_marry: bool = Field(default=False, description="Single user planning to marry next year")
+
+    # ประเภทเงินได้
+    income_type: str = "40(8)"  # "40(6)" หรือ "40(8)"
+
+    # วิธีหักค่าใช้จ่าย
+    expense_deduction_type: str = "standard"  # "standard" (เหมา) หรือ "actual" (ตามจริง)
+
+    # จด VAT หรือไม่ (สำหรับ 40(8))
+    is_vat_registered: bool = False
+    money_goal: Optional[str] = Field(default="mid_term", description="short_term, mid_term, retirement")
 
 
 class GoalRequest(BaseModel):
@@ -235,22 +249,18 @@ async def lifespan(app):
         # Initialize AI Advisor
         use_ollama = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
         openai_key = os.getenv("OPENAI_API_KEY")
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
 
         if use_ollama:
             try:
                 ai_advisor = AITaxAdvisor(provider="ollama")
                 logger.info(f"✅ AI Advisor initialized with Ollama ({os.getenv('OLLAMA_MODEL', 'qwen2.5:14b')})")
             except Exception as e:
-                logger.warning(f"⚠️ Ollama init failed: {e}, falling back to OpenAI/Anthropic")
+                logger.warning(f"⚠️ Ollama init failed: {e}, falling back to OpenAI")
                 ai_advisor = None
 
         if ai_advisor is None and openai_key:
             ai_advisor = AITaxAdvisor(provider="openai", api_key=openai_key)
             logger.info("✅ AI Advisor initialized with OpenAI")
-        elif ai_advisor is None and anthropic_key:
-            ai_advisor = AITaxAdvisor(provider="anthropic", api_key=anthropic_key)
-            logger.info("✅ AI Advisor initialized with Anthropic")
         elif ai_advisor is None:
             logger.warning("⚠️ No LLM provider available. AI features will be limited.")
 
@@ -548,7 +558,10 @@ async def analyze_profile(profile: UserProfileRequest):
             dependents=profile.dependents,
             existing_rmf=profile.existing_rmf,
             existing_thai_esg=profile.existing_thai_esg,
-            existing_insurance=profile.existing_insurance
+            existing_insurance=profile.existing_insurance,
+            income_type=profile.income_type,
+            expense_deduction_type=profile.expense_deduction_type,
+            is_vat_registered=profile.is_vat_registered
         )
 
         analysis = await ai_advisor.analyze_profile(user_profile)
@@ -575,7 +588,7 @@ async def parse_goal(request: GoalRequest):
     - "อยากเกษียณเร็ว อายุ 55"
     """
     if ai_advisor is None:
-        raise HTTPException(503, "AI advisor not available. Set OPENAI_API_KEY or ANTHROPIC_API_KEY")
+        raise HTTPException(503, "AI advisor not available. Set OPENAI_API_KEY")
 
     try:
         user_profile = UserProfile(
@@ -590,7 +603,10 @@ async def parse_goal(request: GoalRequest):
             dependents=request.profile.dependents,
             existing_rmf=request.profile.existing_rmf,
             existing_thai_esg=request.profile.existing_thai_esg,
-            existing_insurance=request.profile.existing_insurance
+            existing_insurance=request.profile.existing_insurance,
+            income_type=request.profile.income_type,
+            expense_deduction_type=request.profile.expense_deduction_type,
+            is_vat_registered=request.profile.is_vat_registered
         )
 
         parsed = await ai_advisor.parse_goal(request.goal, user_profile)
@@ -635,7 +651,10 @@ async def generate_scenarios(request: ScenarioRequest):
             dependents=request.profile.dependents,
             existing_rmf=request.profile.existing_rmf,
             existing_thai_esg=request.profile.existing_thai_esg,
-            existing_insurance=request.profile.existing_insurance
+            existing_insurance=request.profile.existing_insurance,
+            income_type=request.profile.income_type,
+            expense_deduction_type=request.profile.expense_deduction_type,
+            is_vat_registered=request.profile.is_vat_registered
         )
 
         # Get available funds if requested
@@ -1682,7 +1701,7 @@ async def optimize(request: OptimizeRequest):
                     dependents=request.profile.dependents,
                     existing_rmf=request.profile.existing_rmf,
                     existing_thai_esg=request.profile.existing_thai_esg,
-                    existing_insurance=request.profile.existing_insurance,
+                    existing_insurance=request.profile.existing_insurance
                 )
                 profile_analysis = await ai_advisor.analyze_profile(user_profile)
             except Exception as e:
@@ -1813,7 +1832,7 @@ def _generate_pros_cons(
             pros.append("ใช้สิทธิลดหย่อนเกือบเต็มที่")
         if cash_remaining < available_budget * 0.3:
             cons.append("เงินสดเหลือน้อย ต้องวางแผนค่าใช้จ่ายดี")
-        cons.append("ต้องถือ RMF ถึงอายุ 55 ปี และ ThaiESG 8 ปี")
+        cons.append("ต้องถือ RMF ถึงอายุ 55 ปี และ ThaiESG 5 ปี (เงินลงทุนตั้งแต่ปี 2567)")
 
     elif strategy == "balanced":  # สมดุล
         if cumulative_tax_saved_3y > 0:

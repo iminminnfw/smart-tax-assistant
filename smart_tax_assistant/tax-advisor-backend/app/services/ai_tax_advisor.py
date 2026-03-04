@@ -1,6 +1,6 @@
 """
 AI Tax Advisor Engine
-Uses LLM (OpenAI/Anthropic) for intelligent tax optimization recommendations
+Uses LLM (OpenAI/Ollama) for intelligent tax optimization recommendations
 
 Features:
 - Natural language goal parsing
@@ -16,6 +16,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 
+
 logger = logging.getLogger(__name__)
 
 # Try to import OpenAI
@@ -25,14 +26,6 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
     logger.warning("OpenAI package not installed. Install with: pip install openai")
-
-# Try to import Anthropic
-try:
-    import anthropic
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
-    logger.warning("Anthropic package not installed. Install with: pip install anthropic")
 
 # Try to import Ollama (via langchain)
 try:
@@ -75,6 +68,12 @@ class UserProfile:
     occupation: str
     marital_status: str
     dependents: int
+    income_type: str  = "40(8)"  # "40(6)" หรือ "40(8)"
+    expense_deduction_type: str = "standard"  # "standard" (เหมา) หรือ "actual" (ตามจริง)
+    is_vat_registered: bool = False
+    retirement_age: Optional[int] = None
+    savings_target: Optional[float] = None
+    available_budget: Optional[float] = None
 
     # Existing tax deductions (ปี 2568 - ไม่รวม SSF)
     existing_rmf: float = 0
@@ -92,6 +91,12 @@ class UserProfile:
             'occupation': self.occupation,
             'marital_status': self.marital_status,
             'dependents': self.dependents,
+            'income_type': self.income_type,
+            'expense_deduction_type': self.expense_deduction_type,
+            'is_vat_registered': self.is_vat_registered,
+            'retirement_age': self.retirement_age,
+            'savings_target': self.savings_target,
+            'available_budget': self.available_budget,
             'existing_deductions': {
                 'rmf': self.existing_rmf,
                 'thai_esg': self.existing_thai_esg,
@@ -218,9 +223,9 @@ class AITaxAdvisor:
         Initialize AI Tax Advisor
 
         Args:
-            provider: "openai", "anthropic", or "ollama"
+            provider: "openai" or "ollama"
             api_key: API key (or use env var)
-            model: Model to use (default: gpt-4o, claude-3-5-sonnet, or qwen2.5:14b)
+            model: Model to use (default: gpt-4o or qwen2.5:14b)
             ollama_base_url: Ollama server URL (default: http://localhost:11434)
         """
         self.provider = provider
@@ -235,17 +240,6 @@ class AITaxAdvisor:
 
             self.model = model or "gpt-4o"
             self.client = AsyncOpenAI(api_key=self.api_key)
-
-        elif provider == "anthropic":
-            if not ANTHROPIC_AVAILABLE:
-                raise ImportError("Anthropic package not installed")
-
-            self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-            if not self.api_key:
-                raise ValueError("ANTHROPIC_API_KEY not set")
-
-            self.model = model or "claude-3-5-sonnet-20241022"
-            self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
 
         elif provider == "ollama":
             if not OLLAMA_AVAILABLE:
@@ -296,17 +290,6 @@ class AITaxAdvisor:
                     response_format={"type": "json_object"}
                 )
                 return response.choices[0].message.content
-
-            elif self.provider == "anthropic":
-                response = await self.client.messages.create(
-                    model=self.model,
-                    max_tokens=4096,
-                    system=system_prompt,
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ]
-                )
-                return response.content[0].text
 
             elif self.provider == "ollama":
                 messages = [
@@ -360,6 +343,10 @@ class AITaxAdvisor:
 - เงินสำรองฉุกเฉิน: ฿{profile.emergency_fund:,.0f}
 - ความเสี่ยงที่รับได้: {profile.risk_tolerance}
 - สถานะ: {profile.marital_status}, บุตร {profile.dependents} คน
+- ประเภทเงินได้: {profile.income_type}
+- วิธีหักค่าใช้จ่าย: {"เหมา" if profile.expense_deduction_type == "standard" else "ตามจริง"}
+- จดทะเบียน VAT: {"จด" if profile.is_vat_registered else "ไม่จด"}
+
 
 ลดหย่อนที่ใช้แล้ว (ปี 2568):
 - RMF: ฿{profile.existing_rmf:,.0f}
@@ -428,7 +415,14 @@ class AITaxAdvisor:
         logger.info("Generating tax scenarios...")
 
         # Calculate available budget
-        annual_savings = (profile.annual_income / 12 - profile.monthly_expenses) * 12
+        if profile.expense_deduction_type == "actual":
+            net_income = profile.annual_income - (profile.monthly_expenses * 12)
+        else:
+            if profile.income_type == "40(6)":
+                net_income = profile.annual_income * 0.70  # หักเหมา 30%
+            else:
+                net_income = profile.annual_income * 0.40 # หักเหมา 60%
+        annual_savings = net_income - (profile.monthly_expenses * 12)
         available_budget = max(0, annual_savings - 100000)  # Keep 100K buffer
 
         # Calculate remaining quota (ปี 2568 - ไม่รวม SSF)
@@ -469,6 +463,10 @@ class AITaxAdvisor:
 - ความเสี่ยงที่รับได้: {profile.risk_tolerance}
 - สถานะสมรส: {profile.marital_status}
 - บุตร/ผู้อุปการะ: {profile.dependents} คน
+- ประเภทเงินได้: {profile.income_type}
+- วิธีหักค่าใช้จ่าย: {"เหมา" if profile.expense_deduction_type == "standard" else "ตามจริง"}
+- จดทะเบียน VAT: {"จด" if profile.is_vat_registered else "ไม่จด"}
+
 
 สิทธิลดหย่อนคงเหลือ (ปี 2568):
 - RMF: ฿{rmf_remaining:,.0f} (จากทั้งหมด ฿{rmf_limit:,.0f})
@@ -1153,11 +1151,9 @@ def create_ai_advisor(
         return AITaxAdvisor(provider="ollama")
     elif os.getenv("OPENAI_API_KEY"):
         return AITaxAdvisor(provider="openai")
-    elif os.getenv("ANTHROPIC_API_KEY"):
-        return AITaxAdvisor(provider="anthropic")
     else:
         raise ValueError(
-            "No AI provider available. Set USE_OLLAMA=true, OPENAI_API_KEY, or ANTHROPIC_API_KEY"
+            "No AI provider available. Set USE_OLLAMA=true or OPENAI_API_KEY"
         )
 
 
