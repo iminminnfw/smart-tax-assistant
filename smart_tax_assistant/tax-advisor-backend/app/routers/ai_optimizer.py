@@ -106,6 +106,7 @@ class UserProfileRequest(BaseModel):
 
     # จด VAT หรือไม่ (สำหรับ 40(8))
     is_vat_registered: bool = False
+    money_goal: Optional[str] = Field(default="mid_term", description="short_term, mid_term, retirement")
 
 
 class GoalRequest(BaseModel):
