@@ -81,6 +81,27 @@ class EvaluationRunner:
     Runner สำหรับ Evaluation - Fixed Version
     """
     
+    # ProfessionType mapping for 40(6)
+    PROFESSION_MAP = {
+        "doctor_clinic": "medical",
+        "doctor_specialist": "medical",
+        "dentist": "medical",
+        "vet": "medical",
+        "lawyer": "law",
+        "engineer": "engineering",
+        "architect": "architecture",
+        "accountant": "accounting",
+    }
+    
+    # BusinessType mapping for 40(8)
+    BUSINESS_MAP = {
+        "online_seller": "general_trade",
+        "importer": "general_trade",
+        "photographer": "photography",
+        "farmer": "agriculture",
+        "restaurant_owner": "hotel_restaurant",
+    }
+    
     def __init__(
         self, 
         verbose: bool = True, 
@@ -135,6 +156,103 @@ class EvaluationRunner:
         print(f"     Logs:    {self.logs_dir}")
         print(f"     Results: {self.results_dir}")
         print("="*80 + "\n")
+    
+    def load_new_profiles(self) -> List[Dict[str, Any]]:
+        """Load test profiles from test_profiles and map to TaxCalculationRequest schema"""
+        from test_profiles import TEST_PROFILES
+        from app.models import TaxCalculationRequest
+        
+        mapped_profiles = []
+        
+        for profile in TEST_PROFILES:
+            p = profile["profile"]
+            profile_id = profile["id"]
+            label = profile["label"]
+            goal = profile["goal"]
+            expected_goal_type = profile["expected_goal_type"]
+            
+            input_dict: Dict[str, Any] = {}
+            meta_dict: Dict[str, Any] = {}
+            
+            # annual_income -> gross_income
+            input_dict["gross_income"] = p.get("annual_income", 0)
+            
+            # income_type -> income_type (keep original string)
+            input_dict["income_type"] = p.get("income_type", "40(8)")
+            
+            # expense_deduction_type: "standard" -> expense_method = "standard", "actual" -> expense_method = "actual"
+            expense_type = p.get("expense_deduction_type", "standard")
+            input_dict["expense_method"] = "standard" if expense_type == "standard" else "actual"
+            
+            # actual_expenses -> actual_expenses (use 0 if not present)
+            input_dict["actual_expenses"] = p.get("actual_expenses", 0)
+            
+            # occupation mapping based on income_type
+            occupation = p.get("occupation", "")
+            income_type = p.get("income_type", "40(8)")
+            
+            if income_type == "40(6)":
+                # Map to profession_type (ProfessionType Enum)
+                input_dict["profession_type"] = self.PROFESSION_MAP.get(occupation, "other")
+                input_dict["business_type"] = None
+            elif income_type == "40(8)":
+                # Map to business_type (BusinessType Enum)
+                input_dict["business_type"] = self.BUSINESS_MAP.get(occupation, "other_business")
+                input_dict["profession_type"] = None
+            
+            # risk_tolerance: "aggressive" -> "high", "moderate" -> "medium", "conservative" -> "low"
+            risk_map = {"aggressive": "high", "moderate": "medium", "conservative": "low"}
+            input_dict["risk_tolerance"] = risk_map.get(p.get("risk_tolerance", "moderate"), "medium")
+            
+            # marital_status: "married" -> spouse_deduction = 60000, "single" -> spouse_deduction = 0
+            marital_status = p.get("marital_status", "single")
+            input_dict["spouse_deduction"] = 60000 if marital_status == "married" else 0
+            
+            # num_children -> child_deduction = num_children * 30000
+            num_children = p.get("num_children", 0)
+            input_dict["child_deduction"] = num_children * 30000
+            
+            # num_parents -> parent_support = num_parents * 30000
+            num_parents = p.get("num_parents", 0)
+            input_dict["parent_support"] = num_parents * 30000
+            
+            # life_insurance_amount -> life_insurance
+            input_dict["life_insurance"] = p.get("life_insurance_amount", 0)
+            
+            # health_insurance_amount -> health_insurance
+            input_dict["health_insurance"] = p.get("health_insurance_amount", 0)
+            
+            # existing_rmf -> rmf
+            input_dict["rmf"] = p.get("existing_rmf", 0)
+            
+            # existing_thai_esg -> thai_esg
+            input_dict["thai_esg"] = p.get("existing_thai_esg", 0)
+            
+            # Fields NOT in TaxCalculationRequest -> put in meta
+            meta_dict["age"] = p.get("age")
+            meta_dict["is_vat_registered"] = p.get("is_vat_registered")
+            meta_dict["existing_savings"] = p.get("existing_savings")
+            meta_dict["marital_status"] = p.get("marital_status")  
+            meta_dict["dependents"] = p.get("dependents")            
+
+            
+            # Build final structure
+            mapped_profile = {
+                "name": f"[{profile_id}] {label}",
+                "description": goal,
+                "input": input_dict,
+                "meta": meta_dict,
+                "expected_goal_type": expected_goal_type
+            }
+            
+            # Validate it matches TaxCalculationRequest
+            try:
+                TaxCalculationRequest(**input_dict)
+                mapped_profiles.append(mapped_profile)
+            except Exception as e:
+                print(f"⚠️  Skipping profile {profile_id}: {e}")
+        
+        return mapped_profiles
     
     def print_progress(self, current: int, total: int, message: str = ""):
         """แสดง Progress"""

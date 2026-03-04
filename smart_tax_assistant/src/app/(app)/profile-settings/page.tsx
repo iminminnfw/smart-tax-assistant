@@ -45,6 +45,9 @@ interface UserProfileData {
     occupation: string;
     annualIncome: string;
     taxType: string;
+    incomeType: string;
+    expenseDeductionType: string;
+    isVatRegistered: boolean;
   };
   preferences: {
     language: string;
@@ -84,6 +87,9 @@ export default function ProfileSettingsPage() {
       occupation: '',
       annualIncome: '',
       taxType: 'individual',
+      incomeType: '40(8)',
+      expenseDeductionType: 'standard',
+      isVatRegistered: false,
     },
     preferences: {
       language: 'th',
@@ -545,6 +551,107 @@ export default function ProfileSettingsPage() {
                     />
                   </div>
                 </div>
+
+                {/* ประเภทเงินได้ */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    ประเภทเงินได้
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="flex items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="incomeType"
+                        value="40(6)"
+                        checked={userData.taxInfo.incomeType === '40(6)'}
+                        onChange={(e) => updateTaxInfo('incomeType', e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium text-slate-800">มาตรา 40(6)</p>
+                        <p className="text-sm text-slate-500">วิชาชีพอิสระ (แพทย์, ทนาย, วิศวกร, สถาปนิก ฯลฯ)</p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="incomeType"
+                        value="40(8)"
+                        checked={userData.taxInfo.incomeType === '40(8)'}
+                        onChange={(e) => updateTaxInfo('incomeType', e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium text-slate-800">มาตรา 40(8)</p>
+                        <p className="text-sm text-slate-500">ธุรกิจ, พาณิชย์, รับเหมา, ฟรีแลนซ์ ฯลฯ</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* วิธีหักค่าใช้จ่าย */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    วิธีหักค่าใช้จ่าย
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="flex items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="expenseDeductionType"
+                        value="standard"
+                        checked={userData.taxInfo.expenseDeductionType === 'standard'}
+                        onChange={(e) => updateTaxInfo('expenseDeductionType', e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium text-slate-800">หักเหมา</p>
+                        <p className="text-sm text-slate-500">
+                          {userData.taxInfo.incomeType === '40(6)' ? 'หักได้ 30%' : 'หักได้ 60%'}
+                        </p>
+                      </div>
+                    </label>
+                    <label className="flex items-center p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="expenseDeductionType"
+                        value="actual"
+                        checked={userData.taxInfo.expenseDeductionType === 'actual'}
+                        onChange={(e) => updateTaxInfo('expenseDeductionType', e.target.value)}
+                        className="text-blue-600"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium text-slate-800">หักตามจริง</p>
+                        <p className="text-sm text-slate-500">ใช้ค่าใช้จ่ายจริงที่มีหลักฐาน</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* จดทะเบียน VAT - แสดงเฉพาะ 40(8) */}
+                {userData.taxInfo.incomeType === '40(8)' && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg">
+                      <div>
+                        <p className="font-medium text-slate-800">จดทะเบียนภาษีมูลค่าเพิ่ม (VAT)</p>
+                        <p className="text-sm text-slate-500">สำหรับผู้ประกอบการที่มีรายได้เกิน 1.8 ล้านบาท/ปี</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={userData.taxInfo.isVatRegistered}
+                          onChange={(e) => setUserData(prev => ({
+                            ...prev,
+                            taxInfo: { ...prev.taxInfo, isVatRegistered: e.target.checked }
+                          }))}
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
 
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-slate-700 mb-3">
