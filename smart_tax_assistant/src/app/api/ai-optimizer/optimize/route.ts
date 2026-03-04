@@ -67,6 +67,9 @@ export async function POST(req: Request) {
       fund_types = ['RMF', 'TESG', 'TESGX'],
       top_n_funds = 5,
       include_ai_explanation = true,
+      money_goal = 'mid_term',
+      monthly_investment_budget = null,
+      income_growth_rate = 0,
     } = body;
 
     if (!profile || !goal) {
@@ -83,19 +86,8 @@ export async function POST(req: Request) {
 
     const riskTolerance: string = risk_tolerance;
     const fundTypes: string[] = fund_types;
-    const limit: number = Math.min(top_n_funds, 20);
 
-    // Map risk tolerance to risk spectrum range
-    const minRisk =
-      riskTolerance === 'conservative' ? 1
-        : riskTolerance === 'aggressive' ? 7
-          : 4; // moderate
-    const maxRisk =
-      riskTolerance === 'conservative' ? 3
-        : riskTolerance === 'aggressive' ? 8
-          : 6; // moderate
-
-    // Find fund IDs that match the requested spec codes (RMF/TESG/etc.)
+    // Find fund IDs that match the requested spec codes (RMF/TESG/TESGX)
     const matchingSpecs = await prisma.fundSpec.findMany({
       where: { specCode: { in: fundTypes } },
       select: { fundId: true, specCode: true },
@@ -110,14 +102,11 @@ export async function POST(req: Request) {
     let preFilteredFunds: any[] = [];
 
     if (eligibleFundIds.length > 0) {
-      // Filter by active status and risk spectrum
-      const fundsWithRisk = await prisma.fund.findMany({
+      // Fetch ALL active funds (no risk filter) — we rank top 3 per type separately
+      const allActiveFunds = await prisma.fund.findMany({
         where: {
           id: { in: eligibleFundIds },
-          fundStatus: { in: ['Registered', 'IPO'] }, // DB stores full words, not SEC abbreviated codes
-          riskSpectrums: {
-            some: { riskSpectrum: { gte: minRisk, lte: maxRisk } },
-          },
+          fundStatus: { in: ['Registered', 'IPO'] },
         },
         select: {
           id: true,
@@ -137,11 +126,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Only keep funds whose latest risk spectrum is within range
-      const filteredFunds = fundsWithRisk.filter((f) => {
-        const latestRisk = f.riskSpectrums[0]?.riskSpectrum;
-        return latestRisk !== undefined && latestRisk >= minRisk && latestRisk <= maxRisk;
-      });
+      const filteredFunds = allActiveFunds;
 
       if (filteredFunds.length > 0) {
         const filteredFundIds = filteredFunds.map((f) => f.id);
@@ -265,7 +250,11 @@ export async function POST(req: Request) {
           if (aSharpe !== null && bSharpe !== null) return bSharpe - aSharpe;
           return b.score - a.score;
         });
-        preFilteredFunds = scoredFunds.slice(0, limit);
+        // Take top 3 per fund type (RMF / TESG / TESGX) — แยกอิสระ ไม่ขึ้นกับ risk tolerance
+        const rmfTop3 = scoredFunds.filter(f => f.fundType === 'RMF').slice(0, 3);
+        const tesgTop3 = scoredFunds.filter(f => f.fundType === 'TESG').slice(0, 3);
+        const tesgxTop3 = scoredFunds.filter(f => f.fundType === 'TESGX').slice(0, 3);
+        preFilteredFunds = [...rmfTop3, ...tesgTop3, ...tesgxTop3];
       }
     }
 
@@ -277,34 +266,32 @@ export async function POST(req: Request) {
       profile: {
         age: profile.age,
         annual_income: profile.annual_income,
-        monthly_expenses: profile.monthly_expenses,
+        monthly_expenses: 0,
         existing_savings: 0,
-        emergency_fund: profile.emergency_fund || 0,
+        emergency_fund: 0,
         risk_tolerance: riskTolerance,
         occupation: 'employee',
-        marital_status: profile.has_spouse ? 'married' : 'single',
-        dependents: (profile.num_children || 0) + (profile.num_parents || 0),
-        num_children: profile.num_children || 0,
-        num_parents: profile.num_parents || 0,
-        existing_rmf: profile.current_deductions?.rmf || 0,
-        existing_thai_esg: profile.current_deductions?.thai_esg || 0,
-        existing_insurance: Math.min(profile.current_deductions?.life_insurance || 0, 100000)
-          + Math.min(profile.current_deductions?.health_insurance || 0, 25000),
-        life_insurance_amount: profile.current_deductions?.life_insurance || 0,
-        health_insurance_amount: profile.current_deductions?.health_insurance || 0,
-        // Investment budget — auto-calculated by backend from income/expenses
-        available_budget: null,
-        // Retirement planning
-        retirement_age: profile.retirement_age || null,
+        marital_status: 'single',
+        dependents: 0,
+        num_children: 0,
+        num_parents: 0,
+        // Existing investments this year (deducted from quota)
+        existing_rmf: profile.existing_rmf || 0,
+        existing_thai_esg: profile.existing_thai_esg || 0,
+        existing_insurance: 0,
+        life_insurance_amount: 0,
+        health_insurance_amount: 0,
+        // Monthly budget — raw value, backend multiplies ×12 internally
+        monthly_budget: monthly_investment_budget || null,
         // Goal-based planning
-        savings_target: body.savings_target || null,
-        plan_to_marry: body.plan_to_marry || false,
-        income_growth_rate: body.income_growth_rate || 0,
+        income_growth_rate: income_growth_rate || 0,
+        // Smart allocation inputs
+        money_goal: money_goal || 'mid_term',
       },
       goal,
       risk_tolerance: riskTolerance,
       fund_types: fundTypes,
-      top_n_funds: limit,
+      top_n_funds: preFilteredFunds.length,
       include_ai_explanation,
       pre_filtered_funds: preFilteredFunds,
     };
@@ -387,21 +374,31 @@ export async function POST(req: Request) {
       factsheet: fundFactsheetMap.get(f.fundId) || { amcUrl: null, pdfUrl: null },
     }));
 
+    // Enrich recommended_funds inside recommended_plan with topHoldings + factsheet
+    const rawPlan = backendData.recommended_plan || null;
+    let enrichedPlanFunds: any[] = [];
+    if (rawPlan?.recommended_funds) {
+      enrichedPlanFunds = (rawPlan.recommended_funds as any[]).map((f: any) => {
+        const matched = enrichedFunds.find((ef: any) => ef.fundId === f.fundId);
+        return matched ?? f;
+      });
+    }
+
     return NextResponse.json({
       success: true,
       // From backend
       ai_powered: backendData.ai_powered || false,
       profile_analysis: backendData.profile_analysis || null,
       tax_info: backendData.tax_info || null,
-      scenarios: backendData.scenarios || [],
-      overall_recommendation: backendData.overall_recommendation || '',
+      recommended_plan: rawPlan
+        ? { ...rawPlan, recommended_funds: enrichedPlanFunds }
+        : null,
       disclaimer: backendData.disclaimer || '',
-      // From Prisma DB (enriched)
+      // From Prisma DB (enriched) — full list for display
       recommended_funds: enrichedFunds,
       meta: {
         total_eligible: eligibleFundIds.length,
         risk_tolerance: riskTolerance,
-        max_risk_spectrum: maxRisk,
         fund_types: fundTypes,
         funds_returned: enrichedFunds.length,
       },

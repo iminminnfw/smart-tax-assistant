@@ -8,16 +8,12 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  PiggyBank,
   CheckCircle2,
   AlertCircle,
   Zap,
   Brain,
-  Calendar,
   Loader2,
   RefreshCw,
-  User,
-  Heart,
   Shield,
   BarChart3,
   Award,
@@ -32,6 +28,8 @@ interface UserProfile {
   annual_income: number;
   age: number;
   risk_tolerance: 'conservative' | 'moderate' | 'aggressive';
+  existing_rmf: number;       // ลงทุน RMF ไปแล้วปีนี้ (หักจากวงเงิน)
+  existing_thai_esg: number;  // ลงทุน ThaiESG/TESGX ไปแล้วปีนี้
   current_deductions: {
     rmf?: number;
     ssf?: number;
@@ -51,46 +49,51 @@ interface UserProfile {
   financial_goals: string[];
   available_budget: number;
   budget_period: 'monthly' | 'yearly';
-  retirement_age: number;
+  occupation: 'employee' | 'freelance' | 'business';
 }
 
-interface TaxScenario {
-  id: string;
-  name: string;
-  description: string;
-  badge: string;
-  strategy: string;
-  total_investment: number;
-  tax_savings: number;
+interface AIExplanation {
+  age_analysis: string;
+  goal_analysis: string;
+  risk_analysis: string;
+  budget_analysis: string;
+  fund_reasons: string;
+  warnings: string;
+  future_advice: string;
+  summary: string;
+}
+
+interface RecommendedPlan {
+  rmf_amount: number;
+  tesg_amount: number;
+  tesgx_amount: number;
+  total_amount: number;
+  rmf_pct: number;
+  tesg_pct: number;
+  tesgx_pct: number;
+  tax_before: number;
+  tax_after: number;
+  tax_saved: number;
+  effective_return_percent: number;
   cash_remaining: number;
-  risk_level: number;
-  risk_label: string;
-  allocations: {
-    category: string;
-    amount: number;
-    fund_recommendations?: string[];
-  }[];
-  explanation: string;
-  pros: string[];
-  cons: string[];
-  suitable_for: string;
-  action_steps: string[];
-  // Goal-based projections (from actual NAV data)
-  expected_return_rate: number;
-  projected_retirement_fund: number;
-  years_to_retire: number;
-  savings_target_amount: number;
-  years_to_target: number | null;
   monthly_investment: number;
-}
-
-interface ParsedGoal {
-  goal_type: string;
-  target_amount?: number;
-  timeline_years?: number;
-  priorities: string[];
-  constraints: string[];
-  raw_input: string;
+  years_to_55: number;
+  rmf_eligible: boolean;
+  money_goal: string;
+  money_goal_label: string;
+  year_breakdown: {
+    year: number;
+    tax_year: number;
+    income: number;
+    rmf_investment: number;
+    thai_esg_investment: number;
+    total_investment: number;
+    tax_saved: number;
+  }[];
+  cumulative_tax_saved_3y: number;
+  cumulative_investment_3y: number;
+  recommended_funds: RecommendedFund[];
+  ai_explanation: AIExplanation | null;
 }
 
 interface ProfileAnalysis {
@@ -137,6 +140,8 @@ const DEFAULT_PROFILE: UserProfile = {
   annual_income: 1200000,
   age: 35,
   risk_tolerance: 'moderate',
+  existing_rmf: 0,
+  existing_thai_esg: 0,
   current_deductions: {},
   has_spouse: false,
   num_children: 0,
@@ -147,32 +152,51 @@ const DEFAULT_PROFILE: UserProfile = {
   financial_goals: [],
   available_budget: 0,
   budget_period: 'monthly',
-  retirement_age: 60,
+  occupation: 'employee',
 };
 
 interface GoalForm {
-  planMarriage: boolean;       // only for single users
-  savingsTarget: number;       // total savings goal in THB
-  incomeGrowthRate: number;    // expected annual income growth in %
+  moneyGoal: 'retirement' | 'mid_term' | 'short_term';
+  monthlyInvestmentBudget: number;   // งบลงทุนต่อเดือน (บาท)
+  incomeGrowthRate: number;          // expected annual income growth in %
 }
 
-function buildGoalFromForm(form: GoalForm, profile: UserProfile): string {
-  const parts: string[] = [];
+const MONEY_GOAL_OPTIONS = [
+  {
+    value: 'retirement',
+    label: 'เก็บยาวเพื่อเกษียณ',
+    description: 'ไม่รีบถอน ยอมล็อคเงินระยะยาวเพื่อผลตอบแทนสูงสุด',
+    icon: '🏖️',
+  },
+  {
+    value: 'mid_term',
+    label: 'ลดหย่อน + ถอนได้ในระยะกลาง (5-10 ปี)',
+    description: 'ต้องการลดหย่อนภาษีแต่ยังต้องการสภาพคล่องในอนาคต',
+    icon: '⚖️',
+  },
+  {
+    value: 'short_term',
+    label: 'ต้องใช้เงินก้อนในอนาคตอันใกล้',
+    description: 'มีแผนใช้เงินภายใน 5 ปี เช่น ดาวน์บ้าน แต่งงาน',
+    icon: '📅',
+  },
+] as const;
 
-  if (!profile.has_spouse && form.planMarriage) {
-    parts.push('วางแผนแต่งงานในปีหน้า');
-  }
+function buildGoalFromForm(form: GoalForm, profile: UserProfile): string {
+  const goalLabel = MONEY_GOAL_OPTIONS.find(o => o.value === form.moneyGoal)?.label || '';
+  const parts: string[] = [`เป้าหมาย: ${goalLabel}`];
 
   if (form.incomeGrowthRate > 0) {
     parts.push(`รายได้คาดว่าจะเพิ่มขึ้น ${form.incomeGrowthRate}% ต่อปี`);
   }
 
-  if (form.savingsTarget > 0) {
-    parts.push(`ต้องการมีเงินออมเป้าหมาย ${form.savingsTarget.toLocaleString('th-TH')} บาท`);
+  if (form.monthlyInvestmentBudget > 0) {
+    parts.push(`งบลงทุนต่อเดือน ${form.monthlyInvestmentBudget.toLocaleString('th-TH')} บาท`);
   }
 
-  parts.push('ต้องการวางแผนภาษีและการลงทุนให้เหมาะสมกับเป้าหมาย');
-  return parts.join(' ');
+  parts.push(`ระดับความเสี่ยง: ${profile.risk_tolerance}`);
+  parts.push('ต้องการวางแผนภาษีและการลงทุนให้เหมาะสมกับโปรไฟล์');
+  return parts.join(' | ');
 }
 
 const RISK_OPTIONS = [
@@ -188,18 +212,16 @@ export default function AIOptimizerPage() {
   // Profile state
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
   const [showProfileForm, setShowProfileForm] = useState(true);
-  const [hasLifeInsurance, setHasLifeInsurance] = useState(false);
-  const [hasHealthInsurance, setHasHealthInsurance] = useState(false);
 
   // Goal & Results state
   const [userGoal, setUserGoal] = useState<string>('');
-  const [goalForm, setGoalForm] = useState<GoalForm>({ planMarriage: false, savingsTarget: 0, incomeGrowthRate: 0 });
-  const [scenarios, setScenarios] = useState<TaxScenario[]>([]);
-  const [selectedScenario, setSelectedScenario] = useState<string | null>(null);
-  const [, setParsedGoal] = useState<ParsedGoal | null>(null);
+  const [goalForm, setGoalForm] = useState<GoalForm>({ moneyGoal: 'mid_term', monthlyInvestmentBudget: 0, incomeGrowthRate: 0 });
+  const [recommendedPlan, setRecommendedPlan] = useState<RecommendedPlan | null>(null);
   const [profileAnalysis, setProfileAnalysis] = useState<ProfileAnalysis | null>(null);
   const [recommendedFunds, setRecommendedFunds] = useState<RecommendedFund[]>([]);
   const [expandedFund, setExpandedFund] = useState<string | null>(null);
+  const [expandedExplanation, setExpandedExplanation] = useState<string | null>(null);
+  const [taxInfo, setTaxInfo] = useState<{ deduction_remaining?: { rmf: number; thai_esg: number; total: number } } | null>(null);
 
   // Loading state
   const [loading, setLoading] = useState(false);
@@ -231,6 +253,8 @@ export default function AIOptimizerPage() {
             annual_income: data.annual_income || DEFAULT_PROFILE.annual_income,
             age: data.age || DEFAULT_PROFILE.age,
             risk_tolerance: data.risk_tolerance || DEFAULT_PROFILE.risk_tolerance,
+            existing_rmf: data.existing_rmf || 0,
+            existing_thai_esg: data.existing_thai_esg || 0,
             current_deductions: data.current_deductions || {},
             has_spouse: data.has_spouse || false,
             num_children: data.num_children || 0,
@@ -241,11 +265,9 @@ export default function AIOptimizerPage() {
             financial_goals: data.financial_goals || [],
             available_budget: data.available_budget || 0,
             budget_period: data.budget_period || 'monthly',
-            retirement_age: data.retirement_age || DEFAULT_PROFILE.retirement_age,
+            occupation: data.occupation || DEFAULT_PROFILE.occupation,
           });
 
-          setHasLifeInsurance((data.current_deductions?.life_insurance || 0) > 0);
-          setHasHealthInsurance((data.current_deductions?.health_insurance || 0) > 0);
         }
       } catch (err) {
         console.error('Failed to load profile:', err);
@@ -302,8 +324,8 @@ export default function AIOptimizerPage() {
           fund_types: ['RMF', 'TESG', 'TESGX'],
           top_n_funds: 5,
           include_ai_explanation: true,
-          savings_target: goalForm.savingsTarget > 0 ? goalForm.savingsTarget : null,
-          plan_to_marry: !profile.has_spouse && goalForm.planMarriage,
+          money_goal: goalForm.moneyGoal,
+          monthly_investment_budget: goalForm.monthlyInvestmentBudget > 0 ? goalForm.monthlyInvestmentBudget : null,
           income_growth_rate: goalForm.incomeGrowthRate,
         }),
       });
@@ -322,6 +344,7 @@ export default function AIOptimizerPage() {
 
       // Step 3: Map profile analysis
       setLoadingStep(3);
+      if (data.tax_info) setTaxInfo(data.tax_info);
 
       // Map profile_analysis from backend
       if (data.profile_analysis) {
@@ -337,57 +360,69 @@ export default function AIOptimizerPage() {
         });
       } else if (data.tax_info) {
         // Fallback: construct from tax_info when AI advisor not available
-        const taxInfo = data.tax_info;
+        const ti = data.tax_info;
         setProfileAnalysis({
-          tax_bracket: taxInfo.tax_bracket?.marginal_rate_percent || 0,
-          marginal_rate: taxInfo.tax_bracket?.marginal_rate_percent || 0,
-          current_tax: taxInfo.tax_bracket?.total_tax || 0,
-          max_potential_savings: taxInfo.deduction_remaining?.total || 0,
+          tax_bracket: ti.tax_bracket?.marginal_rate_percent || 0,
+          marginal_rate: ti.tax_bracket?.marginal_rate_percent || 0,
+          current_tax: ti.tax_bracket?.total_tax || 0,
+          max_potential_savings: ti.deduction_remaining?.total || 0,
           recommended_focus: [],
           warnings: [],
         });
       }
 
-      // Step 4: Map scenarios from backend
+      // Step 4: Map recommended_plan from backend
       setLoadingStep(4);
 
-      const backendScenarios = data.scenarios || [];
-      const mappedScenarios: TaxScenario[] = backendScenarios.map((s: any) => ({
-        id: s.id?.toString() || `scenario-${s.id}`,
-        name: s.name || '',
-        description: s.description || '',
-        badge: s.badge || '📊',
-        strategy: s.strategy || '',
-        total_investment: s.total_investment || 0,
-        tax_savings: s.tax_saved || 0,
-        cash_remaining: s.cash_remaining || 0,
-        risk_level: (s.risk_level || 5) * 10,
-        risk_label: (s.risk_level || 5) <= 3 ? 'ต่ำ' : (s.risk_level || 5) <= 6 ? 'ปานกลาง' : 'สูง',
-        allocations: [
-          ...(s.rmf_investment ? [{ category: 'RMF', amount: s.rmf_investment }] : []),
-          ...(s.thai_esg_investment ? [{ category: 'ThaiESG', amount: s.thai_esg_investment }] : []),
-        ].filter((a) => a.amount > 0),
-        explanation: s.ai_explanation || s.description || '',
-        pros: s.pros || [],
-        cons: s.cons || [],
-        suitable_for: s.description || '',
-        action_steps: (s.recommended_funds || []).map((f: any) =>
-          typeof f === 'string' ? f : `${f.abbr || f.fundType || ''} - ${f.nameTh || ''}`
-        ),
-        // Goal-based projections
-        expected_return_rate: s.expected_return_rate || 0,
-        projected_retirement_fund: s.projected_retirement_fund || 0,
-        years_to_retire: s.years_to_retire || 0,
-        savings_target_amount: s.savings_target || 0,
-        years_to_target: s.years_to_target ?? null,
-        monthly_investment: s.monthly_investment || 0,
-      }));
-
-      if (mappedScenarios.length === 0) {
+      const rawPlan = data.recommended_plan;
+      if (!rawPlan) {
         throw new Error('ไม่สามารถสร้างแผนการลงทุนได้');
       }
 
-      setScenarios(mappedScenarios);
+      const plan: RecommendedPlan = {
+        rmf_amount: rawPlan.rmf_amount || 0,
+        tesg_amount: rawPlan.tesg_amount || 0,
+        tesgx_amount: rawPlan.tesgx_amount || 0,
+        total_amount: rawPlan.total_amount || 0,
+        rmf_pct: rawPlan.rmf_pct || 0,
+        tesg_pct: rawPlan.tesg_pct || 0,
+        tesgx_pct: rawPlan.tesgx_pct || 0,
+        tax_before: rawPlan.tax_before || 0,
+        tax_after: rawPlan.tax_after || 0,
+        tax_saved: rawPlan.tax_saved || 0,
+        effective_return_percent: rawPlan.effective_return_percent || 0,
+        cash_remaining: rawPlan.cash_remaining || 0,
+        monthly_investment: rawPlan.monthly_investment || 0,
+        years_to_55: rawPlan.years_to_55 || 0,
+        rmf_eligible: rawPlan.rmf_eligible ?? true,
+        money_goal: rawPlan.money_goal || 'mid_term',
+        money_goal_label: rawPlan.money_goal_label || '',
+        year_breakdown: rawPlan.year_breakdown || [],
+        cumulative_tax_saved_3y: rawPlan.cumulative_tax_saved_3y || 0,
+        cumulative_investment_3y: rawPlan.cumulative_investment_3y || 0,
+        recommended_funds: (rawPlan.recommended_funds || []).map((f: any) => ({
+          rank: f.rank || 0,
+          fundId: f.fundId || '',
+          abbr: f.abbr || '',
+          nameTh: f.nameTh || '',
+          nameEn: f.nameEn || '',
+          amcNameTh: f.amcNameTh || '',
+          amcNameEn: f.amcNameEn || '',
+          fundType: f.fundType || '',
+          policyDesc: f.policyDesc || null,
+          riskSpectrum: f.riskSpectrum || 0,
+          riskLabel: f.riskLabel || '',
+          riskLabelEn: f.riskLabelEn || '',
+          performance: f.performance || { return3m: null, return1y: null, return3y: null, return5y: null },
+          statistics: f.statistics || { sharpeRatio: null, maxDrawdown: null, alpha: null, beta: null },
+          topHoldings: f.topHoldings || [],
+          factsheet: f.factsheet || { amcUrl: null, pdfUrl: null },
+          score: f.score || 0,
+        })),
+        ai_explanation: rawPlan.ai_explanation || null,
+      };
+
+      setRecommendedPlan(plan);
 
       // Map recommended funds from enriched DB data
       const funds: RecommendedFund[] = (data.recommended_funds || []).map((f: any) => ({
@@ -424,21 +459,14 @@ export default function AIOptimizerPage() {
   };
 
   const handleReset = () => {
-    setScenarios([]);
-    setSelectedScenario(null);
-    setParsedGoal(null);
+    setRecommendedPlan(null);
     setProfileAnalysis(null);
     setRecommendedFunds([]);
     setExpandedFund(null);
+    setExpandedExplanation(null);
     setUserGoal('');
     setShowProfileForm(true);
     setError(null);
-  };
-
-  const getRiskColor = (level: number) => {
-    if (level <= 20) return 'text-green-600 bg-green-50';
-    if (level <= 40) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
   };
 
   const formatCurrency = (amount: number) => {
@@ -491,85 +519,143 @@ export default function AIOptimizerPage() {
             </div>
           )}
 
-          {showProfileForm && scenarios.length === 0 ? (
+          {showProfileForm && !recommendedPlan ? (
             <>
-              {/* Profile & Goal Input */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                {/* Profile Form */}
-                <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 p-6">
-                  <div className="flex items-center gap-2 mb-6">
-                    <User className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-semibold text-slate-800">โปรไฟล์ของคุณ</h2>
-                    {profileLoading && (
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-auto" />
-                    )}
+              {/* Input Form — Simple 6-field card */}
+              <div className="max-w-2xl mx-auto">
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-lg font-semibold text-slate-800">ข้อมูลสำหรับวิเคราะห์</h2>
+                    {profileLoading && <Loader2 className="w-4 h-4 animate-spin text-blue-600 ml-auto" />}
                   </div>
+                  <p className="text-sm text-slate-500 mb-6">
+                    AI จะคำนวณสัดส่วน RMF / ThaiESG / TESGX ที่เหมาะกับคุณที่สุด
+                  </p>
 
-                  <div className="space-y-4">
-                    {/* Annual Income */}
+                  <div className="space-y-5">
+
+                    {/* Field 0: รายได้ต่อปี */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">
                         รายได้ต่อปี (บาท)
+                        <span className="ml-1 text-xs font-normal text-slate-400">— ใช้คำนวณวงเงิน RMF / ThaiESG และภาษีที่ประหยัดได้</span>
                       </label>
                       <input
                         type="number"
                         value={profile.annual_income || ''}
                         onChange={(e) => setProfile({ ...profile, annual_income: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        placeholder="เช่น 1200000"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                         disabled={loading}
                       />
-                      {(() => {
-                        const income = profile.annual_income;
-                        const netIncome = income - 60000; // รายได้สุทธิ = รายได้ - ลดหย่อนส่วนตัว
-                        if (income > 0 && netIncome <= 150000) {
-                          return (
-                            <p className="mt-1.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                              ✅ รายได้สุทธิ <strong>{netIncome.toLocaleString('th-TH')} บาท</strong> ≤ 150,000 บาท — <strong>ไม่ต้องเสียภาษี</strong>
-                            </p>
-                          );
-                        }
-                        return null;
-                      })()}
+                      {profile.annual_income > 0 && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          วงเงิน RMF สูงสุด: ฿{Math.min(profile.annual_income * 0.30, 500000).toLocaleString('th-TH')} &nbsp;|&nbsp;
+                          ThaiESG สูงสุด: ฿{Math.min(profile.annual_income * 0.30, 300000).toLocaleString('th-TH')}
+                        </p>
+                      )}
                     </div>
 
-                    {/* Age */}
+                    <div className="border-t border-slate-100" />
+
+                    {/* Field 1: อายุ */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        อายุ (ปี)
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">
+                        1. อายุ (ปี)
+                        <span className="ml-1 text-xs font-normal text-slate-400">— กำหนดระยะเวลาที่ต้องล็อค RMF ถึงอายุ 55</span>
                       </label>
                       <input
                         type="number"
+                        min="18"
+                        max="70"
                         value={profile.age || ''}
                         onChange={(e) => setProfile({ ...profile, age: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        placeholder="เช่น 35"
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                         disabled={loading}
                       />
+                      {profile.age > 0 && profile.age < 55 && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          เหลืออีก <strong>{55 - profile.age} ปี</strong> ก่อนครบอายุ 55 (เงื่อนไขถอน RMF)
+                        </p>
+                      )}
                     </div>
 
-                    {/* Monthly Expenses */}
+                    {/* Field 2: เป้าหมายการใช้เงิน */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        ค่าใช้จ่ายต่อเดือน (บาท)
-                      </label>
+                      <p className="text-sm font-semibold text-slate-700 mb-3">
+                        2. เป้าหมายการใช้เงินก้อนนี้คืออะไร?
+                        <span className="ml-1 text-xs font-normal text-slate-400">— กำหนดสัดส่วน RMF vs ThaiESG</span>
+                      </p>
+                      <div className="space-y-2">
+                        {MONEY_GOAL_OPTIONS.map((opt) => (
+                          <label
+                            key={opt.value}
+                            className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                              goalForm.moneyGoal === opt.value
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="moneyGoal"
+                              value={opt.value}
+                              checked={goalForm.moneyGoal === opt.value}
+                              onChange={() => setGoalForm({ ...goalForm, moneyGoal: opt.value })}
+                              className="sr-only"
+                              disabled={loading}
+                            />
+                            <span className="text-xl mt-0.5 flex-shrink-0">{opt.icon}</span>
+                            <div>
+                              <p className="font-medium text-slate-800 text-sm">{opt.label}</p>
+                              <p className="text-xs text-slate-500">{opt.description}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Field 3: งบลงทุนต่อเดือน */}
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 mb-1">
+                        3. งบลงทุนต่อเดือนสำหรับกองทุนลดหย่อนภาษี (บาท)
+                      </p>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2">
+                        <p className="text-xs text-blue-700">
+                          💡 <strong>วิธีคำนวณ:</strong> รายได้/เดือน − ค่าใช้จ่ายรายเดือน − เงินออมฉุกเฉิน = งบที่พร้อมลงทุน
+                        </p>
+                      </div>
                       <input
                         type="number"
-                        value={profile.monthly_expenses || ''}
-                        onChange={(e) => setProfile({ ...profile, monthly_expenses: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
+                        min="0"
+                        value={goalForm.monthlyInvestmentBudget || ''}
+                        onChange={(e) => setGoalForm({ ...goalForm, monthlyInvestmentBudget: e.target.value === '' ? 0 : Number(e.target.value) })}
                         disabled={loading}
+                        placeholder="เช่น 10000 บาท/เดือน"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
                       />
+                      {goalForm.monthlyInvestmentBudget > 0 ? (
+                        <p className="text-xs text-blue-600 mt-1">
+                          = ฿{(goalForm.monthlyInvestmentBudget * 12).toLocaleString('th-TH')} ต่อปี
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400 mt-1">ถ้าปล่อยว่าง ระบบจะคำนวณงบให้อัตโนมัติ</p>
+                      )}
                     </div>
 
-                    {/* Risk Tolerance */}
+                    {/* Field 4: ระดับความเสี่ยง */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        ระดับความเสี่ยงที่รับได้
-                      </label>
-                      <div className="space-y-2">
+                      <p className="text-sm font-semibold text-slate-700 mb-2">
+                        4. ระดับความเสี่ยงที่รับได้
+                        <span className="ml-1 text-xs font-normal text-slate-400">— กล้าเสี่ยง = เพิ่ม TESGX</span>
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
                         {RISK_OPTIONS.map((option) => (
                           <label
                             key={option.value}
-                            className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors ${
+                            className={`flex flex-col items-center p-3 border rounded-lg cursor-pointer transition-colors text-center ${
                               profile.risk_tolerance === option.value
                                 ? 'border-blue-500 bg-blue-50'
                                 : 'border-slate-200 hover:border-slate-300'
@@ -584,263 +670,27 @@ export default function AIOptimizerPage() {
                               className="sr-only"
                               disabled={loading}
                             />
-                            <div>
-                              <p className="font-medium text-slate-800 text-sm">{option.label}</p>
-                              <p className="text-xs text-slate-500">{option.description}</p>
-                            </div>
+                            <p className="font-medium text-slate-800 text-sm">{option.label}</p>
+                            <p className="text-xs text-slate-500 mt-0.5">{option.description}</p>
                           </label>
                         ))}
                       </div>
                     </div>
 
-                    {/* Family Status */}
-                    <div className={`grid gap-3 ${profile.has_spouse ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          <Heart className="w-4 h-4 inline mr-1" />
-                          สถานะ
-                        </label>
-                        <select
-                          value={profile.has_spouse ? 'married' : 'single'}
-                          onChange={(e) => setProfile({ ...profile, has_spouse: e.target.value === 'married', num_children: e.target.value === 'single' ? 0 : profile.num_children })}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
-                          disabled={loading}
-                        >
-                          <option value="single">โสด</option>
-                          <option value="married">แต่งงาน</option>
-                        </select>
-                      </div>
-                      {profile.has_spouse && (
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1">
-                            จำนวนบุตร
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={profile.num_children}
-                            onChange={(e) => setProfile({ ...profile, num_children: Number(e.target.value) })}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 outline-none text-slate-800 text-sm"
-                            disabled={loading}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Parents */}
+                    {/* Field 5: แนวโน้มรายได้ */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        อุปการะพ่อแม่อายุ 60+ ปีไหม?
-                        <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้ 30,000/คน)</span>
-                      </label>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3, 4].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setProfile({ ...profile, num_parents: n })}
-                            disabled={loading}
-                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                              profile.num_parents === n
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            {n === 0 ? 'ไม่มี' : `${n} คน`}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-slate-100 pt-4">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-4">ลดหย่อนที่มีอยู่แล้ว</p>
-
-                      {/* Life Insurance */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          <Shield className="w-4 h-4 inline mr-1" />
-                          ประกันชีวิต
-                          <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้สูงสุด 100,000 บาท)</span>
-                        </label>
-                        <div className="flex gap-2 mb-2">
-                          <button
-                            type="button"
-                            onClick={() => { setHasLifeInsurance(true); }}
-                            disabled={loading}
-                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                              hasLifeInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            มี
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setHasLifeInsurance(false); setProfile({ ...profile, current_deductions: { ...profile.current_deductions, life_insurance: 0 } }); }}
-                            disabled={loading}
-                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                              !hasLifeInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            ไม่มี
-                          </button>
-                        </div>
-                        {hasLifeInsurance && (
-                          <div>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100000"
-                              value={profile.current_deductions?.life_insurance || ''}
-                              onChange={(e) => setProfile({ ...profile, current_deductions: { ...profile.current_deductions, life_insurance: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                              placeholder="จ่ายปีละเท่าไหร่ (บาท)"
-                              disabled={loading}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                            />
-                            {(profile.current_deductions?.life_insurance || 0) > 100000 && (
-                              <p className="text-xs text-amber-600 mt-1">เกินสิทธิ์ — ระบบจะใช้ 100,000 บาท</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Health Insurance */}
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          <Shield className="w-4 h-4 inline mr-1 text-green-600" />
-                          ประกันสุขภาพ
-                          <span className="ml-1 text-xs font-normal text-slate-400">(ลดหย่อนได้สูงสุด 25,000 บาท)</span>
-                        </label>
-                        <div className="flex gap-2 mb-2">
-                          <button
-                            type="button"
-                            onClick={() => { setHasHealthInsurance(true); }}
-                            disabled={loading}
-                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                              hasHealthInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            มี
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setHasHealthInsurance(false); setProfile({ ...profile, current_deductions: { ...profile.current_deductions, health_insurance: 0 } }); }}
-                            disabled={loading}
-                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                              !hasHealthInsurance ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            ไม่มี
-                          </button>
-                        </div>
-                        {hasHealthInsurance && (
-                          <div>
-                            <input
-                              type="number"
-                              min="0"
-                              max="25000"
-                              value={profile.current_deductions?.health_insurance || ''}
-                              onChange={(e) => setProfile({ ...profile, current_deductions: { ...profile.current_deductions, health_insurance: e.target.value === '' ? 0 : Number(e.target.value) } })}
-                              placeholder="จ่ายปีละเท่าไหร่ (บาท)"
-                              disabled={loading}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                            />
-                            {(profile.current_deductions?.health_insurance || 0) > 25000 && (
-                              <p className="text-xs text-amber-600 mt-1">เกินสิทธิ์ — ระบบจะใช้ 25,000 บาท</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Retirement Age */}
-                    <div className="border-t border-slate-100 pt-4">
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        <Calendar className="w-4 h-4 inline mr-1" />
-                        อายุที่ตั้งใจเกษียณ (ปี)
-                      </label>
-                      <input
-                        type="number"
-                        min={profile.age + 1}
-                        max="80"
-                        value={profile.retirement_age || ''}
-                        onChange={(e) => setProfile({ ...profile, retirement_age: e.target.value === '' ? 60 : Number(e.target.value) })}
-                        disabled={loading}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                      />
-                      {profile.age > 0 && profile.retirement_age > profile.age && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          อีก {profile.retirement_age - profile.age} ปีจากนี้
-                          {profile.retirement_age < 55 && (
-                            <span className="ml-1 text-amber-600">⚠️ RMF ต้องถือถึงอายุ 55 ปี</span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Goal Input */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6">
-                  <div className="flex items-center gap-2 mb-6">
-                    <Target className="w-5 h-5 text-blue-600" />
-                    <h2 className="text-lg font-semibold text-slate-800">เป้าหมายของคุณ</h2>
-                  </div>
-
-                  {/* Goal Form */}
-                  <div className="mb-6 space-y-4">
-                    <p className="text-sm text-slate-500">ตอบคำถามเพื่อให้ AI วางแผนและคาดการณ์ได้แม่นยำขึ้น</p>
-
-                    {/* Q1: แต่งงาน — แสดงเฉพาะคนโสด */}
-                    {!profile.has_spouse && (
-                      <div className="p-4 border border-slate-200 rounded-lg">
-                        <p className="text-sm font-medium text-slate-700 mb-3">
-                          คุณวางแผนที่จะแต่งงานในปีหน้าไหม?
-                          <span className="ml-1 text-xs font-normal text-slate-400">(มีผลต่อลดหย่อนคู่สมรส)</span>
-                        </p>
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setGoalForm({ ...goalForm, planMarriage: true })}
-                            disabled={loading}
-                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-                              goalForm.planMarriage
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            ใช่
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setGoalForm({ ...goalForm, planMarriage: false })}
-                            disabled={loading}
-                            className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-                              !goalForm.planMarriage
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
-                            }`}
-                          >
-                            ยังไม่
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Q2: รายได้เพิ่มขึ้นไหม */}
-                    <div className="p-4 border border-slate-200 rounded-lg">
-                      <p className="text-sm font-medium text-slate-700 mb-3">
-                        รายได้ของคุณคาดว่าจะเพิ่มขึ้นเท่าไหร่ต่อปี?
-                        <span className="ml-1 text-xs font-normal text-slate-400">(ใช้คาดการณ์การเติบโต)</span>
+                      <p className="text-sm font-semibold text-slate-700 mb-2">
+                        5. รายได้คาดว่าจะเพิ่มขึ้นเท่าไหร่ต่อปี?
+                        <span className="ml-1 text-xs font-normal text-slate-400">— ใช้คาดการณ์ภาษี 3 ปีข้างหน้า</span>
                       </p>
-                      <div className="flex gap-2 mb-2 flex-wrap">
+                      <div className="flex gap-2">
                         {[0, 3, 5, 10].map((rate) => (
                           <button
                             key={rate}
                             type="button"
                             onClick={() => setGoalForm({ ...goalForm, incomeGrowthRate: rate })}
                             disabled={loading}
-                            className={`flex-1 min-w-[60px] py-2 rounded-lg border text-sm font-medium transition-colors ${
+                            className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
                               goalForm.incomeGrowthRate === rate
                                 ? 'bg-blue-600 text-white border-blue-600'
                                 : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
@@ -850,37 +700,54 @@ export default function AIOptimizerPage() {
                           </button>
                         ))}
                       </div>
-                      {goalForm.incomeGrowthRate > 0 && (
-                        <p className="text-xs text-slate-400">
+                      {goalForm.incomeGrowthRate > 0 && profile.annual_income > 0 && (
+                        <p className="text-xs text-slate-400 mt-2">
                           รายได้ปีหน้า ≈ ฿{Math.round(profile.annual_income * (1 + goalForm.incomeGrowthRate / 100)).toLocaleString('th-TH')}
                         </p>
                       )}
                     </div>
 
-                    {/* Q3: เงินออมเป้าหมาย */}
-                    <div className="p-4 border border-slate-200 rounded-lg">
-                      <p className="text-sm font-medium text-slate-700 mb-3">
-                        คุณต้องการมีเงินออมทั้งหมดเท่าไหร่? (บาท)
-                        <span className="ml-1 text-xs font-normal text-slate-400">(AI จะคำนวณว่าถึงเป้าใน กี่ปี)</span>
+                    {/* Optional: ลงทุนไปแล้วปีนี้ */}
+                    <div className="border border-dashed border-slate-300 rounded-lg p-4">
+                      <p className="text-sm font-semibold text-slate-600 mb-1">
+                        ลงทุน RMF / ThaiESG ไปแล้วปีนี้? <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
                       </p>
-                      <input
-                        type="number"
-                        min="0"
-                        value={goalForm.savingsTarget || ''}
-                        onChange={(e) => setGoalForm({ ...goalForm, savingsTarget: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        disabled={loading}
-                        placeholder="เช่น 5000000 (5 ล้านบาท)"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">ถ้ายังไม่มีเป้าหมาย ปล่อยว่างได้เลย</p>
+                      <p className="text-xs text-slate-400 mb-3">ระบบจะหักออกจากวงเงินคงเหลือก่อนคำนวณ</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">RMF ที่ลงทุนแล้ว (บาท/ปี)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={profile.existing_rmf || ''}
+                            onChange={(e) => setProfile({ ...profile, existing_rmf: e.target.value === '' ? 0 : Number(e.target.value) })}
+                            disabled={loading}
+                            placeholder="0"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">ThaiESG/TESGX แล้ว (บาท/ปี)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={profile.existing_thai_esg || ''}
+                            onChange={(e) => setProfile({ ...profile, existing_thai_esg: e.target.value === '' ? 0 : Number(e.target.value) })}
+                            disabled={loading}
+                            placeholder="0"
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
+                          />
+                        </div>
+                      </div>
                     </div>
+
                   </div>
 
                   {/* Generate Button */}
                   <button
                     onClick={handleOptimize}
-                    disabled={loading}
-                    className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                    disabled={loading || profile.annual_income === 0}
+                    className="mt-6 w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>
@@ -894,49 +761,48 @@ export default function AIOptimizerPage() {
                       </>
                     )}
                   </button>
+                  {profile.annual_income === 0 && (
+                    <p className="text-xs text-center text-red-500 mt-2">กรุณากรอกรายได้ต่อปีก่อน</p>
+                  )}
 
                   {/* Loading Steps */}
                   {loading && (
-                    <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                        <p className="font-medium text-blue-800">AI กำลังทำงาน...</p>
+                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <p className="text-sm font-medium text-blue-800">AI กำลังทำงาน...</p>
                       </div>
-
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {[
                           'ส่งข้อมูลไปวิเคราะห์...',
                           'คำนวณภาษีและกรองกองทุนจากฐานข้อมูล...',
-                          'วิเคราะห์โปรไฟล์และสร้างแผน...',
-                          'AI สร้าง 3 แผนการลงทุน...',
-                          'เสร็จสิ้น!'
+                          'คำนวณสัดส่วน RMF / ThaiESG / TESGX...',
+                          'AI กำลังอธิบายเหตุผลแบบละเอียด...',
+                          'เสร็จสิ้น!',
                         ].map((step, index) => (
-                          <div key={index} className="flex items-center gap-3">
+                          <div key={index} className="flex items-center gap-2">
                             {loadingStep > index ? (
-                              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                             ) : loadingStep === index ? (
-                              <Loader2 className="w-5 h-5 text-blue-600 animate-spin flex-shrink-0" />
+                              <Loader2 className="w-4 h-4 text-blue-600 animate-spin flex-shrink-0" />
                             ) : (
-                              <div className="w-5 h-5 border-2 border-slate-300 rounded-full flex-shrink-0" />
+                              <div className="w-4 h-4 border-2 border-slate-300 rounded-full flex-shrink-0" />
                             )}
-                            <span className={`text-sm ${
+                            <span className={`text-xs ${
                               loadingStep > index ? 'text-green-700 font-medium' :
                               loadingStep === index ? 'text-blue-700 font-medium' :
-                              'text-slate-500'
+                              'text-slate-400'
                             }`}>
                               {step}
                             </span>
                           </div>
                         ))}
                       </div>
-
-                      <div className="mt-4 bg-white rounded-lg p-3">
-                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-blue-600 transition-all duration-500"
-                            style={{ width: `${(loadingStep / 5) * 100}%` }}
-                          />
-                        </div>
+                      <div className="mt-3 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-600 transition-all duration-500"
+                          style={{ width: `${(loadingStep / 5) * 100}%` }}
+                        />
                       </div>
                     </div>
                   )}
@@ -954,9 +820,9 @@ export default function AIOptimizerPage() {
                     </div>
                     <div>
                       <h2 className="text-xl font-semibold text-slate-800">
-                        AI สร้าง {scenarios.length} แผนเรียบร้อย!
+                        AI วิเคราะห์เสร็จแล้ว!
                       </h2>
-                      <p className="text-slate-600">เลือกแผนที่เหมาะกับคุณที่สุด</p>
+                      <p className="text-slate-600">แผนที่แนะนำที่สุดสำหรับคุณ</p>
                     </div>
                   </div>
                   <button
@@ -971,9 +837,9 @@ export default function AIOptimizerPage() {
                 {/* User Goal Display */}
                 <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-700 mb-1">
-                    <strong>เป้าหมายของคุณ:</strong>
+                    <strong>โปรไฟล์ที่วิเคราะห์:</strong>
                   </p>
-                  <p className="text-slate-800 italic">"{userGoal}"</p>
+                  <p className="text-slate-800 text-sm">{userGoal}</p>
                 </div>
               </div>
 
@@ -1030,16 +896,34 @@ export default function AIOptimizerPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-slate-800">
-                        Top {recommendedFunds.length} กองทุนแนะนำ
+                        กองทุนแนะนำ แยกตามประเภท
                       </h3>
                       <p className="text-sm text-slate-500">
-                        คัดเลือกจากฐานข้อมูล SEC Thailand ตามระดับความเสี่ยงและผลตอบแทนย้อนหลัง
+                        Top 3 ต่อประเภท — คัดจาก SEC Thailand ตาม Sharpe Ratio และผลตอบแทนย้อนหลัง
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {recommendedFunds.map((fund) => {
+                  <div className="space-y-6">
+                    {(['RMF', 'TESG', 'TESGX'] as const).map((fundTypeGroup) => {
+                      const groupFunds = recommendedFunds.filter(f => f.fundType === fundTypeGroup);
+                      if (groupFunds.length === 0) return null;
+                      const groupCfg = {
+                        RMF:   { label: 'RMF',      bg: 'bg-blue-50',    border: 'border-blue-200',   tag: 'bg-blue-100 text-blue-700',       headerBorder: 'border-blue-200' },
+                        TESG:  { label: 'ThaiESG',  bg: 'bg-emerald-50', border: 'border-emerald-200', tag: 'bg-emerald-100 text-emerald-700', headerBorder: 'border-emerald-200' },
+                        TESGX: { label: 'ThaiESGX', bg: 'bg-purple-50',  border: 'border-purple-200',  tag: 'bg-purple-100 text-purple-700',   headerBorder: 'border-purple-200' },
+                      }[fundTypeGroup];
+                      return (
+                        <div key={fundTypeGroup}>
+                          {/* Section Header */}
+                          <div className={`flex items-center gap-2 mb-3 pb-2 border-b ${groupCfg.headerBorder}`}>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${groupCfg.tag}`}>
+                              {groupCfg.label}
+                            </span>
+                            <span className="text-xs text-slate-400">Top {groupFunds.length}</span>
+                          </div>
+                          <div className="space-y-3">
+                            {groupFunds.map((fund, idx) => {
                       const isExpanded = expandedFund === fund.fundId;
                       const riskColor = fund.riskSpectrum <= 3
                         ? 'bg-green-100 text-green-800 border-green-200'
@@ -1047,11 +931,11 @@ export default function AIOptimizerPage() {
                           ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
                           : 'bg-red-100 text-red-800 border-red-200';
 
-                      const typeColor = fund.fundType === 'RMF'
+                      const typeColor = fundTypeGroup === 'RMF'
                         ? 'bg-blue-100 text-blue-700'
-                        : fund.fundType === 'TESG' || fund.fundType === 'TESGX'
+                        : fundTypeGroup === 'TESG'
                           ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-100 text-slate-700';
+                          : 'bg-purple-100 text-purple-700';
 
                       return (
                         <div
@@ -1065,13 +949,13 @@ export default function AIOptimizerPage() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3 min-w-0">
                               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-sm">
-                                {fund.rank}
+                                {idx + 1}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="font-semibold text-slate-800">{fund.abbr}</p>
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor}`}>
-                                    {fund.fundType === 'TESG' ? 'ThaiESG' : fund.fundType === 'TESGX' ? 'ThaiESGX' : fund.fundType}
+                                    {fundTypeGroup === 'TESG' ? 'ThaiESG' : fundTypeGroup === 'TESGX' ? 'ThaiESGX' : fundTypeGroup}
                                   </span>
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${riskColor}`}>
                                     <Shield className="w-3 h-3 inline mr-0.5" />
@@ -1214,199 +1098,280 @@ export default function AIOptimizerPage() {
                           )}
                         </div>
                       );
+                            })}
+                          </div>
+                        </div>
+                      );
                     })}
                   </div>
                 </div>
               )}
 
-              {/* Scenarios Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {scenarios.map((scenario) => (
-                  <div
-                    key={scenario.id}
-                    className={`bg-white rounded-xl border p-6 transition-all duration-200 cursor-pointer ${
-                      selectedScenario === scenario.id
-                        ? 'border-blue-500 ring-2 ring-blue-200'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                    onClick={() => setSelectedScenario(selectedScenario === scenario.id ? null : scenario.id)}
-                  >
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-4">
+              {/* Deduction Quota Remaining */}
+              {taxInfo?.deduction_remaining && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 mb-2 flex flex-wrap gap-4 items-center">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm font-medium text-slate-700">สิทธิ์ลดหย่อนที่เหลือปีนี้</span>
+                  </div>
+                  <div className="flex gap-6 ml-auto">
+                    <div className="text-center">
+                      <p className="text-xs text-slate-400 mb-0.5">RMF</p>
+                      <p className="font-bold text-slate-800">฿{formatCurrency(taxInfo.deduction_remaining.rmf)}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-slate-400 mb-0.5">ThaiESG</p>
+                      <p className="font-bold text-slate-800">฿{formatCurrency(taxInfo.deduction_remaining.thai_esg)}</p>
+                    </div>
+                    <div className="text-center border-l border-slate-200 pl-6">
+                      <p className="text-xs text-slate-400 mb-0.5">รวมทั้งหมด</p>
+                      <p className="font-bold text-blue-700">฿{formatCurrency(taxInfo.deduction_remaining.total)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recommended Plan Card */}
+              {recommendedPlan && (
+                <div className="space-y-6">
+
+                  {/* Allocation Overview */}
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                        <Target className="w-5 h-5 text-white" />
+                      </div>
                       <div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-1">{scenario.name}</h3>
-                        <span className="text-2xl">{scenario.badge}</span>
+                        <h3 className="text-lg font-semibold text-slate-800">แผนที่แนะนำ</h3>
+                        <p className="text-sm text-slate-500">{recommendedPlan.money_goal_label}</p>
                       </div>
-                      <div className={`px-3 py-1 rounded-full text-sm font-medium ${getRiskColor(scenario.risk_level)}`}>
-                        ความเสี่ยง: {scenario.risk_label}
+                    </div>
+
+                    {/* Allocation Ratio Bar */}
+                    <div className="mb-5">
+                      <p className="text-sm font-medium text-slate-700 mb-2">สัดส่วนการลงทุน</p>
+                      <div className="flex h-6 rounded-full overflow-hidden mb-2">
+                        {recommendedPlan.rmf_pct > 0 && (
+                          <div
+                            className="bg-blue-500 flex items-center justify-center text-xs text-white font-bold"
+                            style={{ width: `${recommendedPlan.rmf_pct}%` }}
+                          >
+                            {recommendedPlan.rmf_pct}%
+                          </div>
+                        )}
+                        {recommendedPlan.tesg_pct > 0 && (
+                          <div
+                            className="bg-emerald-500 flex items-center justify-center text-xs text-white font-bold"
+                            style={{ width: `${recommendedPlan.tesg_pct}%` }}
+                          >
+                            {recommendedPlan.tesg_pct}%
+                          </div>
+                        )}
+                        {recommendedPlan.tesgx_pct > 0 && (
+                          <div
+                            className="bg-violet-500 flex items-center justify-center text-xs text-white font-bold"
+                            style={{ width: `${recommendedPlan.tesgx_pct}%` }}
+                          >
+                            {recommendedPlan.tesgx_pct}%
+                          </div>
+                        )}
                       </div>
+                      <div className="flex gap-4 text-xs">
+                        {recommendedPlan.rmf_pct > 0 && (
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> RMF</span>
+                        )}
+                        {recommendedPlan.tesg_pct > 0 && (
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" /> ThaiESG</span>
+                        )}
+                        {recommendedPlan.tesgx_pct > 0 && (
+                          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-violet-500 inline-block" /> TESGX</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amount Breakdown */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                      {recommendedPlan.rmf_amount > 0 && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-blue-600 mb-1">RMF</p>
+                          <p className="text-xl font-bold text-blue-900">฿{formatCurrency(recommendedPlan.rmf_amount)}</p>
+                          <p className="text-xs text-blue-500 mt-0.5">฿{formatCurrency(Math.round(recommendedPlan.rmf_amount / 12))}/เดือน</p>
+                          <p className="text-xs text-blue-400 mt-1">ล็อคถึงอายุ 55 ({recommendedPlan.years_to_55} ปี)</p>
+                        </div>
+                      )}
+                      {recommendedPlan.tesg_amount > 0 && (
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-emerald-600 mb-1">ThaiESG</p>
+                          <p className="text-xl font-bold text-emerald-900">฿{formatCurrency(recommendedPlan.tesg_amount)}</p>
+                          <p className="text-xs text-emerald-500 mt-0.5">฿{formatCurrency(Math.round(recommendedPlan.tesg_amount / 12))}/เดือน</p>
+                          <p className="text-xs text-emerald-400 mt-1">ล็อค 5 ปีนับจากวันซื้อ</p>
+                        </div>
+                      )}
+                      {recommendedPlan.tesgx_amount > 0 && (
+                        <div className="bg-violet-50 border border-violet-100 rounded-xl p-4">
+                          <p className="text-xs font-semibold text-violet-600 mb-1">TESGX</p>
+                          <p className="text-xl font-bold text-violet-900">฿{formatCurrency(recommendedPlan.tesgx_amount)}</p>
+                          <p className="text-xs text-violet-500 mt-0.5">฿{formatCurrency(Math.round(recommendedPlan.tesgx_amount / 12))}/เดือน</p>
+                          <p className="text-xs text-violet-400 mt-1">ล็อค 5 ปีนับจากวันซื้อ | ความเสี่ยงสูง</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Key Metrics */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="bg-green-50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <TrendingUp className="w-4 h-4 text-green-600" />
-                          <span className="text-sm text-green-700 font-medium">ลดภาษีได้</span>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-green-50 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <TrendingUp className="w-3.5 h-3.5 text-green-600" />
+                          <span className="text-xs text-green-700 font-medium">ลดภาษีปีนี้</span>
                         </div>
-                        <p className="text-2xl font-bold text-green-900">
-                          ฿{formatCurrency(scenario.tax_savings)}
-                        </p>
+                        <p className="text-xl font-bold text-green-900">฿{formatCurrency(recommendedPlan.tax_saved)}</p>
                       </div>
-
-                      <div className="bg-blue-50 rounded-xl p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                          <PiggyBank className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm text-blue-700 font-medium">เงินสดคงเหลือ</span>
+                      <div className="bg-slate-50 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Zap className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="text-xs text-slate-600 font-medium">ลงทุน/เดือน</span>
                         </div>
-                        <p className="text-2xl font-bold text-blue-900">
-                          ฿{formatCurrency(scenario.cash_remaining)}
-                        </p>
+                        <p className="text-xl font-bold text-slate-800">฿{formatCurrency(recommendedPlan.monthly_investment)}</p>
                       </div>
-                    </div>
-
-                    {/* Projection Card (NAV-based) */}
-                    {scenario.expected_return_rate > 0 && (
-                      <div className="bg-purple-50 rounded-xl p-4 mb-4 border border-purple-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <BarChart3 className="w-4 h-4 text-purple-600" />
-                          <span className="text-sm font-medium text-purple-800">การคาดการณ์จาก NAV จริง</span>
-                          <span className="text-xs text-purple-400 ml-auto">ผลตอบแทนเฉลี่ย {scenario.expected_return_rate}%/ปี</span>
+                      <div className="bg-amber-50 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Award className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="text-xs text-amber-700 font-medium">ผลตอบแทนทันที</span>
                         </div>
-                        {scenario.strategy === 'tax_max' && scenario.projected_retirement_fund > 0 && (
-                          <div>
-                            <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.projected_retirement_fund)}</p>
-                            <p className="text-xs text-purple-600 mt-0.5">คาดว่าจะมีเมื่อเกษียณ (อีก {scenario.years_to_retire} ปี) | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
-                          </div>
-                        )}
-                        {scenario.strategy === 'balanced' && (
-                          <div>
-                            {scenario.savings_target_amount > 0 ? (
-                              scenario.years_to_target !== null ? (
-                                <>
-                                  <p className="text-xl font-bold text-purple-900">{scenario.years_to_target} ปี</p>
-                                  <p className="text-xs text-purple-600 mt-0.5">ถึงเป้าหมาย ฿{formatCurrency(scenario.savings_target_amount)} | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-xl font-bold text-purple-900">&gt; 100 ปี</p>
-                                  <p className="text-xs text-purple-600 mt-0.5">เป้าหมาย ฿{formatCurrency(scenario.savings_target_amount)} ต้องเพิ่มงบลงทุน</p>
-                                </>
-                              )
-                            ) : (
-                              <>
-                                <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.projected_retirement_fund)}</p>
-                                <p className="text-xs text-purple-600 mt-0.5">คาดว่าจะมีเมื่อเกษียณ | ลงทุน ฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
-                              </>
-                            )}
-                          </div>
-                        )}
-                        {scenario.strategy === 'conservative' && (
-                          <div>
-                            <p className="text-xl font-bold text-purple-900">฿{formatCurrency(scenario.monthly_investment)}/เดือน</p>
-                            <p className="text-xs text-purple-600 mt-0.5">ลงทุน | เหลือเงินสด ฿{formatCurrency(Math.round(scenario.cash_remaining / 12))}/เดือน สำหรับแผนชีวิต</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Allocations */}
-                    <div className="space-y-2 mb-4">
-                      <p className="font-semibold text-slate-800 text-sm">📝 แผนการลงทุน:</p>
-                      {scenario.allocations.map((alloc, idx) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span className="text-slate-600">• {alloc.category}</span>
-                          <span className="font-medium">฿{formatCurrency(alloc.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* AI Explanation */}
-                    <div className="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-100">
-                      <div className="flex items-start gap-2">
-                        <Brain className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-blue-800 mb-2">AI วิเคราะห์ให้คุณ:</p>
-                          <p className="text-sm text-slate-700 leading-relaxed">
-                            {scenario.explanation}
-                          </p>
-                        </div>
+                        <p className="text-xl font-bold text-amber-900">{recommendedPlan.effective_return_percent.toFixed(1)}%</p>
                       </div>
                     </div>
 
-                    {/* Expandable Details */}
-                    {selectedScenario === scenario.id && (
-                      <div className="space-y-4 border-t pt-4">
-                        {/* Pros */}
-                        <div>
-                          <p className="font-semibold text-green-700 mb-2 flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4" />
-                            ข้อดี:
-                          </p>
-                          <ul className="space-y-1">
-                            {scenario.pros.map((pro, idx) => (
-                              <li key={idx} className="text-sm text-slate-700">• {pro}</li>
-                            ))}
-                          </ul>
+                    {/* 3-Year Breakdown */}
+                    {recommendedPlan.year_breakdown && recommendedPlan.year_breakdown.length > 0 && (
+                      <div className="mt-5 border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <div className="flex items-center gap-2 mb-4">
+                          <BarChart3 className="w-4 h-4 text-slate-500" />
+                          <span className="text-sm font-semibold text-slate-700">แผนภาษี 3 ปีข้างหน้า</span>
                         </div>
-
-                        {/* Cons */}
-                        <div>
-                          <p className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4" />
-                            ข้อควรระวัง:
-                          </p>
-                          <ul className="space-y-1">
-                            {scenario.cons.map((con, idx) => (
-                              <li key={idx} className="text-sm text-slate-700">• {con}</li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {/* Suitable For */}
-                        <div className="bg-indigo-50 rounded-xl p-4">
-                          <p className="font-semibold text-indigo-900 mb-2 flex items-center gap-2">
-                            <Target className="w-4 h-4" />
-                            เหมาะสำหรับ:
-                          </p>
-                          <p className="text-sm text-indigo-700">{scenario.suitable_for}</p>
-                        </div>
-
-                        {/* Action Steps */}
-                        {scenario.action_steps && scenario.action_steps.length > 0 && (
-                          <div className="bg-indigo-50 rounded-xl p-4">
-                            <p className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              📅 ขั้นตอนถัดไป:
-                            </p>
-                            <div className="space-y-3">
-                              {scenario.action_steps.map((step, idx) => (
-                                <div key={idx} className="flex items-start gap-3">
-                                  <div className="w-6 h-6 bg-indigo-200 text-indigo-900 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                                    {idx + 1}
-                                  </div>
-                                  <p className="text-sm text-slate-700">{step}</p>
+                        <div className="flex gap-2 items-stretch mb-4">
+                          {recommendedPlan.year_breakdown.map((yr, idx) => (
+                            <div key={yr.year} className="flex items-center gap-2 flex-1">
+                              <div className="flex-1 bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                                <div className="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full mb-2">
+                                  ปี {yr.tax_year}
                                 </div>
-                              ))}
+                                <div className="mb-2">
+                                  <p className="text-xs text-slate-400 mb-0.5">ลงทุน</p>
+                                  <p className="text-base font-bold text-slate-800">฿{formatCurrency(yr.total_investment)}</p>
+                                </div>
+                                <div className="border-t border-dashed border-slate-200 my-2" />
+                                <div>
+                                  <p className="text-xs text-slate-400 mb-0.5">ประหยัดภาษี</p>
+                                  <p className="text-base font-bold text-emerald-600">฿{formatCurrency(yr.tax_saved)}</p>
+                                </div>
+                              </div>
+                              {idx < recommendedPlan.year_breakdown.length - 1 && (
+                                <span className="text-slate-300 text-lg font-light flex-shrink-0">›</span>
+                              )}
                             </div>
+                          ))}
+                        </div>
+                        <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 flex justify-between items-center">
+                          <div>
+                            <p className="text-xs text-slate-400">รวม 3 ปี ลงทุนทั้งหมด</p>
+                            <p className="text-sm font-semibold text-slate-700">฿{formatCurrency(recommendedPlan.cumulative_investment_3y)}</p>
                           </div>
-                        )}
-
-                        {/* Action Button */}
-                        <button className="w-full py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm">
-                          <Zap className="w-4 h-4" />
-                          เลือกแผนนี้และดำเนินการ
-                        </button>
+                          <div className="w-px h-8 bg-slate-200" />
+                          <div className="text-right">
+                            <p className="text-xs text-slate-400">รวม 3 ปี ประหยัดภาษีได้</p>
+                            <p className="text-lg font-bold text-emerald-600">฿{formatCurrency(recommendedPlan.cumulative_tax_saved_3y)}</p>
+                          </div>
+                        </div>
                       </div>
-                    )}
-
-                    {selectedScenario !== scenario.id && (
-                      <p className="text-center text-sm text-slate-500 mt-4">
-                        คลิกเพื่อดูรายละเอียดเพิ่มเติม
-                      </p>
                     )}
                   </div>
-                ))}
+
+                  {/* AI Explanation Sections */}
+                  {recommendedPlan.ai_explanation && (
+                    <div className="bg-white rounded-xl border border-slate-200 p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+                          <Brain className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-slate-800">AI อธิบายทำไมแผนนี้เหมาะกับคุณ</h3>
+                          <p className="text-sm text-slate-500">วิเคราะห์จากโปรไฟล์และเป้าหมายของคุณโดยเฉพาะ</p>
+                        </div>
+                      </div>
+
+                      {/* Summary — always visible */}
+                      {recommendedPlan.ai_explanation.summary && (
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 mb-5">
+                          <p className="text-sm font-semibold text-indigo-700 mb-2">สรุป</p>
+                          <p className="text-slate-800 leading-relaxed">{recommendedPlan.ai_explanation.summary}</p>
+                        </div>
+                      )}
+
+                      {/* Explanation Sections — accordion */}
+                      <div className="space-y-3">
+                        {(
+                          [
+                            { key: 'age_analysis',    icon: '🎂', label: 'วิเคราะห์อายุ — ทำไมสัดส่วนนี้ถึงเหมาะ' },
+                            { key: 'goal_analysis',   icon: '🎯', label: 'วิเคราะห์เป้าหมาย' },
+                            { key: 'risk_analysis',   icon: '📊', label: 'วิเคราะห์ระดับความเสี่ยง' },
+                            { key: 'budget_analysis', icon: '💰', label: 'วิเคราะห์งบประมาณและผลคืนภาษี' },
+                            { key: 'fund_reasons',    icon: '🏦', label: 'ทำไมกองทุนที่แนะนำถึงเหมาะ' },
+                            { key: 'warnings',        icon: '⚠️', label: 'ข้อควรระวังก่อนตัดสินใจ' },
+                            { key: 'future_advice',   icon: '🚀', label: 'แนะนำการปรับแผนในอนาคต' },
+                          ] as { key: keyof AIExplanation; icon: string; label: string }[]
+                        ).map(({ key, icon, label }) => {
+                          const text = recommendedPlan.ai_explanation![key];
+                          if (!text) return null;
+                          const isOpen = expandedExplanation === key;
+                          return (
+                            <div key={key} className="border border-slate-200 rounded-xl overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedExplanation(isOpen ? null : key)}
+                                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+                              >
+                                <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                  <span>{icon}</span>
+                                  {label}
+                                </span>
+                                <span className="text-slate-400 text-lg">{isOpen ? '▲' : '▼'}</span>
+                              </button>
+                              {isOpen && (
+                                <div className="px-4 py-4 bg-white">
+                                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{text}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ===== Disclaimer ===== */}
+              <div className="mt-6 border border-amber-300 bg-amber-50 rounded-xl p-5">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0">⚠️</span>
+                  <div>
+                    <p className="font-semibold text-amber-800 mb-1">
+                      คำเตือนสำคัญ — โปรดอ่านก่อนตัดสินใจลงทุน
+                    </p>
+                    <p className="text-sm text-amber-700 leading-relaxed">
+                      การแนะนำกองทุนข้างต้นเป็น <strong>การแนะนำเบื้องต้นเท่านั้น</strong>{' '}
+                      จัดทำขึ้นเพื่อประกอบการพิจารณา ไม่ใช่คำแนะนำการลงทุนอย่างเป็นทางการ
+                      กรุณา<strong>อ่านหนังสือชี้ชวน (Fund Factsheet)</strong> ของแต่ละกองทุนและศึกษาข้อมูลให้ครบถ้วนก่อนตัดสินใจลงทุนจริง
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-amber-700 list-disc list-inside">
+                      <li>ผลการดำเนินงานในอดีตไม่ได้รับประกันผลตอบแทนในอนาคต</li>
+                      <li>การลงทุนในกองทุนรวมมีความเสี่ยง มูลค่าหน่วยลงทุนอาจเพิ่มขึ้นหรือลดลงได้</li>
+                      <li>กองทุน RMF / ThaiESG / TESGX มีเงื่อนไขการถอนและระยะเวลาล็อคที่แตกต่างกัน</li>
+                      <li>ข้อมูลภาษีเป็นการประมาณการเบื้องต้น ควรปรึกษาผู้เชี่ยวชาญด้านภาษีเพิ่มเติม</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </>
           )}

@@ -185,7 +185,7 @@ class AITaxAdvisor:
 
 กฎภาษีไทย ปี 2568:
 - RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท (ถือจนอายุ 55 ปี)
-- ThaiESG: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท (ถือ 8 ปี, ถึงปี 2575)
+- ThaiESG/TESGX: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท รวมกัน (ล็อค 5 ปีนับจากวันซื้อ ปี 2569)
 
 หมายเหตุสำคัญ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ SSF
 
@@ -252,6 +252,8 @@ class AITaxAdvisor:
                 base_url=self.ollama_base_url,
                 temperature=0.3,
                 format="json",
+                num_predict=6000,   # เพิ่มขีดจำกัด output (default=128 → JSON ขาดกลางทาง)
+                num_ctx=8192,       # context window ที่ใช้ (input+output รวมกัน)
             )
 
         else:
@@ -628,8 +630,14 @@ class AITaxAdvisor:
 
         # Calculate basic metrics
         monthly_income = profile.annual_income / 12
-        savings_rate = (monthly_income - profile.monthly_expenses) / monthly_income * 100
-        emergency_months = profile.emergency_fund / profile.monthly_expenses
+        savings_rate = (
+            (monthly_income - profile.monthly_expenses) / monthly_income * 100
+            if monthly_income > 0 else 0
+        )
+        emergency_months = (
+            profile.emergency_fund / profile.monthly_expenses
+            if profile.monthly_expenses > 0 else 0
+        )
 
         # Tax bracket
         from .tax_fund_service import TaxFundService
@@ -649,8 +657,11 @@ class AITaxAdvisor:
         }
         total_remaining = sum(remaining.values())
 
-        # Calculate potential savings
-        potential_savings = total_remaining * tax_info['marginal_rate']
+        # Calculate potential savings (cap at actual current tax to avoid overestimate)
+        potential_savings = min(
+            total_remaining * tax_info['marginal_rate'],
+            tax_info['total_tax'],
+        )
 
         return {
             'profile_summary': {
@@ -803,6 +814,69 @@ class AITaxAdvisor:
   "overall_recommendation": "สรุปว่าแผนไหนเหมาะที่สุดและทำไม"
 }"""
 
+    SYSTEM_PROMPT_RECOMMENDATION = """คุณคือที่ปรึกษาการเงินส่วนตัวระดับสูง (Senior Financial Advisor) ที่เชี่ยวชาญด้านภาษีเงินได้บุคคลธรรมดาของไทยและกองทุนรวมลดหย่อนภาษี
+
+กฎเหล็ก:
+1. ห้ามแก้ไขหรือคิดตัวเลขใหม่ — ใช้เฉพาะตัวเลขจากข้อมูลที่ได้รับ
+2. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอื่น
+3. ตอบเป็น JSON ที่ valid เท่านั้น ห้ามมีข้อความนอก JSON เด็ดขาด
+4. ทุก field ต้องอ้างอิงตัวเลขจริงจากโปรไฟล์ (อายุ รายได้ จำนวนบาท ชื่อกองทุน)
+5. เขียนเหมือนคุยกับลูกค้าต่อหน้า ภาษาเป็นกันเอง อบอุ่น ไม่ formal
+
+สิ่งที่ต้องครอบคลุมในแต่ละ field (เขียนให้ครบ อย่างน้อย 8 ประโยคต่อ field):
+
+age_analysis ต้องครอบคลุม:
+- อายุส่งผลต่อระยะเวลาล็อค RMF กี่ปีก่อนถึงอายุ 55
+- ถ้าถอน RMF ก่อนกำหนดจะเสียสิทธิ์อย่างไร
+- ทำไมสัดส่วน RMF ที่แนะนำเหมาะกับอายุนี้โดยเฉพาะ
+- ThaiESG/TESGX ล็อค 5 ปี คือถอนได้ปีไหน (ระบุปี พ.ศ.)
+- TESGX เหมาะกับอายุนี้ไหมและทำไม
+
+goal_analysis ต้องครอบคลุม:
+- เป้าหมายที่เลือกนำไปสู่สัดส่วน RMF/ThaiESG นี้อย่างไร
+- อธิบาย trade-off ของเป้าหมายนี้ (ล็อคนานแต่ประหยัดภาษีเยอะ vs ยืดหยุ่นกว่า)
+- ระยะเวลาล็อคของแต่ละกองทุนสอดคล้องกับ timeline ของผู้ใช้อย่างไร
+- ระบุปีที่คาดว่าจะถอน RMF และถอน ThaiESG ได้จริง
+
+risk_analysis ต้องครอบคลุม:
+- ระดับความเสี่ยงที่เลือกหมายความว่าอะไรในทางปฏิบัติ
+- ส่งผลให้สัดส่วน ThaiESG vs TESGX เป็นอย่างไรและทำไม
+- TESGX ต่างจาก ThaiESG ทั่วไปอย่างไร ความเสี่ยงและโอกาสต่างกันอย่างไร
+- กองทุนที่แนะนำมี risk spectrum สอดคล้องกับโปรไฟล์ความเสี่ยงไหม
+
+budget_analysis ต้องครอบคลุม:
+- งบต่อเดือน/ปี เทียบกับโควตาสิทธิ์สูงสุด ใช้ไปกี่เปอร์เซ็นต์
+- ภาษีที่ประหยัดได้คิดเป็นกี่เปอร์เซ็นต์ของเงินลงทุน (ผลตอบแทนทันที)
+- เปรียบเทียบให้เห็นภาพ: ลงทุน X บาท ได้ภาษีคืน Y บาท เหมือนซื้อในราคาลด
+- ถ้าลงทุน DCA รายเดือนควรเดือนละเท่าไหร่
+- ประหยัดภาษีสะสม 3 ปีได้เท่าไหร่
+
+fund_reasons ต้องครอบคลุม:
+- กองทุน RMF แต่ละกองโดดเด่นเรื่องอะไร (ผลตอบแทน Sharpe นโยบาย)
+- กองทุน ThaiESG แต่ละกองโดดเด่นอย่างไร ลงทุนในอะไรหลักๆ
+- ถ้ามี TESGX อธิบายว่าต่างจาก ThaiESG อย่างไรและทำไมถึงแนะนำ
+- แนะนำวิธีกระจายเงินในแต่ละประเภทถ้าอยากซื้อหลายกอง
+
+warnings ต้องครอบคลุม:
+- เงื่อนไขการถอน RMF และผลที่ตามมาถ้าถอนก่อนกำหนด
+- เงื่อนไขการถอน ThaiESG/TESGX และผลที่ตามมา
+- ความเสี่ยงตลาด กองทุนมูลค่าอาจขึ้นลงได้ในระยะสั้น
+- ถ้ามีเหตุฉุกเฉินและเงินล็อคอยู่ควรทำอย่างไร
+- ต้องซื้อก่อนสิ้นปีภาษีเพื่อใช้สิทธิ์ลดหย่อนปีนั้น
+
+future_advice ต้องครอบคลุม:
+- ถ้ารายได้เพิ่มขึ้นตามที่คาดควรเพิ่มวงเงินลงทุนอย่างไร ระบุตัวเลข
+- เมื่อไหร่ควร review แผนนี้ใหม่ (milestone อายุ หรือระดับรายได้)
+- กองทุนหรือสินทรัพย์อื่นที่ควรเพิ่มเติมในอนาคต
+- แนะนำ DCA strategy: ซื้อรายเดือน รายไตรมาส หรือ lump sum ช่วงปลายปี
+
+summary ต้องครอบคลุม:
+- สรุปภาพรวม 4-5 ประโยค ระบุตัวเลขสำคัญ (เงินลงทุน ภาษีที่ประหยัด ปีที่ถอนได้)
+- ให้กำลังใจและทำให้ผู้ใช้มั่นใจในการตัดสินใจ
+
+รูปแบบ JSON ที่ต้องตอบ:
+{"age_analysis": "...", "goal_analysis": "...", "risk_analysis": "...", "budget_analysis": "...", "fund_reasons": "...", "warnings": "...", "future_advice": "...", "summary": "..."}"""
+
     async def generate_explanation_only(
         self,
         profile: UserProfile,
@@ -893,6 +967,161 @@ class AITaxAdvisor:
                 ],
                 "overall_recommendation": ""
             }
+
+
+    async def generate_recommendation_explanation(
+        self,
+        profile: "UserProfile",
+        allocation: Dict,
+        tax_savings: Dict,
+        year_breakdown: Dict,
+        recommended_funds: List[Dict],
+        income_growth_rate: float = 0,
+        monthly_budget: float = 0,
+        rag_context: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Generate detailed Thai-language explanation for the single recommended plan.
+        LLM explains WHY this specific allocation fits this specific user.
+
+        Args:
+            profile: User's financial profile
+            allocation: Result from _calculate_recommended_allocation() — contains
+                        rmf_amount, tesg_amount, tesgx_amount, ratios, decision_factors, etc.
+            tax_savings: Result from calculate_tax_savings() — tax_saved, marginal_rate, etc.
+            year_breakdown: Result from _calculate_3year_breakdown() — cumulative_tax_saved_3y, etc.
+            recommended_funds: Pre-filtered funds from DB (up to 9 funds)
+            income_growth_rate: Expected annual income growth in %
+            monthly_budget: Monthly investment budget in THB
+            rag_context: Tax law context from RAG (Qdrant)
+
+        Returns:
+            Dict with keys: age_analysis, goal_analysis, risk_analysis,
+                           budget_analysis, fund_reasons, warnings, future_advice, summary
+        """
+        logger.info("Generating detailed recommendation explanation...")
+
+        rmf_amount = allocation.get("rmf_amount", 0)
+        tesg_amount = allocation.get("tesg_amount", 0)
+        tesgx_amount = allocation.get("tesgx_amount", 0)
+        total_amount = allocation.get("total_amount", 0)
+        rmf_pct = allocation.get("rmf_pct", 0)
+        tesg_pct = allocation.get("tesg_pct", 0)
+        tesgx_pct = allocation.get("tesgx_pct", 0)
+        years_to_55 = allocation.get("years_to_55", 0)
+        money_goal_label = allocation.get("money_goal_label", "")
+        decision_factors = allocation.get("decision_factors", {})
+
+        tax_saved = tax_savings.get("tax_saved", 0)
+        marginal_rate = tax_savings.get("marginal_rate", 0)
+        cumulative_3y = year_breakdown.get("cumulative_tax_saved_3y", 0)
+
+        annual_budget = monthly_budget * 12 if monthly_budget > 0 else total_amount
+
+        # Build fund summary
+        fund_summary = ""
+        if recommended_funds:
+            rmf_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "RMF"]
+            tesg_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "TESG"]
+            tesgx_funds = [f for f in recommended_funds if f.get("fundType", "").upper() == "TESGX"]
+
+            def fmt_funds(funds: list, label: str) -> str:
+                if not funds:
+                    return ""
+                lines = [f"\n{label}:"]
+                for f in funds[:3]:
+                    perf = f.get("performance", {})
+                    stats = f.get("statistics", {})
+                    r1y = perf.get("return1y")
+                    sharpe = stats.get("sharpeRatio")
+                    lines.append(
+                        f"  - {f.get('abbr', 'N/A')} ({f.get('nameTh', 'N/A')}): "
+                        f"ผลตอบแทน 1 ปี {f'{r1y:.1f}%' if r1y is not None else 'N/A'}, "
+                        f"Sharpe {f'{sharpe:.2f}' if sharpe is not None else 'N/A'}"
+                    )
+                return "\n".join(lines)
+
+            fund_summary = (
+                fmt_funds(rmf_funds, "กองทุน RMF ที่แนะนำ")
+                + fmt_funds(tesg_funds, "กองทุน ThaiESG ที่แนะนำ")
+                + fmt_funds(tesgx_funds, "กองทุน TESGX ที่แนะนำ")
+            )
+
+        rag_section = f"\n=== ข้อมูลกฎหมายภาษี ===\n{rag_context[:2000]}\n" if rag_context else ""
+
+        income_growth_text = (
+            f"เพิ่มขึ้น {income_growth_rate}% ต่อปี (รายได้ปีหน้าประมาณ ฿{profile.annual_income * (1 + income_growth_rate / 100):,.0f})"
+            if income_growth_rate > 0
+            else "ไม่มีการเปลี่ยนแปลง"
+        )
+
+        prompt = f"""=== โปรไฟล์ผู้ใช้ ===
+- อายุ: {profile.age} ปี (เหลือ {years_to_55} ปีก่อนถึงอายุ 55 ปี — เงื่อนไขถอน RMF)
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ค่าใช้จ่ายต่อเดือน: ฿{profile.monthly_expenses:,.0f}
+- งบลงทุนต่อเดือน: ฿{monthly_budget:,.0f} (รวม ฿{annual_budget:,.0f}/ปี)
+- ระดับความเสี่ยงที่รับได้: {profile.risk_tolerance}
+- อาชีพ: {profile.occupation}
+- สถานะครอบครัว: {profile.marital_status}
+- ลงทุน RMF อยู่แล้ว: ฿{profile.existing_rmf:,.0f}
+- ลงทุน ThaiESG อยู่แล้ว: ฿{profile.existing_thai_esg:,.0f}
+
+=== เป้าหมายการลงทุน ===
+- เป้าหมาย: {money_goal_label}
+  (retirement=เกษียณระยะยาว, mid_term=ระยะกลาง 5-10 ปี, short_term=ต้องใช้ภายใน 5 ปี)
+- แนวโน้มรายได้: {income_growth_text}
+
+=== เหตุผลที่ระบบเลือกสัดส่วนนี้ ===
+- ปัจจัยอายุ: {decision_factors.get('age_factor', '')}
+- ปัจจัยเป้าหมาย: {decision_factors.get('goal_factor', '')}
+- ปัจจัยความเสี่ยง: {decision_factors.get('risk_factor', '')}
+- ปัจจัยงบประมาณ: {decision_factors.get('budget_factor', '')}
+
+=== แผนที่แนะนำ (ตัวเลขคำนวณแล้ว ห้ามแก้ไข) ===
+- สัดส่วน: RMF {rmf_pct}% : ThaiESG {tesg_pct}% : TESGX {tesgx_pct}%
+- ลงทุน RMF: ฿{rmf_amount:,.0f}/ปี (เดือนละ ฿{rmf_amount // 12:,.0f})
+- ลงทุน ThaiESG: ฿{tesg_amount:,.0f}/ปี (เดือนละ ฿{tesg_amount // 12:,.0f})
+- ลงทุน TESGX: ฿{tesgx_amount:,.0f}/ปี (เดือนละ ฿{tesgx_amount // 12:,.0f})
+- รวมลงทุนทั้งหมด: ฿{total_amount:,.0f}/ปี
+- ประหยัดภาษีปีนี้: ฿{tax_saved:,.0f}
+- อัตราภาษีสูงสุด (Marginal Rate): {marginal_rate}%
+- ประหยัดภาษีสะสม 3 ปี: ฿{cumulative_3y:,.0f}
+{fund_summary}
+{rag_section}
+อธิบายแผนนี้ให้ผู้ใช้เข้าใจว่าทำไมจึงเหมาะกับเขา/เธอโดยเฉพาะ ตาม JSON format ที่กำหนด"""
+
+        empty_result = {
+            "age_analysis": "",
+            "goal_analysis": "",
+            "risk_analysis": "",
+            "budget_analysis": "",
+            "fund_reasons": "",
+            "warnings": "",
+            "future_advice": "",
+            "summary": "",
+        }
+
+        try:
+            response = await self._call_llm(
+                self.SYSTEM_PROMPT_RECOMMENDATION,
+                prompt,
+                temperature=0.6,
+            )
+            try:
+                data = json.loads(response)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"JSON parse failed: {json_err}")
+                logger.error(f"Raw LLM response (first 500 chars): {response[:500]}")
+                return empty_result
+            # Ensure all keys present
+            for key in empty_result:
+                if key not in data:
+                    data[key] = ""
+            return data
+
+        except Exception as e:
+            logger.error(f"Recommendation explanation failed: {e}")
+            return empty_result
 
 
 # ============================================================
