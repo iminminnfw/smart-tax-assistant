@@ -1459,10 +1459,14 @@ def _calculate_3year_breakdown(
     existing_thai_esg: float,
     family_deductions: float,
     income_growth_rate: float,
-    strategy: str,
     tax_fund_svc,
+    age: int,
+    goal: str,
+    risk_tolerance: str,
 ) -> dict:
-    """คำนวณ tax savings รายปี สำหรับ 3 ปีข้างหน้า (high-credibility, no long-term speculation)"""
+    """คำนวณ tax savings รายปี สำหรับ 3 ปีข้างหน้า (high-credibility, no long-term speculation)
+    ใช้ calculate_allocation() เพื่อให้สอดคล้องกับ recommended_plan หลัก (เดิมใช้ tax_max ทำให้ตัวเลขขัดกัน)
+    """
     breakdown = []
     cumulative_tax_saved = 0.0
     cumulative_investment = 0.0
@@ -1478,17 +1482,20 @@ def _calculate_3year_breakdown(
         yr_existing_rmf = existing_rmf if yr == 1 else 0
         yr_existing_thai_esg = existing_thai_esg if yr == 1 else 0
 
-        alloc = tax_fund_svc.calculate_optimal_allocation(
-            annual_income=yr_income,
-            available_budget=yr_budget,
+        # ใช้ calculate_allocation() ตัวเดียวกับ recommended_plan — สม่ำเสมอ
+        alloc = calculate_allocation(
+            age=age,
+            income=yr_income,
+            goal=goal,
+            monthly_budget=yr_budget / 12,  # calculate_allocation รับค่า monthly แล้วคูณ 12 เอง
+            risk_tolerance=risk_tolerance,
+            income_growth_rate=0.0,  # growth ถูก apply ที่ yr_income/yr_budget แล้ว ไม่ต้องซ้ำ
             existing_rmf=yr_existing_rmf,
             existing_thai_esg=yr_existing_thai_esg,
-            priority=strategy,
-            family_deductions=family_deductions,
         )
-        rmf_amt = alloc['recommended_allocation']['rmf']
-        esg_amt = alloc['recommended_allocation']['thai_esg']
-        total_inv = rmf_amt + esg_amt
+        rmf_amt = alloc['rmf_amount']
+        esg_amt = alloc['tesg_amount'] + alloc['tesgx_amount']  # ThaiESG + TESGX รวมกัน
+        total_inv = alloc['total_amount']
 
         savings = tax_fund_svc.calculate_tax_savings(
             annual_income=yr_income,
@@ -1618,7 +1625,7 @@ async def optimize(request: OptimizeRequest):
             family_deductions  = family_deductions,
         )
 
-        # 3-year breakdown
+        # 3-year breakdown — ใช้ logic เดียวกับ recommended_plan (goal + risk aware)
         three_year = _calculate_3year_breakdown(
             annual_income      = request.profile.annual_income,
             available_budget   = annual_budget,
@@ -1626,8 +1633,10 @@ async def optimize(request: OptimizeRequest):
             existing_thai_esg  = request.profile.existing_thai_esg,
             family_deductions  = family_deductions,
             income_growth_rate = income_growth_rate,
-            strategy           = "tax_max",
             tax_fund_svc       = tax_fund_service,
+            age                = request.profile.age,
+            goal               = request.profile.money_goal or "mid_term",
+            risk_tolerance     = request.profile.risk_tolerance,
         )
 
         # ============================================================
