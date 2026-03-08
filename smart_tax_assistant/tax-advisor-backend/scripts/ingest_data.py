@@ -122,22 +122,43 @@ class DataIngestor:
     
     def ingest_to_qdrant(self, chunks: list[Document]):
         """
-        ยัดข้อมูลเข้า Qdrant
+        ยัดข้อมูลเข้า Qdrant ทีละ chunk พร้อม progress
         """
-        print(f"\nIngesting {len(chunks)} chunks to Qdrant...")
-        
-        try:
-            QdrantVectorStore.from_documents(
-                chunks,
-                self.embeddings,
-                url=settings.qdrant_url,
-                collection_name=settings.qdrant_collection_name,
-            )
-            print(f"[OK] Successfully ingested all chunks!")
-            
-        except Exception as e:
-            print(f"Error ingesting data: {e}")
-            raise
+        import time
+        from qdrant_client.models import PointStruct
+        import uuid
+
+        total = len(chunks)
+        print(f"\nIngesting {total} chunks to Qdrant (one by one with progress)...")
+
+        points = []
+        for i, chunk in enumerate(chunks, 1):
+            start = time.time()
+            try:
+                # สร้าง embedding ทีละ chunk
+                vector = self.embeddings.embed_query(chunk.page_content)
+                elapsed = time.time() - start
+                print(f"  [{i:2d}/{total}] embedding OK ({elapsed:.1f}s) | {chunk.page_content[:60].strip()!r}")
+
+                points.append(PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=vector,
+                    payload={
+                        "page_content": chunk.page_content,
+                        **chunk.metadata,
+                    }
+                ))
+            except Exception as e:
+                print(f"  [{i:2d}/{total}] ERROR: {e}")
+                raise
+
+        # อัปโหลดทุก point เข้า Qdrant ในครั้งเดียว
+        print(f"\nUploading {len(points)} points to Qdrant...")
+        self.qdrant_client.upsert(
+            collection_name=settings.qdrant_collection_name,
+            points=points,
+        )
+        print(f"[OK] Successfully ingested all {total} chunks!")
     
     def verify_ingestion(self):
         """
