@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter , useSearchParams} from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AppNavigation } from '@/components/AppNavigation';
@@ -67,7 +67,7 @@ const predefinedColors = [
   '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280'
 ];
 
-export default function DocumentPage() {
+function DocumentPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -1415,5 +1415,17 @@ export default function DocumentPage() {
       )}
       </div>
     </div>
+  );
+}
+
+export default function DocumentPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+      </div>
+    }>
+      <DocumentPageContent />
+    </Suspense>
   );
 }
