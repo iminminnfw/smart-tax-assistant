@@ -1,0 +1,642 @@
+
+================================================================================
+[01:25:43] REQUEST → backend payload
+================================================================================
+{
+  "profile": {
+    "age": 22,
+    "annual_income": 1200000,
+    "monthly_expenses": 0,
+    "existing_savings": 0,
+    "emergency_fund": 0,
+    "risk_tolerance": "moderate",
+    "occupation": "employee",
+    "marital_status": "single",
+    "dependents": 0,
+    "num_children": 0,
+    "num_parents": 0,
+    "existing_rmf": 0,
+    "existing_thai_esg": 0,
+    "existing_insurance": 0,
+    "life_insurance_amount": 0,
+    "health_insurance_amount": 0,
+    "monthly_budget": 40000,
+    "income_growth_rate": 3,
+    "money_goal": "mid_term"
+  },
+  "goal": "เป้าหมาย: ลดหย่อน + ถอนได้ในระยะกลาง (5-10 ปี) | รายได้คาดว่าจะเพิ่มขึ้น 3% ต่อปี | งบลงทุนต่อเดือน 40,000 บาท | ระดับความเสี่ยง: moderate | ต้องการวางแผนภาษีและการลงทุนให้เหมาะสมกับโปรไฟล์",
+  "risk_tolerance": "moderate",
+  "fund_types": [
+    "RMF",
+    "TESG",
+    "TESGX"
+  ],
+  "top_n_funds": 9,
+  "include_ai_explanation": true,
+  "pre_filtered_funds": [
+    {
+      "fundId": "M0088_2545",
+      "abbr": "UOBSVRMF",
+      "nameTh": "กองทุนเปิด ยูโอบี สมาร์ท แวลู เพื่อการเลี้ยงชีพ",
+      "nameEn": "UOB Smart Value RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน ยูโอบี (ประเทศไทย) จำกัด",
+      "amcNameEn": "UOB ASSET MANAGEMENT (THAILAND) COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": 1.83,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 11.31,
+        "maxDrawdown": -0.24,
+        "alpha": -0.37,
+        "beta": null
+      },
+      "score": 59.28
+    },
+    {
+      "fundId": "M0063_2544",
+      "abbr": "K-SFRMF",
+      "nameTh": "กองทุนเปิดเค ตราสารหนี้ระยะสั้นเพื่อการเลี้ยงชีพ",
+      "nameEn": "K Short Term Fixed Income RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": 0.44,
+        "return1y": 2.32,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 2.26,
+        "maxDrawdown": -0.34,
+        "alpha": 0.13,
+        "beta": 0.23
+      },
+      "score": 24.63
+    },
+    {
+      "fundId": "M0065_2544",
+      "abbr": "K-FIRMF",
+      "nameTh": "กองทุนเปิดเค ตราสารหนี้เพื่อการเลี้ยงชีพ",
+      "nameEn": "K Fixed Income RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": 0.64,
+        "return1y": 4.5,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 2.18,
+        "maxDrawdown": -2.51,
+        "alpha": 0.76,
+        "beta": 1
+      },
+      "score": 26.11
+    },
+    {
+      "fundId": "M0095_2567",
+      "abbr": "K-ESGSI",
+      "nameTh": "กองทุนเปิดเค ตราสารภาครัฐ ESG",
+      "nameEn": "K ESG Sovereign Instruments Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 3,
+      "riskLabel": "ต่ำ",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 1.44,
+        "maxDrawdown": -7.01,
+        "alpha": 0.39,
+        "beta": 1.24
+      },
+      "score": 20.88
+    },
+    {
+      "fundId": "M0092_2567",
+      "abbr": "B-SI-THAIESG",
+      "nameTh": "กองทุนรวมบัวหลวงตราสารภาครัฐไทยเพื่อความยั่งยืน",
+      "nameEn": "Bualuang Sovereign Instruments Thailand ESG Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุนรวม  บัวหลวง จำกัด",
+      "amcNameEn": "BBL ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 3,
+      "riskLabel": "ต่ำ",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": -6.35,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 14.05
+    },
+    {
+      "fundId": "M0776_2567",
+      "abbr": "K-BL30",
+      "nameTh": "กองทุนเปิดเค บาลานซ์ 30 ESG",
+      "nameEn": "K ESG Balanced 30 Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ผสม",
+      "riskSpectrum": 5,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0429_2568",
+      "abbr": "K-HDThaiESGX",
+      "nameTh": "กองทุนเปิดเค หุ้นปันผล ไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "K High Dividend Stock Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ตราสารทุน",
+      "riskSpectrum": 6,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0455_2568",
+      "abbr": "K-70ThaiESGX",
+      "nameTh": "กองทุนเปิดเค 70:30 ไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "K 70:30 Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ผสม",
+      "riskSpectrum": 5,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0448_2568",
+      "abbr": "MEQUITY-Thai ESGX",
+      "nameTh": "กองทุนเปิดเอ็มเอฟซีตราสารทุนไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "MFC Equity Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน เอ็มเอฟซี จำกัด (มหาชน)",
+      "amcNameEn": "MFC ASSET MANAGEMENT PUBLIC COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ตราสารทุน",
+      "riskSpectrum": 6,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    }
+  ]
+}
+
+================================================================================
+[01:43:06] RESPONSE ← backend raw
+================================================================================
+{
+  "status": 200,
+  "ai_powered": true,
+  "recommended_plan_keys": [
+    "rmf_amount",
+    "tesg_amount",
+    "tesgx_amount",
+    "total_amount",
+    "rmf_pct",
+    "tesg_pct",
+    "tesgx_pct",
+    "cash_remaining",
+    "monthly_dca",
+    "years_to_55",
+    "rmf_eligible",
+    "money_goal",
+    "money_goal_label",
+    "remaining_quota",
+    "decision_factors",
+    "tax_before",
+    "tax_after",
+    "tax_saved",
+    "effective_return_percent",
+    "monthly_investment",
+    "year_breakdown",
+    "cumulative_tax_saved_3y",
+    "cumulative_investment_3y",
+    "recommended_funds",
+    "ai_explanation",
+    "judge_result"
+  ],
+  "tax_saved": 75000,
+  "judge_result": {
+    "passed": true,
+    "score": 6,
+    "number_score": 3,
+    "llm_score": 3,
+    "missing_numbers": [
+      "ThaiESG/ปี 240,000 บาท"
+    ],
+    "empty_fields": [],
+    "issues": [
+      "ตัวเลขหาย: ThaiESG/ปี 240,000 บาท"
+    ]
+  }
+}
+
+================================================================================
+[01:43:06] RECOMMENDED_PLAN full
+================================================================================
+{
+  "rmf_amount": 96000,
+  "tesg_amount": 240000,
+  "tesgx_amount": 60000,
+  "total_amount": 396000,
+  "rmf_pct": 24.2,
+  "tesg_pct": 60.6,
+  "tesgx_pct": 15.2,
+  "cash_remaining": 84000,
+  "monthly_dca": 33000,
+  "years_to_55": 33,
+  "rmf_eligible": true,
+  "money_goal": "mid_term",
+  "money_goal_label": "ลดหย่อน + ถอนได้ระยะกลาง (5-10 ปี)",
+  "remaining_quota": {
+    "rmf": 264000,
+    "esg": 0
+  },
+  "decision_factors": {
+    "age_factor": "อายุ 22 ปี เป้าหมายระยะกลาง 5-10 ปี ยังมีเวลาพอสมควร เน้น ThaiESG เพื่อสภาพคล่อง RMF แค่ส่วนน้อยเพื่อลดหย่อนเพิ่ม",
+    "goal_factor": "ระยะกลาง 5-10 ปี ThaiESG ล็อค 5 ปีพอดี สภาพคล่องดีกว่า RMF",
+    "risk_factor": "ความเสี่ยงปานกลาง ผสม ThaiESG 80% กับ TESGX 20% ได้โอกาสเติบโตจาก TESGX บางส่วน แต่ยังมีความมั่นคงจาก ThaiESG เป็นหลัก",
+    "budget_factor": "งบลงทุน ฿40,000/เดือน = ฿480,000/ปี ตามที่ผู้ใช้กำหนด — งบ ฿480,000/ปี, ลงทุนจริง ฿396,000/ปี, เงินสดเหลือ ฿84,000 (เกินโควตาลดหย่อน)"
+  },
+  "tax_before": 122750,
+  "tax_after": 47750,
+  "tax_saved": 75000,
+  "effective_return_percent": 18.9,
+  "monthly_investment": 33000,
+  "year_breakdown": [
+    {
+      "year": 1,
+      "tax_year": 2568,
+      "income": 1200000,
+      "rmf_investment": 96000,
+      "thai_esg_investment": 300000,
+      "total_investment": 396000,
+      "tax_saved": 75000
+    },
+    {
+      "year": 2,
+      "tax_year": 2569,
+      "income": 1236000,
+      "rmf_investment": 98880,
+      "thai_esg_investment": 300000,
+      "total_investment": 398880,
+      "tax_saved": 79032
+    },
+    {
+      "year": 3,
+      "tax_year": 2570,
+      "income": 1273080,
+      "rmf_investment": 101846,
+      "thai_esg_investment": 300000,
+      "total_investment": 401846,
+      "tax_saved": 83185
+    }
+  ],
+  "cumulative_tax_saved_3y": 237217,
+  "cumulative_investment_3y": 1196726,
+  "recommended_funds": [
+    {
+      "fundId": "M0088_2545",
+      "abbr": "UOBSVRMF",
+      "nameTh": "กองทุนเปิด ยูโอบี สมาร์ท แวลู เพื่อการเลี้ยงชีพ",
+      "nameEn": "UOB Smart Value RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน ยูโอบี (ประเทศไทย) จำกัด",
+      "amcNameEn": "UOB ASSET MANAGEMENT (THAILAND) COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": 1.83,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 11.31,
+        "maxDrawdown": -0.24,
+        "alpha": -0.37,
+        "beta": null
+      },
+      "score": 59.28
+    },
+    {
+      "fundId": "M0063_2544",
+      "abbr": "K-SFRMF",
+      "nameTh": "กองทุนเปิดเค ตราสารหนี้ระยะสั้นเพื่อการเลี้ยงชีพ",
+      "nameEn": "K Short Term Fixed Income RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": 0.44,
+        "return1y": 2.32,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 2.26,
+        "maxDrawdown": -0.34,
+        "alpha": 0.13,
+        "beta": 0.23
+      },
+      "score": 24.63
+    },
+    {
+      "fundId": "M0065_2544",
+      "abbr": "K-FIRMF",
+      "nameTh": "กองทุนเปิดเค ตราสารหนี้เพื่อการเลี้ยงชีพ",
+      "nameEn": "K Fixed Income RMF",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "RMF",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 4,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": 0.64,
+        "return1y": 4.5,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 2.18,
+        "maxDrawdown": -2.51,
+        "alpha": 0.76,
+        "beta": 1
+      },
+      "score": 26.11
+    },
+    {
+      "fundId": "M0095_2567",
+      "abbr": "K-ESGSI",
+      "nameTh": "กองทุนเปิดเค ตราสารภาครัฐ ESG",
+      "nameEn": "K ESG Sovereign Instruments Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 3,
+      "riskLabel": "ต่ำ",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": 1.44,
+        "maxDrawdown": -7.01,
+        "alpha": 0.39,
+        "beta": 1.24
+      },
+      "score": 20.88
+    },
+    {
+      "fundId": "M0092_2567",
+      "abbr": "B-SI-THAIESG",
+      "nameTh": "กองทุนรวมบัวหลวงตราสารภาครัฐไทยเพื่อความยั่งยืน",
+      "nameEn": "Bualuang Sovereign Instruments Thailand ESG Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุนรวม  บัวหลวง จำกัด",
+      "amcNameEn": "BBL ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ตราสารหนี้",
+      "riskSpectrum": 3,
+      "riskLabel": "ต่ำ",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": -6.35,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 14.05
+    },
+    {
+      "fundId": "M0776_2567",
+      "abbr": "K-BL30",
+      "nameTh": "กองทุนเปิดเค บาลานซ์ 30 ESG",
+      "nameEn": "K ESG Balanced 30 Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESG",
+      "policyDesc": "ผสม",
+      "riskSpectrum": 5,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0429_2568",
+      "abbr": "K-HDThaiESGX",
+      "nameTh": "กองทุนเปิดเค หุ้นปันผล ไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "K High Dividend Stock Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ตราสารทุน",
+      "riskSpectrum": 6,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0455_2568",
+      "abbr": "K-70ThaiESGX",
+      "nameTh": "กองทุนเปิดเค 70:30 ไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "K 70:30 Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน กสิกรไทย จำกัด",
+      "amcNameEn": "KASIKORN ASSET MANAGEMENT COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ผสม",
+      "riskSpectrum": 5,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    },
+    {
+      "fundId": "M0448_2568",
+      "abbr": "MEQUITY-Thai ESGX",
+      "nameTh": "กองทุนเปิดเอ็มเอฟซีตราสารทุนไทยเพื่อความยั่งยืนแบบพิเศษ",
+      "nameEn": "MFC Equity Thailand ESG Extra Fund",
+      "amcNameTh": "บริษัทหลักทรัพย์จัดการกองทุน เอ็มเอฟซี จำกัด (มหาชน)",
+      "amcNameEn": "MFC ASSET MANAGEMENT PUBLIC COMPANY LIMITED",
+      "fundType": "TESGX",
+      "policyDesc": "ตราสารทุน",
+      "riskSpectrum": 6,
+      "riskLabel": "ปานกลาง",
+      "performance": {
+        "return3m": null,
+        "return1y": null,
+        "return3y": null,
+        "return5y": null
+      },
+      "statistics": {
+        "sharpeRatio": null,
+        "maxDrawdown": null,
+        "alpha": null,
+        "beta": null
+      },
+      "score": 0
+    }
+  ],
+  "ai_explanation": {
+    "age_analysis": "คุณอายุ 22 ปี และเหลืออีก 33 ปี ก่อนจะถึงวัย 55 ปี (พ.ศ. 2602) ซึ่งเป็นช่วงเวลาที่เหมาะสมในการเริ่มต้นลงทุนในกองทุน RMF เพื่อการลดหย่อนภาษีและเตรียมความพร้อมสำหรับอนาคตระยะยาวของคุณ. การเลือกสัดส่วน RMF 24.2% ในแผนนี้ช่วยให้คุณสามารถใช้ประโยชน์จากสิทธิ์ในการลดหย่อนภาษีได้ในขณะที่ยังคงมีความยืดหยุ่นทางการเงิน. นอกจากนี้, ThaiESG และ TESGX ของคุณจะล็อคไว้จนถึงปี พ.ศ. 2574 (อายุ 39 ปี) ซึ่งสอดคล้องกับเป้าหมายระยะกลางของคุณ.",
+    "goal_analysis": "แผนนี้ออกแบบมาเพื่อลดหย่อนภาษีและให้ความยืดหยุ่นในการถอนเงินในช่วงระยะเวลา 5-10 ปี. โดย RMF จะสามารถถอนได้เร็วสุดในปี พ.ศ. 2602 และ ThaiESG/TESGX ในปี พ.ศ. 2574. การเลือกสัดส่วนนี้ช่วยให้คุณสามารถประหยัดภาษีได้มากขึ้นในระยะสั้นและยังคงมีความยืดหยุ่นในการใช้งานเงินที่ลงทุน.",
+    "risk_analysis": "ระดับความเสี่ยงปานกลางหมายความว่าคุณสามารถยอมรับการเปลี่ยนแปลงในมูลค่าของกองทุนได้บ้าง แต่ยังคงต้องการความมั่นคงทางการเงิน. สัดส่วน ThaiESG 60.6% และ TESGX 15.2% ในแผนนี้ช่วยให้คุณสามารถรับประโยชน์จากโอกาสเติบโตในตลาดหุ้น (TESGX) แต่ยังคงมีความมั่นคงทางการเงินผ่านกองทุน ThaiESG.",
+    "budget_analysis": "งบลงทุนรายปีของคุณคือ ฿480,000 และรายเดือนคือ ฿40,000. โดยคุณจะทำการ DCA (Dollar Cost Averaging) เดือนละ RMF ฿8,000 และ ThaiESG ฿20,000. นอกจากนี้, คุณยังสามารถประหยัดภาษีได้ปีละ ฿75,000 และสะสม 3 ปี ฿237,217.",
+    "fund_reasons": "การลงทุนในกองทุน RMF, ThaiESG และ TESGX ในสัดส่วนที่เหมาะสมช่วยให้คุณสามารถรับประโยชน์จากภาษีและยังคงมีความยืดหยุ่นในการใช้งานเงินที่ลงทุน. การเลือกกองทุนที่หลากหลายช่วยลดความเสี่ยงของพอร์ตการลงทุน.",
+    "warnings": "โปรดทราบว่าหากคุณถอนเงินจาก RMF ก่อนปี พ.ศ. 2602 คุณจะต้องคืนภาษีทั้งหมดและเสียเบี้ยปรับ 1.5% ต่อเดือน. นอกจากนี้, หากคุณถอนเงินจาก ThaiESG/TESGX ก่อนปี พ.ศ. 2574 คุณจะเสียสิทธิ์ในการลดหย่อนภาษีและต้องคืนภาษีที่ได้รับ.",
+    "future_advice": "แนะนำให้คุณทำการ DCA เดือนละ RMF ฿8,000 และ ThaiESG ฿20,000 อย่างสม่ำเสมอ. นอกจากนี้, ควรตรวจสอบและปรับแผนลงทุนเมื่อมีการเปลี่ยนแปลงในรายได้หรืออายุครบ milestone สำคัญ.",
+    "summary": "สรุปภาพรวมของแผนนี้คือ: การลงทุนรายปี ฿396,000, ประหยัดภาษี ฿75,000/ปี, สามารถถอน RMF ได้ในปี พ.ศ. 2602 และ ThaiESG/TESGX ในปี พ.ศ. 2574. ขอให้มั่นใจในการตัดสินใจลงทุนและยินดีที่จะช่วยคุณตลอดทาง."
+  },
+  "judge_result": {
+    "passed": true,
+    "score": 6,
+    "number_score": 3,
+    "llm_score": 3,
+    "missing_numbers": [
+      "ThaiESG/ปี 240,000 บาท"
+    ],
+    "empty_fields": [],
+    "issues": [
+      "ตัวเลขหาย: ThaiESG/ปี 240,000 บาท"
+    ]
+  }
+}
+
+================================================================================
+[01:43:06] AI EXPLANATION (LLM output)
+================================================================================
+{
+  "age_analysis": "คุณอายุ 22 ปี และเหลืออีก 33 ปี ก่อนจะถึงวัย 55 ปี (พ.ศ. 2602) ซึ่งเป็นช่วงเวลาที่เหมาะสมในการเริ่มต้นลงทุนในกองทุน RMF เพื่อการลดหย่อนภาษีและเตรียมความพร้อมสำหรับอนาคตระยะยาวของคุณ. การเลือกสัดส่วน RMF 24.2% ในแผนนี้ช่วยให้คุณสามารถใช้ประโยชน์จากสิทธิ์ในการลดหย่อนภาษีได้ในขณะที่ยังคงมีความยืดหยุ่นทางการเงิน. นอกจากนี้, ThaiESG และ TESGX ของคุณจะล็อคไว้จนถึงปี พ.ศ. 2574 (อายุ 39 ปี) ซึ่งสอดคล้องกับเป้าหมายระยะกลางของคุณ.",
+  "goal_analysis": "แผนนี้ออกแบบมาเพื่อลดหย่อนภาษีและให้ความยืดหยุ่นในการถอนเงินในช่วงระยะเวลา 5-10 ปี. โดย RMF จะสามารถถอนได้เร็วสุดในปี พ.ศ. 2602 และ ThaiESG/TESGX ในปี พ.ศ. 2574. การเลือกสัดส่วนนี้ช่วยให้คุณสามารถประหยัดภาษีได้มากขึ้นในระยะสั้นและยังคงมีความยืดหยุ่นในการใช้งานเงินที่ลงทุน.",
+  "risk_analysis": "ระดับความเสี่ยงปานกลางหมายความว่าคุณสามารถยอมรับการเปลี่ยนแปลงในมูลค่าของกองทุนได้บ้าง แต่ยังคงต้องการความมั่นคงทางการเงิน. สัดส่วน ThaiESG 60.6% และ TESGX 15.2% ในแผนนี้ช่วยให้คุณสามารถรับประโยชน์จากโอกาสเติบโตในตลาดหุ้น (TESGX) แต่ยังคงมีความมั่นคงทางการเงินผ่านกองทุน ThaiESG.",
+  "budget_analysis": "งบลงทุนรายปีของคุณคือ ฿480,000 และรายเดือนคือ ฿40,000. โดยคุณจะทำการ DCA (Dollar Cost Averaging) เดือนละ RMF ฿8,000 และ ThaiESG ฿20,000. นอกจากนี้, คุณยังสามารถประหยัดภาษีได้ปีละ ฿75,000 และสะสม 3 ปี ฿237,217.",
+  "fund_reasons": "การลงทุนในกองทุน RMF, ThaiESG และ TESGX ในสัดส่วนที่เหมาะสมช่วยให้คุณสามารถรับประโยชน์จากภาษีและยังคงมีความยืดหยุ่นในการใช้งานเงินที่ลงทุน. การเลือกกองทุนที่หลากหลายช่วยลดความเสี่ยงของพอร์ตการลงทุน.",
+  "warnings": "โปรดทราบว่าหากคุณถอนเงินจาก RMF ก่อนปี พ.ศ. 2602 คุณจะต้องคืนภาษีทั้งหมดและเสียเบี้ยปรับ 1.5% ต่อเดือน. นอกจากนี้, หากคุณถอนเงินจาก ThaiESG/TESGX ก่อนปี พ.ศ. 2574 คุณจะเสียสิทธิ์ในการลดหย่อนภาษีและต้องคืนภาษีที่ได้รับ.",
+  "future_advice": "แนะนำให้คุณทำการ DCA เดือนละ RMF ฿8,000 และ ThaiESG ฿20,000 อย่างสม่ำเสมอ. นอกจากนี้, ควรตรวจสอบและปรับแผนลงทุนเมื่อมีการเปลี่ยนแปลงในรายได้หรืออายุครบ milestone สำคัญ.",
+  "summary": "สรุปภาพรวมของแผนนี้คือ: การลงทุนรายปี ฿396,000, ประหยัดภาษี ฿75,000/ปี, สามารถถอน RMF ได้ในปี พ.ศ. 2602 และ ThaiESG/TESGX ในปี พ.ศ. 2574. ขอให้มั่นใจในการตัดสินใจลงทุนและยินดีที่จะช่วยคุณตลอดทาง."
+}

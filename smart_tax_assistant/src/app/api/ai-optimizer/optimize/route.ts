@@ -5,8 +5,28 @@ export const maxDuration = 2400; // 40 minutes - Ollama local LLM is slow
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_TAX_API_URL || 'http://localhost:8000';
+// ─── Dev Logger ───────────────────────────────────────────────────────────────
+const LOG_DIR = path.join(process.cwd(), 'dev-logs');
+function devLog(label: string, data: any) {
+  if (process.env.NODE_ENV !== 'development') return;
+  try {
+    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
+    const date = new Date().toISOString().slice(0, 10);
+    const time = new Date().toISOString().slice(11, 19);
+    const logFile = path.join(LOG_DIR, `ai-optimizer-${date}.log`);
+    const line = `\n${'='.repeat(80)}\n[${time}] ${label}\n${'='.repeat(80)}\n${JSON.stringify(data, null, 2)}\n`;
+    fs.appendFileSync(logFile, line, 'utf-8');
+    console.log(`[DEV-LOG] ${label} → ${logFile}`);
+  } catch (e) {
+    console.warn('[DEV-LOG] เขียน log ไม่ได้:', e);
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
+const API_BASE_URL = process.env.TAX_API_URL || 'http://localhost:8000';
 
 /**
  * HTTP POST with long timeout using Node.js http module.
@@ -296,6 +316,8 @@ export async function POST(req: Request) {
       pre_filtered_funds: preFilteredFunds,
     };
 
+    devLog('REQUEST → backend payload', backendPayload);
+
     const backendResult = await httpPost(
       `${API_BASE_URL}/api/ai-optimizer/optimize`,
       JSON.stringify(backendPayload),
@@ -311,6 +333,27 @@ export async function POST(req: Request) {
     }
 
     const backendData = backendResult.data;
+
+    devLog('RESPONSE ← backend raw', {
+      status: backendResult.status,
+      ai_powered: backendData.ai_powered,
+      recommended_plan_keys: backendData.recommended_plan ? Object.keys(backendData.recommended_plan) : null,
+      allocation: backendData.recommended_plan?.allocation,
+      tax_saved: backendData.recommended_plan?.tax_saved,
+      judge_result: backendData.recommended_plan?.judge_result,
+    });
+
+    // log full recommended_plan เพื่อหา key ที่ถูก
+    devLog('RECOMMENDED_PLAN full', backendData.recommended_plan);
+
+    const explanationData =
+      backendData.recommended_plan?.explanation ||
+      backendData.recommended_plan?.ai_explanation ||
+      backendData.recommended_plan?.llm_explanation ||
+      null;
+    if (explanationData) {
+      devLog('AI EXPLANATION (LLM output)', explanationData);
+    }
 
     // ============================================================
     // Step 3: Combine and return response

@@ -104,6 +104,16 @@ function buildEmailHTML(deadlineTitle: string, daysLeft: number, userName: strin
          style="display:inline-block;background:${color};color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">
         ดูปฏิทินภาษี →
       </a>
+      <div style="margin-top:16px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;">
+        <p style="margin:0;color:#166534;font-size:13px;">
+          ✅ ยื่นภาษีเสร็จแล้ว?
+          <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/tax-calendar"
+             style="color:#166534;font-weight:bold;text-decoration:underline;">
+            กดที่นี่เพื่อติ๊ก "ยื่นแล้ว"
+          </a>
+          เพื่อหยุดรับการแจ้งเตือน deadline นี้
+        </p>
+      </div>
     </div>
     <div style="padding:16px 24px;border-top:1px solid #e5e7eb;">
       <p style="color:#9ca3af;font-size:12px;margin:0;">
@@ -157,6 +167,7 @@ export async function POST(req: NextRequest) {
       name: true,
       email: true,
       notifyEmail: true,
+      filedDeadlines: true,
     },
   });
 
@@ -169,6 +180,9 @@ export async function POST(req: NextRequest) {
 
     for (const user of users) {
       const userName = user.name || 'คุณ';
+
+      // ข้าม user ที่ติ๊กว่ายื่น deadline นี้แล้ว
+      if (user.filedDeadlines.includes(deadline.id)) continue;
 
       // ส่ง Email
       if (user.notifyEmail && user.email) {

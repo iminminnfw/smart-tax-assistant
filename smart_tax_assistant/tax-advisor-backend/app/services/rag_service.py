@@ -99,18 +99,26 @@ class RAGService:
         
         try:
             print(f"🔍 Searching Qdrant for: '{query[:50]}...' (top {k})")
-            
-            docs = self.vector_store.similarity_search(query, k=k)
-            
+
+            try:
+                docs = self.vector_store.similarity_search(query, k=k)
+            except Exception:
+                # fallback: exact search (bypass HNSW index)
+                print("⚠️  HNSW search failed — retrying with exact search")
+                from qdrant_client.models import SearchParams
+                docs = self.vector_store.similarity_search(
+                    query, k=k,
+                    search_params=SearchParams(exact=True)
+                )
+
             print(f"✅ Retrieved {len(docs)} documents from Qdrant")
-            
-            # แสดง snippet ของเอกสารที่ได้
-            for i, doc in enumerate(docs[:2]):  # แสดง 2 docs แรก
+
+            for i, doc in enumerate(docs[:2]):
                 content_preview = doc.page_content[:100].replace('\n', ' ')
                 print(f"   Doc {i+1}: {content_preview}...")
-            
+
             return docs
-            
+
         except Exception as e:
             print(f"❌ Qdrant retrieval error: {e}")
             traceback.print_exc()

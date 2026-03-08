@@ -1,21 +1,35 @@
+# Web framework
 fastapi==0.119.1
 uvicorn==0.38.0
 
+# LangChain
 langchain==1.0.2
+langchain-core==1.1.0
 langchain-openai==1.0.1
-langchain-ollama>=0.3.0
+langchain-ollama==1.0.1
 langchain-qdrant==1.1.0
-langgraph
+langchain-community==0.4.1
+langchain-text-splitters==1.0.0
+langgraph==1.0.4
 openai==2.6.0
-transformers==4.57.1
-torch==2.9.0
 
+# ML / NLP
+# torch ติดตั้งแยกด้วย CPU-only: pip install torch --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
+# transformers, bert-score, rouge-score ใช้แค่ evaluation (ไม่จำเป็นใน production)
+numpy==2.3.5
+nltk==3.9.2
+pythainlp==5.1.2
+
+# Vector DB
 qdrant-client==1.15.1
 
-pythainlp==5.1.2
-nltk==3.9.2
-bert-score==0.3.13
+# Cache
+redis==7.1.0
 
+# HTTP client (SEC API)
+curl_cffi==0.14.0
+
+# Config / Validation
 python-dotenv==1.1.1
 pydantic==2.12.3
 pydantic-settings==2.11.0

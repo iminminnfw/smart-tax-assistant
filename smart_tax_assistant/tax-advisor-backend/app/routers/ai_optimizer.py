@@ -1714,11 +1714,11 @@ async def optimize(request: OptimizeRequest):
 
         if request.include_ai_explanation and ai_advisor and user_profile:
             try:
+                # ── Step A: RAG ───────────────────────────────────────────────
+                print("\n[Optimizer] ⏳ Step 1/4 — RAG: ดึงข้อมูลกฎหมายภาษี...", flush=True)
                 rag_context = ""
                 if rag_service and rag_service.is_available():
                     try:
-                        # Keep query short — embedding tokenizers have token limits
-                        # RAG needs keyword concepts, not the full goal sentence
                         money_goal_val = request.profile.money_goal or "mid_term"
                         rag_query = f"ลดหย่อนภาษี RMF ThaiESG TESGX กฎหมาย 2568 เงื่อนไขถอน {money_goal_val}"
                         retrieved_docs = await rag_service.retrieve_relevant_documents(rag_query, k=3)
@@ -1727,9 +1727,15 @@ async def optimize(request: OptimizeRequest):
                                 doc.page_content for doc in retrieved_docs
                                 if hasattr(doc, "page_content")
                             ])
+                        print(f"[Optimizer] ✅ RAG: ดึงได้ {len(retrieved_docs)} docs ({len(rag_context)} chars)", flush=True)
                     except Exception as e:
                         logger.warning(f"RAG retrieval failed: {e}")
+                        print(f"[Optimizer] ⚠️  RAG failed — ดำเนินการต่อโดยไม่มี context", flush=True)
+                else:
+                    print("[Optimizer] ⚠️  RAG ไม่พร้อม — ข้าม", flush=True)
 
+                # ── Step B: Generate (qwen2.5:14b) ───────────────────────────
+                print(f"\n[Optimizer] ⏳ Step 2/4 — Generate: {ai_advisor.model} กำลังอธิบายแผน...", flush=True)
                 ai_explanation = await ai_advisor.generate_recommendation_explanation(
                     profile=user_profile,
                     allocation=allocation,
@@ -1740,13 +1746,58 @@ async def optimize(request: OptimizeRequest):
                     monthly_budget=monthly_budget_raw,
                     rag_context=rag_context,
                 )
+                fields_ok = sum(1 for v in ai_explanation.values() if isinstance(v, str) and v.strip())
+                print(f"[Optimizer] ✅ Generate: ได้คำอธิบาย {fields_ok}/8 fields", flush=True)
+
+                # ── Step C: Judge (llama3.1:8b) ───────────────────────────────
+                print(f"\n[Optimizer] ⏳ Step 3/4 — Judge: llama3.1:8b กำลังตรวจคำตอบ...", flush=True)
+                judge_advisor = AITaxAdvisor(
+                    provider="ollama",
+                    model="llama3.1:8b",
+                    ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+                )
+                judge_result  = await judge_advisor.judge_explanation(
+                    explanation=ai_explanation,
+                    allocation=allocation,
+                    tax_savings=savings,
+                )
+                print(
+                    f"[Optimizer] {'✅' if judge_result['passed'] else '❌'} "
+                    f"Judge score: {judge_result['score']}/9 "
+                    f"(num={judge_result.get('number_accuracy',0)} "
+                    f"complete={judge_result.get('completeness',0)} "
+                    f"thai={judge_result.get('thai_language',0)})",
+                    flush=True
+                )
+                if judge_result.get("issues"):
+                    for issue in judge_result["issues"]:
+                        print(f"[Optimizer]   ⚠️  {issue}", flush=True)
+
+                # ── Step D: Retry ถ้า judge ไม่ผ่าน ──────────────────────────
+                if not judge_result["passed"] and judge_result["score"] != -1:
+                    print(f"\n[Optimizer] ⏳ Step 4/4 — Retry: judge ไม่ผ่าน กำลัง generate ใหม่...", flush=True)
+                    ai_explanation = await ai_advisor.generate_recommendation_explanation(
+                        profile=user_profile,
+                        allocation=allocation,
+                        tax_savings=savings,
+                        year_breakdown=three_year,
+                        recommended_funds=recommended_funds_for_plan,
+                        income_growth_rate=income_growth_rate,
+                        monthly_budget=monthly_budget_raw,
+                        rag_context=rag_context,
+                    )
+                    print(f"[Optimizer] ✅ Retry: generate ใหม่เสร็จแล้ว", flush=True)
+                else:
+                    print(f"[Optimizer] ✅ Step 4/4 — ไม่ต้อง retry", flush=True)
 
                 recommended_plan["ai_explanation"] = ai_explanation
+                recommended_plan["judge_result"]   = judge_result
                 ai_powered = True
-                logger.info("AI recommendation explanation generated successfully")
+                print(f"\n[Optimizer] 🎉 Done! AI explanation พร้อมส่งให้ user\n", flush=True)
 
             except Exception as e:
                 logger.warning(f"AI explanation failed (returning without): {e}")
+                print(f"[Optimizer] ❌ AI explanation error: {e}", flush=True)
 
         # ============================================================
         # Build response

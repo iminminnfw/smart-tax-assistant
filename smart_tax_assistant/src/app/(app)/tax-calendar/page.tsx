@@ -91,6 +91,32 @@ export default function TaxCalendarPage() {
   });
   const [selectedDeadline, setSelectedDeadline] = useState<TaxDeadline | null>(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [filedDeadlines, setFiledDeadlines] = useState<string[]>([]);
+  const [filingLoading, setFilingLoading] = useState<string | null>(null);
+
+  // โหลด deadlines ที่ยื่นแล้ว
+  useEffect(() => {
+    fetch('/api/tax-filing/mark')
+      .then((r) => r.json())
+      .then((data) => setFiledDeadlines(data.filedDeadlines ?? []))
+      .catch(() => {});
+  }, []);
+
+  const toggleFiled = async (deadlineId: string) => {
+    const isFiled = filedDeadlines.includes(deadlineId);
+    setFilingLoading(deadlineId);
+    try {
+      const res = await fetch('/api/tax-filing/mark', {
+        method: isFiled ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deadlineId }),
+      });
+      const data = await res.json();
+      if (data.ok) setFiledDeadlines(data.filedDeadlines);
+    } finally {
+      setFilingLoading(null);
+    }
+  };
 
   // Find next deadline
   useEffect(() => {
@@ -371,12 +397,16 @@ export default function TaxCalendarPage() {
             <div className="space-y-4">
               {TAX_DEADLINES.sort((a, b) => a.date.getTime() - b.date.getTime()).map((deadline) => {
                 const isPast = deadline.date < new Date();
+                const isFiled = filedDeadlines.includes(deadline.id);
+                const isLoading = filingLoading === deadline.id;
 
                 return (
                   <div
                     key={deadline.id}
                     className={`p-4 rounded-2xl border-2 transition-all duration-200 ${
-                      isPast
+                      isFiled
+                        ? 'bg-green-50 border-green-300'
+                        : isPast
                         ? 'bg-gray-50 border-gray-200 opacity-60'
                         : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200 hover:shadow-md'
                     }`}
@@ -385,15 +415,17 @@ export default function TaxCalendarPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <span className="text-2xl">
-                            {deadline.filingMethod === 'efiling' ? '📱' : '📄'}
+                            {isFiled ? '✅' : deadline.filingMethod === 'efiling' ? '📱' : '📄'}
                           </span>
                           <div>
-                            <h4 className="font-bold text-gray-900">{deadline.title}</h4>
+                            <h4 className={`font-bold ${isFiled ? 'text-green-800' : 'text-gray-900'}`}>
+                              {deadline.title}
+                            </h4>
                             <p className="text-sm text-gray-600">{deadline.description}</p>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <div className="flex flex-wrap gap-2 mt-3 items-center">
                           <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
                             {deadline.form}
                           </span>
@@ -407,11 +439,26 @@ export default function TaxCalendarPage() {
                           <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                             {deadline.category === 'mid-year' ? 'กลางปี' : 'ประจำปี'}
                           </span>
+
+                          {/* ปุ่มยื่นแล้ว */}
+                          {!isPast && (
+                            <button
+                              onClick={() => toggleFiled(deadline.id)}
+                              disabled={isLoading}
+                              className={`ml-auto px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                                isFiled
+                                  ? 'bg-green-600 text-white hover:bg-red-100 hover:text-red-700'
+                                  : 'bg-white border border-green-500 text-green-700 hover:bg-green-50'
+                              }`}
+                            >
+                              {isLoading ? '...' : isFiled ? '✓ ยื่นแล้ว (ยกเลิก)' : 'ติ๊กว่ายื่นแล้ว'}
+                            </button>
+                          )}
                         </div>
                       </div>
 
                       <div className="text-right ml-4">
-                        <div className="text-2xl font-bold text-gray-900">
+                        <div className={`text-2xl font-bold ${isFiled ? 'text-green-700' : 'text-gray-900'}`}>
                           {deadline.date.getDate()}
                         </div>
                         <div className="text-sm text-gray-600">
@@ -420,9 +467,9 @@ export default function TaxCalendarPage() {
                         <div className="text-sm font-medium text-gray-900">
                           {deadline.date.getFullYear() + 543}
                         </div>
-                        {isPast && (
+                        {(isPast || isFiled) && (
                           <div className="mt-2">
-                            <CheckCircle2 className="w-5 h-5 text-gray-400 mx-auto" />
+                            <CheckCircle2 className={`w-5 h-5 mx-auto ${isFiled ? 'text-green-500' : 'text-gray-400'}`} />
                           </div>
                         )}
                       </div>

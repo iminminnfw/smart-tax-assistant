@@ -32,6 +32,7 @@ model User {
   notifySms              Boolean             @default(false)
   notifyTaxDeadlines     Boolean             @default(true)
   notifyReports          Boolean             @default(true)
+  filedDeadlines         String[]            @default([])
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   accounts               Account[]

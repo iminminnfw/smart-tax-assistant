@@ -10,6 +10,7 @@ Features:
 """
 
 import os
+import re
 import json
 import logging
 from typing import Dict, List, Any, Optional
@@ -252,8 +253,9 @@ class AITaxAdvisor:
                 base_url=self.ollama_base_url,
                 temperature=0.3,
                 format="json",
-                num_predict=6000,   # เพิ่มขีดจำกัด output (default=128 → JSON ขาดกลางทาง)
-                num_ctx=8192,       # context window ที่ใช้ (input+output รวมกัน)
+                num_predict=6000,        # เพิ่มขีดจำกัด output
+                num_ctx=8192,            # context window
+                request_timeout=2400.0,  # 40 นาที — รองรับ CPU-only EC2
             )
 
         else:
@@ -816,63 +818,57 @@ class AITaxAdvisor:
 
     SYSTEM_PROMPT_RECOMMENDATION = """คุณคือที่ปรึกษาการเงินส่วนตัวระดับสูง (Senior Financial Advisor) ที่เชี่ยวชาญด้านภาษีเงินได้บุคคลธรรมดาของไทยและกองทุนรวมลดหย่อนภาษี
 
-กฎเหล็ก:
-1. ห้ามแก้ไขหรือคิดตัวเลขใหม่ — ใช้เฉพาะตัวเลขจากข้อมูลที่ได้รับ
-2. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอื่น
-3. ตอบเป็น JSON ที่ valid เท่านั้น ห้ามมีข้อความนอก JSON เด็ดขาด
-4. ทุก field ต้องอ้างอิงตัวเลขจริงจากโปรไฟล์ (อายุ รายได้ จำนวนบาท ชื่อกองทุน)
-5. เขียนเหมือนคุยกับลูกค้าต่อหน้า ภาษาเป็นกันเอง อบอุ่น ไม่ formal
+══════════════════════════════════════════
+กฎเหล็ก (ละเมิดไม่ได้ทุกกรณี):
+══════════════════════════════════════════
+1. ห้ามคำนวณตัวเลขเองโดยเด็ดขาด — ทุกตัวเลขต้องคัดลอกมาจากหัวข้อ "GROUND TRUTH FACTS" ที่ให้ไว้ใน prompt เท่านั้น
+2. ห้ามเดา ห้ามประมาณ ห้ามปัดเศษตัวเลขใหม่
+3. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอื่น
+4. ตอบเป็น JSON ที่ valid เท่านั้น ห้ามมีข้อความนอก JSON เด็ดขาด
+5. ทุก field ต้องอ้างอิงตัวเลขจาก GROUND TRUTH FACTS จริงๆ ไม่ใช่แค่พูดทั่วไป
+6. เขียนเหมือนคุยกับลูกค้าต่อหน้า ภาษาเป็นกันเอง อบอุ่น ไม่ formal
 
-สิ่งที่ต้องครอบคลุมในแต่ละ field (เขียนให้ครบ อย่างน้อย 8 ประโยคต่อ field):
+══════════════════════════════════════════
+สิ่งที่ต้องเขียนในแต่ละ field (อ้างตัวเลขจาก GROUND TRUTH FACTS เสมอ):
+══════════════════════════════════════════
 
-age_analysis ต้องครอบคลุม:
-- อายุส่งผลต่อระยะเวลาล็อค RMF กี่ปีก่อนถึงอายุ 55
-- ถ้าถอน RMF ก่อนกำหนดจะเสียสิทธิ์อย่างไร
-- ทำไมสัดส่วน RMF ที่แนะนำเหมาะกับอายุนี้โดยเฉพาะ
-- ThaiESG/TESGX ล็อค 5 ปี คือถอนได้ปีไหน (ระบุปี พ.ศ.)
-- TESGX เหมาะกับอายุนี้ไหมและทำไม
+age_analysis — อธิบายผลของอายุต่อแผนนี้:
+• บอกว่าอายุปัจจุบันคือเท่าไหร่ และเหลืออีกกี่ปีถึงอายุ 55 (ใช้ตัวเลข YEARS_TO_55)
+• บอกว่า RMF ถอนได้เร็วสุดปีไหน (ใช้ตัวเลข RMF_UNLOCK_YEAR) และ ThaiESG ถอนได้ปีไหน (ใช้ TESG_UNLOCK_YEAR)
+• อธิบายว่าทำไมสัดส่วน RMF ที่เลือกเหมาะกับอายุนี้โดยเฉพาะ
+• อธิบายผลของการถอนก่อนกำหนด (ต้องคืนภาษีทั้งหมดที่ได้รับสิทธิ์ + เสียเบี้ยปรับ)
 
-goal_analysis ต้องครอบคลุม:
-- เป้าหมายที่เลือกนำไปสู่สัดส่วน RMF/ThaiESG นี้อย่างไร
-- อธิบาย trade-off ของเป้าหมายนี้ (ล็อคนานแต่ประหยัดภาษีเยอะ vs ยืดหยุ่นกว่า)
-- ระยะเวลาล็อคของแต่ละกองทุนสอดคล้องกับ timeline ของผู้ใช้อย่างไร
-- ระบุปีที่คาดว่าจะถอน RMF และถอน ThaiESG ได้จริง
+goal_analysis — อธิบายว่าเป้าหมายนำไปสู่สัดส่วนนี้อย่างไร:
+• อธิบาย trade-off ของเป้าหมายที่เลือก (ล็อคนานแต่ประหยัดภาษีเยอะ vs ยืดหยุ่นกว่า)
+• ระบุปีที่ถอน RMF ได้จริง (RMF_UNLOCK_YEAR) และปีที่ถอน ThaiESG ได้ (TESG_UNLOCK_YEAR)
+• อธิบายว่าระยะเวลาล็อคสอดคล้องกับ timeline ของผู้ใช้หรือไม่
 
-risk_analysis ต้องครอบคลุม:
-- ระดับความเสี่ยงที่เลือกหมายความว่าอะไรในทางปฏิบัติ
-- ส่งผลให้สัดส่วน ThaiESG vs TESGX เป็นอย่างไรและทำไม
-- TESGX ต่างจาก ThaiESG ทั่วไปอย่างไร ความเสี่ยงและโอกาสต่างกันอย่างไร
-- กองทุนที่แนะนำมี risk spectrum สอดคล้องกับโปรไฟล์ความเสี่ยงไหม
+risk_analysis — อธิบายระดับความเสี่ยงและผลต่อสัดส่วน:
+• อธิบายว่าระดับความเสี่ยงที่เลือกหมายความว่าอะไรในทางปฏิบัติ
+• อธิบายสัดส่วน ThaiESG vs TESGX ที่ได้และทำไมถึงเป็นแบบนี้
+• อธิบายว่า TESGX ต่างจาก ThaiESG ทั่วไปอย่างไร (ถ้ามี TESGX)
 
-budget_analysis ต้องครอบคลุม:
-- งบต่อเดือน/ปี เทียบกับโควตาสิทธิ์สูงสุด ใช้ไปกี่เปอร์เซ็นต์
-- ภาษีที่ประหยัดได้คิดเป็นกี่เปอร์เซ็นต์ของเงินลงทุน (ผลตอบแทนทันที)
-- เปรียบเทียบให้เห็นภาพ: ลงทุน X บาท ได้ภาษีคืน Y บาท เหมือนซื้อในราคาลด
-- ถ้าลงทุน DCA รายเดือนควรเดือนละเท่าไหร่
-- ประหยัดภาษีสะสม 3 ปีได้เท่าไหร่
+budget_analysis — อธิบายตัวเลขงบประมาณ (ใช้ตัวเลขจาก GROUND TRUTH FACTS ทั้งหมด):
+• บอกงบลงทุนรายปีและรายเดือน (ใช้ ANNUAL_BUDGET และ MONTHLY_BUDGET)
+• บอก DCA รายเดือนของ RMF (ใช้ RMF_DCA_MONTHLY) และ ThaiESG (ใช้ TESG_DCA_MONTHLY)
+• บอกภาษีที่ประหยัดได้ปีนี้ (ใช้ TAX_SAVED) และสะสม 3 ปี (ใช้ TAX_SAVED_3Y)
+• เปรียบเทียบ: ลงทุน TOTAL_AMOUNT บาท ได้ภาษีคืน TAX_SAVED บาท (ROI ทันที = TAX_SAVED/TOTAL_AMOUNT %)
 
-fund_reasons ต้องครอบคลุม:
-- กองทุน RMF แต่ละกองโดดเด่นเรื่องอะไร (ผลตอบแทน Sharpe นโยบาย)
-- กองทุน ThaiESG แต่ละกองโดดเด่นอย่างไร ลงทุนในอะไรหลักๆ
-- ถ้ามี TESGX อธิบายว่าต่างจาก ThaiESG อย่างไรและทำไมถึงแนะนำ
-- แนะนำวิธีกระจายเงินในแต่ละประเภทถ้าอยากซื้อหลายกอง
+warnings — เตือนความเสี่ยงและเงื่อนไข:
+• เตือนว่า RMF ถอนก่อน RMF_UNLOCK_YEAR จะต้องคืนภาษีทั้งหมดและเสียเบี้ยปรับ 1.5%/เดือน
+• เตือนว่า ThaiESG/TESGX ถอนก่อน TESG_UNLOCK_YEAR จะเสียสิทธิ์ลดหย่อนและต้องคืนภาษี
+• เตือนว่ามูลค่ากองทุนขึ้นลงได้ตามสภาพตลาด การลงทุนมีความเสี่ยง
+• แนะนำให้มีเงินสำรองฉุกเฉินแยกต่างหากก่อนล็อคเงินระยะยาว
+• เตือนว่าต้องซื้อก่อน 31 ธันวาคมของปีภาษีนั้น
 
-warnings ต้องครอบคลุม:
-- เงื่อนไขการถอน RMF และผลที่ตามมาถ้าถอนก่อนกำหนด
-- เงื่อนไขการถอน ThaiESG/TESGX และผลที่ตามมา
-- ความเสี่ยงตลาด กองทุนมูลค่าอาจขึ้นลงได้ในระยะสั้น
-- ถ้ามีเหตุฉุกเฉินและเงินล็อคอยู่ควรทำอย่างไร
-- ต้องซื้อก่อนสิ้นปีภาษีเพื่อใช้สิทธิ์ลดหย่อนปีนั้น
+future_advice — แนะนำแผนในอนาคต:
+• แนะนำให้ DCA ทุกเดือนอย่างสม่ำเสมอ (RMF เดือนละ RMF_DCA_MONTHLY บาท, ThaiESG เดือนละ TESG_DCA_MONTHLY บาท)
+• แนะนำให้ review แผนเมื่อรายได้เพิ่มขึ้น หรือเมื่ออายุครบ milestone สำคัญ
+• แนะนำสินทรัพย์เสริมที่เหมาะกับระดับความเสี่ยงนี้ในอนาคต
 
-future_advice ต้องครอบคลุม:
-- ถ้ารายได้เพิ่มขึ้นตามที่คาดควรเพิ่มวงเงินลงทุนอย่างไร ระบุตัวเลข
-- เมื่อไหร่ควร review แผนนี้ใหม่ (milestone อายุ หรือระดับรายได้)
-- กองทุนหรือสินทรัพย์อื่นที่ควรเพิ่มเติมในอนาคต
-- แนะนำ DCA strategy: ซื้อรายเดือน รายไตรมาส หรือ lump sum ช่วงปลายปี
-
-summary ต้องครอบคลุม:
-- สรุปภาพรวม 4-5 ประโยค ระบุตัวเลขสำคัญ (เงินลงทุน ภาษีที่ประหยัด ปีที่ถอนได้)
-- ให้กำลังใจและทำให้ผู้ใช้มั่นใจในการตัดสินใจ
+summary — สรุปภาพรวม 4-5 ประโยค:
+• ระบุตัวเลขสำคัญ: TOTAL_AMOUNT บาท/ปี, ภาษีประหยัด TAX_SAVED บาท, ถอน RMF ได้ปี RMF_UNLOCK_YEAR, ถอน ThaiESG ได้ปี TESG_UNLOCK_YEAR
+• ให้กำลังใจและทำให้ผู้ใช้มั่นใจในการตัดสินใจ
 
 รูปแบบ JSON ที่ต้องตอบ:
 {"age_analysis": "...", "goal_analysis": "...", "risk_analysis": "...", "budget_analysis": "...", "fund_reasons": "...", "warnings": "...", "future_advice": "...", "summary": "..."}"""
@@ -1001,22 +997,32 @@ summary ต้องครอบคลุม:
         """
         logger.info("Generating detailed recommendation explanation...")
 
-        rmf_amount = allocation.get("rmf_amount", 0)
-        tesg_amount = allocation.get("tesg_amount", 0)
-        tesgx_amount = allocation.get("tesgx_amount", 0)
-        total_amount = allocation.get("total_amount", 0)
+        rmf_amount = int(allocation.get("rmf_amount", 0))
+        tesg_amount = int(allocation.get("tesg_amount", 0))
+        tesgx_amount = int(allocation.get("tesgx_amount", 0))
+        total_amount = int(allocation.get("total_amount", 0))
         rmf_pct = allocation.get("rmf_pct", 0)
         tesg_pct = allocation.get("tesg_pct", 0)
         tesgx_pct = allocation.get("tesgx_pct", 0)
-        years_to_55 = allocation.get("years_to_55", 0)
+        years_to_55 = int(allocation.get("years_to_55", 0))
         money_goal_label = allocation.get("money_goal_label", "")
         decision_factors = allocation.get("decision_factors", {})
 
-        tax_saved = tax_savings.get("tax_saved", 0)
+        tax_saved = int(tax_savings.get("tax_saved", 0))
         marginal_rate = tax_savings.get("marginal_rate", 0)
-        cumulative_3y = year_breakdown.get("cumulative_tax_saved_3y", 0)
+        cumulative_3y = int(year_breakdown.get("cumulative_tax_saved_3y", 0))
 
-        annual_budget = monthly_budget * 12 if monthly_budget > 0 else total_amount
+        annual_budget = int(monthly_budget * 12) if monthly_budget > 0 else total_amount
+
+        # ── Pre-compute all values AI must NOT recalculate ──────────────────
+        CURRENT_YEAR_BE = 2569          # พ.ศ. 2569 = ค.ศ. 2026
+        TESG_LOCK_YEARS = 5
+        rmf_dca_monthly  = rmf_amount  // 12
+        tesg_dca_monthly = tesg_amount // 12
+        tesgx_dca_monthly = tesgx_amount // 12
+        rmf_unlock_year  = CURRENT_YEAR_BE + years_to_55   # ปีที่ถอน RMF ได้ (อายุ 55)
+        tesg_unlock_year = CURRENT_YEAR_BE + TESG_LOCK_YEARS  # ปีที่ถอน ThaiESG/TESGX ได้
+        tax_roi_pct = round(tax_saved / total_amount * 100, 1) if total_amount > 0 else 0
 
         # Build fund summary
         fund_summary = ""
@@ -1055,40 +1061,44 @@ summary ต้องครอบคลุม:
             else "ไม่มีการเปลี่ยนแปลง"
         )
 
-        prompt = f"""=== โปรไฟล์ผู้ใช้ ===
-- อายุ: {profile.age} ปี (เหลือ {years_to_55} ปีก่อนถึงอายุ 55 ปี — เงื่อนไขถอน RMF)
-- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
-- ค่าใช้จ่ายต่อเดือน: ฿{profile.monthly_expenses:,.0f}
-- งบลงทุนต่อเดือน: ฿{monthly_budget:,.0f} (รวม ฿{annual_budget:,.0f}/ปี)
-- ระดับความเสี่ยงที่รับได้: {profile.risk_tolerance}
-- อาชีพ: {profile.occupation}
-- สถานะครอบครัว: {profile.marital_status}
-- ลงทุน RMF อยู่แล้ว: ฿{profile.existing_rmf:,.0f}
-- ลงทุน ThaiESG อยู่แล้ว: ฿{profile.existing_thai_esg:,.0f}
+        prompt = f"""══════════════════════════════════════════════════════════════════
+GROUND TRUTH FACTS — คัดลอกตัวเลขเหล่านี้ลงใน JSON โดยตรง ห้ามคำนวณเองทุกกรณี
+══════════════════════════════════════════════════════════════════
+YEARS_TO_55       = {years_to_55} ปี
+RMF_UNLOCK_YEAR   = พ.ศ. {rmf_unlock_year}   ← ปีที่ถอน RMF ได้เร็วสุด (อายุครบ 55)
+TESG_UNLOCK_YEAR  = พ.ศ. {tesg_unlock_year}  ← ปีที่ถอน ThaiESG/TESGX ได้ (ล็อค 5 ปี)
 
-=== เป้าหมายการลงทุน ===
+ANNUAL_BUDGET     = ฿{annual_budget:,}/ปี
+MONTHLY_BUDGET    = ฿{int(monthly_budget):,}/เดือน
+RMF_AMOUNT        = ฿{rmf_amount:,}/ปี
+TESG_AMOUNT       = ฿{tesg_amount:,}/ปี
+TESGX_AMOUNT      = ฿{tesgx_amount:,}/ปี
+TOTAL_AMOUNT      = ฿{total_amount:,}/ปี
+RMF_DCA_MONTHLY   = ฿{rmf_dca_monthly:,}/เดือน
+TESG_DCA_MONTHLY  = ฿{tesg_dca_monthly:,}/เดือน
+TESGX_DCA_MONTHLY = ฿{tesgx_dca_monthly:,}/เดือน
+TAX_SAVED         = ฿{tax_saved:,}/ปี
+TAX_SAVED_3Y      = ฿{cumulative_3y:,} (สะสม 3 ปี)
+MARGINAL_RATE     = {marginal_rate}%
+TAX_ROI           = {tax_roi_pct}% (ผลตอบแทนทันทีจากภาษีที่ประหยัด)
+══════════════════════════════════════════════════════════════════
+
+=== โปรไฟล์ผู้ใช้ ===
+- อายุ: {profile.age} ปี | เหลือ {years_to_55} ปีก่อนอายุ 55 (เงื่อนไขถอน RMF)
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ระดับความเสี่ยงที่รับได้: {profile.risk_tolerance}
 - เป้าหมาย: {money_goal_label}
-  (retirement=เกษียณระยะยาว, mid_term=ระยะกลาง 5-10 ปี, short_term=ต้องใช้ภายใน 5 ปี)
 - แนวโน้มรายได้: {income_growth_text}
 
 === เหตุผลที่ระบบเลือกสัดส่วนนี้ ===
+- สัดส่วน: RMF {rmf_pct}% : ThaiESG {tesg_pct}% : TESGX {tesgx_pct}%
 - ปัจจัยอายุ: {decision_factors.get('age_factor', '')}
 - ปัจจัยเป้าหมาย: {decision_factors.get('goal_factor', '')}
 - ปัจจัยความเสี่ยง: {decision_factors.get('risk_factor', '')}
 - ปัจจัยงบประมาณ: {decision_factors.get('budget_factor', '')}
-
-=== แผนที่แนะนำ (ตัวเลขคำนวณแล้ว ห้ามแก้ไข) ===
-- สัดส่วน: RMF {rmf_pct}% : ThaiESG {tesg_pct}% : TESGX {tesgx_pct}%
-- ลงทุน RMF: ฿{rmf_amount:,.0f}/ปี (เดือนละ ฿{rmf_amount // 12:,.0f})
-- ลงทุน ThaiESG: ฿{tesg_amount:,.0f}/ปี (เดือนละ ฿{tesg_amount // 12:,.0f})
-- ลงทุน TESGX: ฿{tesgx_amount:,.0f}/ปี (เดือนละ ฿{tesgx_amount // 12:,.0f})
-- รวมลงทุนทั้งหมด: ฿{total_amount:,.0f}/ปี
-- ประหยัดภาษีปีนี้: ฿{tax_saved:,.0f}
-- อัตราภาษีสูงสุด (Marginal Rate): {marginal_rate}%
-- ประหยัดภาษีสะสม 3 ปี: ฿{cumulative_3y:,.0f}
 {fund_summary}
 {rag_section}
-อธิบายแผนนี้ให้ผู้ใช้เข้าใจว่าทำไมจึงเหมาะกับเขา/เธอโดยเฉพาะ ตาม JSON format ที่กำหนด"""
+อธิบายแผนนี้โดยใช้ตัวเลขจาก GROUND TRUTH FACTS ทั้งหมด ตาม JSON format ที่กำหนด"""
 
         empty_result = {
             "age_analysis": "",
@@ -1122,6 +1132,119 @@ summary ต้องครอบคลุม:
         except Exception as e:
             logger.error(f"Recommendation explanation failed: {e}")
             return empty_result
+
+    async def judge_explanation(
+        self,
+        explanation: Dict[str, Any],
+        allocation: Dict,
+        tax_savings: Dict,
+    ) -> Dict[str, Any]:
+        """
+        LLM as a Judge — ตรวจคุณภาพคำอธิบาย
+
+        การตรวจแบ่งเป็น 2 ส่วน:
+          A. Python-side (deterministic) — ตรวจตัวเลขและปีที่ถูกต้อง (0-4 คะแนน)
+          B. LLM-side — ตรวจความครบถ้วนและภาษาไทย (0-4 คะแนน)
+
+        passed = score >= 6 (จาก 8)
+        """
+        # ── A. Pre-compute expected values (same logic as generate_recommendation_explanation) ──
+        CURRENT_YEAR_BE  = 2569
+        TESG_LOCK_YEARS  = 5
+        rmf_amount       = int(allocation.get("rmf_amount", 0))
+        tesg_amount      = int(allocation.get("tesg_amount", 0))
+        tax_saved        = int(tax_savings.get("tax_saved", 0))
+        total_amount     = int(allocation.get("total_amount", 0))
+        years_to_55      = int(allocation.get("years_to_55", 0))
+        rmf_dca          = rmf_amount  // 12
+        tesg_dca         = tesg_amount // 12
+        rmf_unlock_year  = CURRENT_YEAR_BE + years_to_55
+        tesg_unlock_year = CURRENT_YEAR_BE + TESG_LOCK_YEARS
+
+        # ── B. Python number check (deterministic) ──────────────────────────
+        full_text = " ".join(str(v) for v in explanation.values() if isinstance(v, str))
+
+        def num_present(n: int) -> bool:
+            return n > 0 and (f"{n:,}" in full_text or str(n) in full_text)
+
+        number_checks = [
+            ("rmf_amount",       num_present(rmf_amount),       f"RMF/ปี {rmf_amount:,} บาท"),
+            ("tesg_amount",      num_present(tesg_amount),      f"ThaiESG/ปี {tesg_amount:,} บาท"),
+            ("tax_saved",        num_present(tax_saved),        f"ภาษีประหยัด {tax_saved:,} บาท"),
+            ("rmf_dca",          num_present(rmf_dca),          f"DCA RMF {rmf_dca:,} บาท/เดือน"),
+            ("tesg_unlock_year", str(tesg_unlock_year) in full_text, f"ปี TESG {tesg_unlock_year}"),
+            ("rmf_unlock_year",  years_to_55 == 0 or str(rmf_unlock_year) in full_text, f"ปี RMF {rmf_unlock_year}"),
+        ]
+
+        missing_numbers = [label for _, ok, label in number_checks if not ok]
+        found_count = sum(1 for _, ok, _ in number_checks if ok)
+        # score 0-4: 4=ครบทุกตัว, 3=พลาด1, 2=พลาด2, 1=พลาด3+, 0=พลาดมากกว่าครึ่ง
+        number_score = max(0, 4 - len(missing_numbers)) if len(missing_numbers) < 4 else 0
+
+        # ── C. LLM checks: completeness + thai language (0-4) ──────────────
+        required_fields = ["age_analysis", "goal_analysis", "risk_analysis",
+                           "budget_analysis", "fund_reasons", "warnings",
+                           "future_advice", "summary"]
+        empty_fields = [f for f in required_fields
+                        if not explanation.get(f) or len(str(explanation.get(f, ""))) < 30]
+
+        fields_text = "\n".join(
+            f'  "{k}": "{str(v)[:200]}"'
+            for k, v in explanation.items()
+            if isinstance(v, str)
+        )
+
+        judge_prompt = f"""ตรวจคำอธิบายนี้และตอบ JSON เท่านั้น (ห้ามมีข้อความนอก JSON)
+
+=== คำอธิบายที่ต้องตรวจ ===
+{fields_text}
+
+=== เกณฑ์ ===
+ให้คะแนน 0-2 แต่ละข้อ:
+1. completeness (0-2): ทุก field มีเนื้อหาจริงๆ ไม่ใช่แค่ก็อปคำสั่ง ไม่มีประโยคที่ขึ้นต้นด้วย "ควร...อย่างไร" หรือ "ระบุตัวเลข..."
+2. thai_language (0-2): ตอบภาษาไทยทั้งหมด ไม่มีย่อหน้าภาษาอังกฤษ
+
+ตอบ JSON:
+{{"completeness": <0-2>, "thai_language": <0-2>, "issues": ["ปัญหา (ถ้ามี)"]}}"""
+
+        llm_score = 0
+        llm_issues: list = []
+        try:
+            response = await self._call_llm(
+                "ตอบ JSON เท่านั้น ห้ามมีข้อความนอก JSON",
+                judge_prompt,
+                temperature=0.1,
+            )
+            response = re.sub(r"<think>.*?</think>", "", response, flags=re.DOTALL).strip()
+            result   = json.loads(response)
+            llm_score   = int(result.get("completeness", 0)) + int(result.get("thai_language", 0))
+            llm_issues  = result.get("issues", [])
+        except Exception as e:
+            logger.error(f"Judge LLM call failed: {e}")
+            # ถ้า LLM judge ล้มเหลว ให้ใช้ heuristic แทน
+            thai_chars = sum(1 for c in full_text if "\u0e00" <= c <= "\u0e7f")
+            total_alpha = sum(1 for c in full_text if c.isalpha()) or 1
+            llm_score = 2 if (thai_chars / total_alpha) > 0.7 else 1
+            if empty_fields:
+                llm_score = max(0, llm_score - 1)
+
+        # ── D. Combine ──────────────────────────────────────────────────────
+        total_score = number_score + llm_score   # max 8
+        all_issues  = (
+            [f"ตัวเลขหาย: {m}" for m in missing_numbers]
+            + ([f"Field ว่าง: {', '.join(empty_fields)}"] if empty_fields else [])
+            + llm_issues
+        )
+
+        return {
+            "passed"         : total_score >= 6,
+            "score"          : total_score,
+            "number_score"   : number_score,    # Python-checked (0-4)
+            "llm_score"      : llm_score,        # LLM-checked (0-4)
+            "missing_numbers": missing_numbers,
+            "empty_fields"   : empty_fields,
+            "issues"         : all_issues,
+        }
 
 
 # ============================================================
