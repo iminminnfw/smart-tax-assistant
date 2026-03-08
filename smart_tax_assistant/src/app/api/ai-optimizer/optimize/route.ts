@@ -8,10 +8,11 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-// ─── Dev Logger ───────────────────────────────────────────────────────────────
+// ─── Dev Logger (เฉพาะ local dev เท่านั้น) ────────────────────────────────────
+const DEV_LOGGING = process.env.NODE_ENV === 'development' && process.env.DEV_LOG === 'true';
 const LOG_DIR = path.join(process.cwd(), 'dev-logs');
 function devLog(label: string, data: any) {
-  if (process.env.NODE_ENV !== 'development') return;
+  if (!DEV_LOGGING) return;
   try {
     if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
     const date = new Date().toISOString().slice(0, 10);
