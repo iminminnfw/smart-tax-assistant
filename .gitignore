@@ -1,0 +1,9 @@
+# PDF documents
+microsoft-copilot-studio-guidance-architecture.pdf
+
+# Virtual environments
+.venv/
+venv/
+
+# OS
+.DS_Store

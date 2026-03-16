@@ -36,6 +36,8 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Evaluation — result files และ logs (ไม่ต้อง commit ขึ้น git)
-evaluation/results/
-evaluation/__pycache__/
+# Evaluation output
+evaluation_output/
+
+# Structure file
+structure.txt

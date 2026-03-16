@@ -50,3 +50,6 @@ next-env.d.ts
 
 # SEC Open Data (large dataset - do not push)
 SEC_OPEN_DATA/
+
+# Structure file
+structure.txt

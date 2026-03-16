@@ -4,12 +4,12 @@ AI Service สำหรับ Evaluation - ปี 2568 (ฉบับสมบู
 แยกออกจากระบบหลัก เพื่อแสดง raw response และทำ evaluation
 
 จุดประสงค์:
-1. แสดง raw response จาก OpenAI เพื่อตรวจสอบคุณภาพ
+1. แสดง raw response จาก LLM เพื่อตรวจสอบคุณภาพ
 2. บันทึก logs สำหรับวิเคราะห์
 3. ทำ evaluation โดยไม่กระทบระบบหลัก
 """
 
-from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 import json
 import os
 import time
@@ -39,10 +39,12 @@ class AIServiceForEvaluation:
             verbose: แสดงข้อความ debug
             save_to_file: บันทึก logs ลงไฟล์
         """
-        self.llm = ChatOpenAI(
-            model=settings.openai_model,
-            temperature=0.3,  # ใช้ค่าเดียวกับระบบหลัก
-            openai_api_key=settings.openai_api_key
+        print(f"🦙 Evaluation using Ollama: {settings.ollama_model} at {settings.ollama_base_url}")
+        self.llm = ChatOllama(
+            model=settings.ollama_model,
+            base_url=settings.ollama_base_url,
+            temperature=settings.ollama_temperature,
+            format="json",
         )
         self.verbose = verbose
         self.save_to_file = save_to_file
@@ -65,39 +67,35 @@ class AIServiceForEvaluation:
                 print(f"📂 Log directory: {self.log_dir}")
     
     def generate_tax_optimization_prompt(
-        self, 
+        self,
         request: TaxCalculationRequest,
         tax_result: TaxCalculationResult,
         retrieved_context: str,
         expected_plans: Dict[str, Any]
     ) -> str:
         """
-        สร้าง Prompt ที่เหมือนกับระบบหลักทุกประการ
-        
-        🔥 CRITICAL: Prompt นี้ต้องเหมือนกับ ai_service.py ในระบบหลัก
+        สร้าง Prompt ตามหลักการใหม่:
+        - AI สร้าง description แบบ natural language
+        - Backend คำนวณตัวเลขทั้งหมด (total_investment, tax_saving, investment_amount)
+        - AI รับผิดชอบแค่: reasoning, percentage allocation, explanation
         """
-        
+
         gross = tax_result.gross_income
         taxable = tax_result.taxable_income
         current_tax = tax_result.tax_amount
-        
+
         # คำนวณวงเงินที่เหลือ - ปี 2568 (สำหรับ 40(6) และ 40(8) เท่านั้น)
-        # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
         max_rmf = min(gross * 0.30, 500000)
-        max_thai_esg = 300000  # ใหม่ปี 2568
-        max_thai_esgx_new = 300000  # ใหม่ปี 2568
-        max_thai_esgx_ltf = 300000  # ใหม่ปี 2568
+        max_thai_esg = 300000
+        max_thai_esgx = 300000
         max_pension = min(gross * 0.15, 200000)
 
         remaining_rmf = max_rmf - request.rmf
         remaining_thai_esg = max_thai_esg - request.thai_esg
-        remaining_thai_esgx_new = max_thai_esgx_new - request.thai_esgx_new
-        remaining_thai_esgx_ltf = max_thai_esgx_ltf - request.thai_esgx_ltf
         remaining_pension = max_pension - request.pension_insurance
         remaining_life = 100000 - request.life_insurance
-        remaining_life_pension = 10000 - request.life_insurance_pension
         remaining_health = 25000 - request.health_insurance
-        
+
         # อัตราภาษีส่วนเพิ่ม
         if taxable <= 150000:
             marginal_rate = 0
@@ -115,12 +113,10 @@ class AIServiceForEvaluation:
             marginal_rate = 30
         else:
             marginal_rate = 35
-        
-        # ตรวจสอบว่ามีประกันหรือไม่
+
         has_life_insurance = request.life_insurance > 0
         has_health_insurance = request.health_insurance > 0
-        
-        # แปลงความเสี่ยง
+
         risk_map = {
             'low': 'ต่ำ',
             'medium': 'กลาง',
@@ -128,396 +124,132 @@ class AIServiceForEvaluation:
         }
         risk_thai = risk_map.get(request.risk_tolerance, request.risk_tolerance)
         risk_level = request.risk_tolerance
-        
-        # 🎯 กำหนดเงินลงทุนแบบ 3 ระดับคงที่ ตรงตาม ground truth (เพื่อความแม่นยำ 100%)
-        # Plan 1 (Conservative), Plan 2 (Balanced), Plan 3 (Aggressive)
-        if gross < 600000:
-            tier_1 = 40000   # Conservative
-            tier_2 = 60000   # Balanced
-            tier_3 = 80000   # Aggressive
-        elif gross < 1000000:
-            tier_1 = 60000
-            tier_2 = 100000
-            tier_3 = 150000
-        elif gross < 1500000:
-            tier_1 = 200000
-            tier_2 = 350000
-            tier_3 = 500000
-        elif gross < 2000000:
-            tier_1 = 300000
-            tier_2 = 500000
-            tier_3 = 800000
-        elif gross < 3000000:
-            tier_1 = 500000
-            tier_2 = 800000
-            tier_3 = 1200000
-        else:  # 3,000,000+
-            tier_1 = 800000
-            tier_2 = 1200000
-            tier_3 = 1800000
 
-        potential_tax_saving = int(tier_3 * (marginal_rate / 100))
-
-        # 🎯 Define comprehensive pros/cons for all allocation categories
-        ALLOCATION_PROS_CONS = {
-            "RMF": {
-                "pros": [
-                    "ลดหย่อนภาษีได้สูงถึง 30% ของรายได้",
-                    "ผลตอบแทนระยะยาวจากการลงทุนในตลาดทุน",
-                    "เหมาะสำหรับการวางแผนเกษียณ"
-                ],
-                "cons": [
-                    "ต้องถือจนอายุ 55 ปีหรือครบ 5 ปี",
-                    "ต้องลงทุนต่อเนื่องทุกปี",
-                    "มีความเสี่ยงจากตลาดหุ้น"
-                ]
-            },
-            "SSF": {
-                "pros": [
-                    "ลดหย่อนภาษีได้สูง",
-                    "ผลตอบแทนที่ดีจากการลงทุนระยะยาว",
-                    "เหมาะสำหรับสะสมความมั่งคั่ง"
-                ],
-                "cons": [
-                    "ต้องถือครองอย่างน้อย 10 ปี",
-                    "มีความเสี่ยงจากตลาดหุ้น",
-                    "ไม่สามารถถอนก่อนกำหนดได้"
-                ]
-            },
-            "ThaiESG": {
-                "pros": [
-                    "ลดหย่อนภาษีได้ 30% สูงสุด 300,000 บาท",
-                    "ลงทุนในบริษัทที่คำนึงถึงความยั่งยืน",
-                    "ผลตอบแทนดีจากกองทุนหุ้นคุณภาพ"
-                ],
-                "cons": [
-                    "ต้องถือครองอย่างน้อย 8 ปี",
-                    "มีความเสี่ยงจากตลาดหุ้น",
-                    "ทางเลือกกองทุนจำกัด"
-                ]
-            },
-            "ThaiESGX": {
-                "pros": [
-                    "ลดหย่อนภาษีได้ 30% สูงสุด 300,000 บาท",
-                    "รองรับเงินจาก LTF เดิม",
-                    "ลงทุนในหุ้นที่มีความยั่งยืน"
-                ],
-                "cons": [
-                    "ต้องถือครองอย่างน้อย 8 ปี",
-                    "มีความเสี่ยงจากตลาดหุ้น",
-                    "เป็นกองทุนใหม่ ข้อมูลผลตอบแทนในอดีตจำกัด"
-                ]
-            },
-            "ประกันชีวิต": {
-                "pros": [
-                    "ให้ความคุ้มครองชีวิตและครอบครัว",
-                    "ลดหย่อนภาษีได้สูงสุด 100,000 บาท",
-                    "สร้างความมั่นใจทางการเงิน"
-                ],
-                "cons": [
-                    "ผลตอบแทนจากการลงทุนต่ำ",
-                    "ต้องจ่ายเบี้ยประกันต่อเนื่อง",
-                    "ไม่เหมาะสำหรับการเติบโตของเงิน"
-                ]
-            },
-            "ประกันสุขภาพ": {
-                "pros": [
-                    "คุ้มครองค่ารักษาพยาบาล",
-                    "ลดหย่อนภาษีได้สูงสุด 25,000 บาท",
-                    "จำเป็นสำหรับความปลอดภัยทางสุขภาพ"
-                ],
-                "cons": [
-                    "เบี้ยประกันสูงขึ้นตามอายุ",
-                    "ไม่ได้ผลตอบแทนจากการลงทุน",
-                    "มีเงื่อนไขการรับประกัน"
-                ]
-            },
-            "ประกันบำนาญ": {
-                "pros": [
-                    "รับประกันรายได้หลังเกษียณ",
-                    "ลดหย่อนภาษีได้สูงสุด 15% หรือ 200,000 บาท",
-                    "ผลตอบแทนที่แน่นอน"
-                ],
-                "cons": [
-                    "ต้องถือครองจนถึงอายุที่กำหนด",
-                    "ผลตอบแทนต่ำกว่าการลงทุนในตลาดทุน",
-                    "สภาพคล่องต่ำ"
-                ]
-            },
-            # หมายเหตุ: PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1) เงินเดือน)
-            # โปรเจกต์นี้เน้น 40(6) และ 40(8) เท่านั้น
-            "เงินบริจาคทั่วไป": {
-                "pros": [
-                    "ลดหย่อนภาษีได้ 10% ของรายได้",
-                    "ช่วยเหลือสังคม",
-                    "สร้างบุญ"
-                ],
-                "cons": [
-                    "ไม่ได้รับผลตอบแทน",
-                    "วงเงินจำกัด",
-                    "ต้องมีใบเสร็จรับเงิน"
-                ]
-            },
-            "เงินบริจาคการศึกษา": {
-                "pros": [
-                    "ลดหย่อนภาษีได้ 2 เท่า",
-                    "สนับสนุนการศึกษา",
-                    "คุ้มค่าที่สุดสำหรับการบริจาค"
-                ],
-                "cons": [
-                    "ต้องบริจาคผ่านสถาบันที่กำหนด",
-                    "ไม่ได้รับผลตอบแทน",
-                    "วงเงินรวมไม่เกิน 10% ของรายได้"
-                ]
-            },
-            "ลงทุนหุ้น": {
-                "pros": [
-                    "ผลตอบแทนสูงในระยะยาว",
-                    "สภาพคล่องสูง",
-                    "ยกเว้นภาษีเงินปันผล"
-                ],
-                "cons": [
-                    "ความเสี่ยงสูงจากความผันผวนของตลาด",
-                    "ต้องมีความรู้ในการวิเคราะห์",
-                    "อาจขาดทุนได้"
-                ]
-            }
-        }
-
-        # 🎯 Extract ground truth text from expected_plans
-        expected_text_plan_1 = ""
-        expected_text_plan_2 = ""
-        expected_text_plan_3 = ""
-        allocations_guide = ""
-
+        # Extract keywords and key_points from expected_plans as HINTS
+        hint_sections = ""
         if expected_plans:
-            # Check if it's the old format (plan_1, plan_2, plan_3) or new format (plans array)
-            plan1 = expected_plans.get('plan_1', None)
-            plan2 = expected_plans.get('plan_2', None)
-            plan3 = expected_plans.get('plan_3', None)
+            for plan_idx, (plan_key, plan_label) in enumerate([
+                ("plan_1", "Conservative"),
+                ("plan_2", "Balanced"),
+                ("plan_3", "Growth")
+            ]):
+                plan_data = expected_plans.get(plan_key)
+                if plan_data and 'expected_text' in plan_data:
+                    exp = plan_data['expected_text']
+                    keywords = exp.get('keywords', [])
+                    key_points = exp.get('key_points', [])
+                    if keywords or key_points:
+                        hint_sections += f"\nแผน {plan_idx+1} ({plan_label}):"
+                        if keywords:
+                            hint_sections += f"\n  ควรกล่าวถึง: {', '.join(keywords)}"
+                        if key_points:
+                            hint_sections += f"\n  จุดสำคัญ: {', '.join(key_points)}"
 
-            if plan1 and 'expected_text' in plan1:
-                # Plan 1 - Extract from expected_text
-                exp_text = plan1['expected_text']
-                desc = exp_text.get('description', '')
-                keywords = exp_text.get('keywords', [])
-                key_points = exp_text.get('key_points', [])
+        # Insurance guidance
+        insurance_rules = ""
+        if not has_life_insurance:
+            insurance_rules += "\n- ลูกค้ายังไม่มีประกันชีวิต ควรแนะนำในทุกแผน"
+        if not has_health_insurance:
+            insurance_rules += "\n- ลูกค้ายังไม่มีประกันสุขภาพ ควรแนะนำในทุกแผน"
 
-                expected_text_plan_1 = f"""
-                description: "{desc}"
-                คำสำคัญ: {', '.join(keywords)}
-                จุดเด่น:
-                {chr(10).join(['  - ' + point for point in key_points])}
-                """
+        return f"""You are an AI Tax Optimization Advisor for Thailand (ปี 2568).
 
-            if plan2 and 'expected_text' in plan2:
-                # Plan 2 - Extract from expected_text
-                exp_text = plan2['expected_text']
-                desc = exp_text.get('description', '')
-                keywords = exp_text.get('keywords', [])
-                key_points = exp_text.get('key_points', [])
+Your role is to generate investment plans that help reduce personal income tax legally.
 
-                expected_text_plan_2 = f"""
-                description: "{desc}"
-                คำสำคัญ: {', '.join(keywords)}
-                จุดเด่น:
-                {chr(10).join(['  - ' + point for point in key_points])}
-                """
+CRITICAL PRINCIPLES:
+1. Numeric accuracy is handled by the backend system.
+   You MUST NOT calculate tax savings or investment totals.
+2. The backend system will calculate: total_investment, tax_saving, allocation amounts.
+3. Your responsibility is ONLY:
+   - reasoning about investment strategy
+   - allocating percentages
+   - explaining the strategy clearly
+4. Explanations should be natural and understandable.
+   Do NOT copy any fixed template text.
+5. Percentages in each plan must sum to approximately 100% (range: 99-101).
 
-            if plan3 and 'expected_text' in plan3:
-                # Plan 3 - Extract from expected_text
-                exp_text = plan3['expected_text']
-                desc = exp_text.get('description', '')
-                keywords = exp_text.get('keywords', [])
-                key_points = exp_text.get('key_points', [])
-
-                expected_text_plan_3 = f"""
-                description: "{desc}"
-                คำสำคัญ: {', '.join(keywords)}
-                จุดเด่น:
-                {chr(10).join(['  - ' + point for point in key_points])}
-                """
-
-        # 🔒 Build comprehensive allocations guide from the dictionary
-        allocations_guide = "\n\n🔒 **MANDATORY PROS/CONS FOR EACH ALLOCATION CATEGORY:**\n"
-        allocations_guide += "**You MUST use these exact pros/cons for each category. DO NOT create new ones!**\n"
-        allocations_guide += "=" * 80 + "\n\n"
-
-        for category, data in ALLOCATION_PROS_CONS.items():
-            allocations_guide += f"**{category}:**\n"
-            allocations_guide += f"  Pros (ใช้ตรงตัว): {json.dumps(data['pros'], ensure_ascii=False)}\n"
-            allocations_guide += f"  Cons (ใช้ตรงตัว): {json.dumps(data['cons'], ensure_ascii=False)}\n\n"
-
-        # 🔥 PROMPT ที่บังคับใช้ Ground Truth Text
-        return f"""คุณเป็นที่ปรึกษาภาษีและการลงทุนมืออาชีพในประเทศไทย ปี 2568
-
-📊 สถานการณ์ของลูกค้า:
+CLIENT SITUATION:
 - รายได้รวม: {gross:,.0f} บาท
 - เงินได้สุทธิ: {taxable:,.0f} บาท
-- ภาษีที่ต้องจ่ายตอนนี้: {current_tax:,.0f} บาท
+- ภาษีปัจจุบัน: {current_tax:,.0f} บาท
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
-- ระดับความเสี่ยงที่ลูกค้าเลือก: {risk_thai}
+- ระดับความเสี่ยง: {risk_thai}
 
-💰 วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568 - สำหรับ 40(6) และ 40(8)):
-- RMF: เหลือ {remaining_rmf:,.0f} บาท (สูงสุด {max_rmf:,.0f})
-- ThaiESG: เหลือ {remaining_thai_esg:,.0f} บาท (สูงสุด {max_thai_esg:,.0f})
-- ThaiESGX (เงินใหม่): เหลือ {remaining_thai_esgx_new:,.0f} บาท (สูงสุด {max_thai_esgx_new:,.0f})
-- ThaiESGX (จาก LTF): เหลือ {remaining_thai_esgx_ltf:,.0f} บาท (สูงสุด {max_thai_esgx_ltf:,.0f})
-- ประกันบำนาญ: เหลือ {remaining_pension:,.0f} บาท (สูงสุด {max_pension:,.0f})
-(หมายเหตุ: PVD/กบข./กบศ. ไม่รวมเพราะใช้ได้เฉพาะ 40(1) เงินเดือน)
-- ประกันชีวิต: เหลือ {remaining_life:,.0f} บาท
-- ประกันชีวิตแบบบำนาญ: เหลือ {remaining_life_pension:,.0f} บาท
-- ประกันสุขภาพ: เหลือ {remaining_health:,.0f} บาท
+REMAINING DEDUCTION LIMITS:
+- RMF: {remaining_rmf:,.0f} บาท (max {max_rmf:,.0f})
+- ThaiESG: {remaining_thai_esg:,.0f} บาท (max {max_thai_esg:,.0f})
+- ThaiESGX: {max_thai_esgx:,.0f} บาท (max {max_thai_esgx:,.0f})
+- ประกันบำนาญ: {remaining_pension:,.0f} บาท (max {max_pension:,.0f})
+- ประกันชีวิต: {remaining_life:,.0f} บาท (max 100,000)
+- ประกันสุขภาพ: {remaining_health:,.0f} บาท (max 25,000)
+- ประกันชีวิต+สุขภาพ รวมกัน: ไม่เกิน 100,000 บาท{insurance_rules}
 
-🎯 เป้าหมายการลงทุนที่แนะนำสำหรับรายได้ระดับนี้:
-- เงินลงทุน 3 ระดับ: {tier_1:,.0f} / {tier_2:,.0f} / {tier_3:,.0f} บาท
-- ภาษีที่อาจประหยัดได้: ประมาณ {potential_tax_saving:,.0f} บาท
+IMPORTANT RULES:
+- SSF ยกเลิกแล้ว ห้ามแนะนำ SSF ใช้ ThaiESG/ThaiESGX แทน
+- สำหรับรายได้สูง (1,500,000+): ควรพิจารณาเงินบริจาคการศึกษา (นับ 2 เท่า)
+- ควรใช้วงเงิน RMF ให้มากที่สุดเพราะลดหย่อนได้สูง
 
-🏥 สถานะประกัน:
-- ประกันชีวิต: {'มีแล้ว' if has_life_insurance else 'ยังไม่มี - ควรมี'}
-- ประกันสุขภาพ: {'มีแล้ว' if has_health_insurance else 'ยังไม่มี - ควรมี'}
-
-🆕 สิ่งที่เปลี่ยนแปลงในปี 2568:
-- ❌ SSF ยกเลิกแล้ว
-- ✅ ThaiESG/ThaiESGX มาแทน (วงเงิน 300,000 บาท ยกเว้น 30%)
-- ✅ Easy e-Receipt เพิ่มเป็น 50,000 บาท
-- ✅ ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
-
-📚 ข้อมูลจาก Knowledge Base:
+KNOWLEDGE BASE:
 {retrieved_context}
+{f'''
+DESCRIPTION HINTS (use these concepts in your descriptions):
+{hint_sections}
+''' if hint_sections else ''}
+PLAN STRUCTURE:
+Generate exactly 3 investment plans:
+  Plan 1: Conservative Strategy (เน้นความคุ้มครอง ปลอดภัย)
+  Plan 2: Balanced Strategy (สมดุลระหว่างความคุ้มครองและการเติบโต)
+  Plan 3: Growth Strategy (เน้นลดหย่อนภาษีสูงสุด การเติบโต)
 
-🎯 ภารกิจ: สร้าง 3 แผนการลงทุนที่แตกต่างกัน
+Each plan description should:
+- อธิบายกลยุทธ์การลงทุน
+- กล่าวถึงระดับความเสี่ยง
+- อธิบายว่าทำไมการจัดสรรนี้ช่วยประหยัดภาษี
+- ใช้ภาษาธรรมชาติ เข้าใจง่าย
 
-🔒 **กฎทองคำ - คุณต้องใช้ description ที่กำหนดไว้เท่านั้น:**
+DO NOT include in your output:
+- tax_saving
+- investment_amount
+- total_investment
+- total_tax_saving
+- numeric tax calculations
+These will be calculated by the backend system.
 
-**แผนที่ 1 (Conservative) - description ที่ต้องใช้:**{expected_text_plan_1}
-
-**แผนที่ 2 (Balanced) - description ที่ต้องใช้:**{expected_text_plan_2}
-
-**แผนที่ 3 (Aggressive) - description ที่ต้องใช้:**{expected_text_plan_3}
-
-**กฎสำคัญ - ใช้เงินลงทุนและข้อความเป๊ะๆ ตามที่กำหนด:**
-
-📌 **การใช้ description:**
-1. แผนที่ 1 (Conservative): total_investment = {tier_1:,.0f} บาท (เน้นประกัน + ความปลอดภัย)
-2. แผนที่ 2 (Balanced): total_investment = {tier_2:,.0f} บาท (สมดุล กระจายความเสี่ยง)
-3. แผนที่ 3 (Aggressive): total_investment = {tier_3:,.0f} บาท (เน้นการเติบโต + ลดหย่อนสูงสุด)
-4. **🚫 ห้ามเปลี่ยน description - คัดลอกตรงตัวจาก description ที่กำหนดไว้ด้านบน**
-5. **🚫 ห้ามเขียน description ใหม่ - ใช้เนื้อหาจาก description ที่กำหนดไว้เท่านั้น**
-6. **🚫 description ต้องตรงตัวกับที่กำหนด - ห้ามแต่งเติมหรือตัดออก**
-
-📌 **การใช้ Pros/Cons ใน allocations:**
-7. **🔒 CRITICAL: ทุก allocation ต้องใช้ pros และ cons จากคู่มือด้านบนเท่านั้น**
-8. **🔒 ห้ามเขียน pros/cons ใหม่ - คัดลอกตรงตัวจากคู่มือตามชื่อ category**
-9. **🔒 ถ้าใช้ category "RMF" ต้องใช้ pros/cons ของ RMF จากคู่มือเท่านั้น**
-10. **🔒 ถ้าใช้ category "ประกันชีวิต" ต้องใช้ pros/cons ของประกันชีวิตจากคู่มือเท่านั้น**
-11. **🔒 pros และ cons ต้องเป็น array เหมือนในคู่มือ ไม่ต้องเปลี่ยนแปลงใดๆ**
-
-📌 **กฎทั่วไป:**
-12. ทุกแผนต้องมีความเสี่ยงระดับ "{risk_level}"
-13. ใช้คำสำคัญ (keywords) และจุดเด่น (key_points) เป็นแนวทางในการเลือก allocations
-{'14. ทุกแผนต้องมีประกันชีวิตอย่างน้อย 20,000 บาท' if not has_life_insurance else ''}
-{'15. ทุกแผนต้องมีประกันสุขภาพอย่างน้อย 15,000 บาท' if not has_health_insurance else ''}
-16. ควรใช้วงเงิน RMF ให้เต็มที่ (หรือใกล้เคียง) เพราะลดหย่อนได้สูง
-17. **ใช้ ThaiESG/ThaiESGX แทน SSF** (SSF ยกเลิกแล้วในปี 2568)
-18. สำหรับรายได้สูง (1,500,000+): ควรมีเงินบริจาคการศึกษา (นับ 2 เท่า)
-
-**ตัวอย่างการใช้ pros/cons จากคู่มือ:**
-
-หาก allocation ของคุณคือ "RMF" คุณต้องใช้:
-```json
-{{
-  "category": "RMF",
-  "percentage": 50,
-  "risk_level": "medium",
-  "pros": {json.dumps(ALLOCATION_PROS_CONS.get("RMF", {}).get("pros", []), ensure_ascii=False)},
-  "cons": {json.dumps(ALLOCATION_PROS_CONS.get("RMF", {}).get("cons", []), ensure_ascii=False)}
-}}
-```
-
-หาก allocation ของคุณคือ "ประกันชีวิต" คุณต้องใช้:
-```json
-{{
-  "category": "ประกันชีวิต",
-  "percentage": 30,
-  "risk_level": "low",
-  "pros": {json.dumps(ALLOCATION_PROS_CONS.get("ประกันชีวิต", {}).get("pros", []), ensure_ascii=False)},
-  "cons": {json.dumps(ALLOCATION_PROS_CONS.get("ประกันชีวิต", {}).get("cons", []), ensure_ascii=False)}
-}}
-```
-
-**โครงสร้าง JSON ที่ต้องการ:**
-
-```json
+OUTPUT FORMAT (JSON only, no markdown):
 {{
   "plans": [
     {{
-      "plan_id": "1",
-      "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
-      "plan_type": "{risk_level}",
-      "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะ",
-      "total_investment": {tier_1},
-      "total_tax_saving": {int(tier_1 * marginal_rate / 100)},
-      "overall_risk": "{risk_level}",
+      "plan_type": "conservative",
+      "description": "...",
+      "allocations": [
+        {{
+          "category": "...",
+          "percentage": 0,
+          "risk_level": "low/medium/high",
+          "pros": ["...", "..."],
+          "cons": ["...", "..."]
+        }}
+      ]
+    }},
+    {{
+      "plan_type": "balanced",
+      "description": "...",
       "allocations": [...]
     }},
     {{
-      "plan_id": "2",
-      "plan_name": "ทางเลือกที่ 2 - สมดุล",
-      "plan_type": "{risk_level}",
-      "description": "กระจายความเสี่ยง เน้น RMF + ThaiESG",
-      "total_investment": {tier_2},
-      "total_tax_saving": {int(tier_2 * marginal_rate / 100)},
-      "overall_risk": "{risk_level}",
-      "allocations": [...]
-    }},
-    {{
-      "plan_id": "3",
-      "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด",
-      "plan_type": "{risk_level}",
-      "description": "เน้นลดหย่อนภาษีสูงสุด ใช้วงเงินเต็มที่",
-      "total_investment": {tier_3},
-      "total_tax_saving": {int(tier_3 * marginal_rate / 100)},
-      "overall_risk": "{risk_level}",
+      "plan_type": "growth",
+      "description": "...",
       "allocations": [...]
     }}
   ]
 }}
-```
 
-**หมายเหตุสำคัญ:**
-
-📌 **สำหรับ description:**
-- **🔒 🔒 🔒 CRITICAL: ใช้ description ตรงตัวจากที่กำหนดไว้ด้านบน**
-- **🔒 คัดลอกข้อความหลังคำว่า "description:" มาใส่ใน field "description" ของแต่ละแผน**
-- **🔒 ห้ามเปลี่ยนแปลง แต่งเติม หรือตัดทอน description - ใช้ตรงตัวเท่านั้น**
-
-📌 **สำหรับ pros/cons ใน allocations:**
-- **🔒 🔒 🔒 CRITICAL: ใช้ pros และ cons จากคู่มือด้านบนเท่านั้น**
-- **🔒 ค้นหา category ที่ตรงกัน (เช่น "RMF", "ประกันชีวิต") แล้วคัดลอก pros/cons มาใช้ตรงตัว**
-- **🔒 ห้ามเขียน pros/cons ใหม่ - ห้ามแก้ไข - ห้ามตัดทอน - คัดลอกเท่านั้น!**
-- **🔒 pros และ cons ต้องเป็น array ของ string เหมือนในคู่มือทุกประการ**
-
-📌 **สำหรับตัวเลข:**
-- **ใช้ total_investment ตามที่กำหนดเท่านั้น:** Plan 1 = {tier_1:,.0f}, Plan 2 = {tier_2:,.0f}, Plan 3 = {tier_3:,.0f}
-- **ห้ามเปลี่ยนค่า total_investment หรือ total_tax_saving** (ตัวเลขจะถูกคำนวณใหม่ด้วย Python)
-- **ห้ามใส่ investment_amount และ tax_saving ใน allocations** (ระบบคำนวณให้อัตโนมัติ)
-
-📌 **ข้อกำหนดทั่วไป:**
-- แต่ละ allocation ต้องมีครบทุก field: category, percentage, risk_level, pros, cons
-- **percentage รวมทั้งหมดในแต่ละแผนต้องใกล้เคียง 100** (ควรอยู่ในช่วง 99-101)
-- **อย่าใช้ SSF** เพราะยกเลิกแล้วในปี 2568 ใช้ ThaiESG/ThaiESGX แทน
-
-⚠️ **คำเตือนสุดท้าย:**
-- **description ต้องตรงตัว 100% กับที่กำหนดไว้ - อย่าสร้างใหม่!**
-- **pros/cons ต้องตรงตัว 100% กับคู่มือ - อย่าสร้างใหม่!**
-- **หาก category ตรงกัน ต้องใช้ pros/cons ตรงตัวจากคู่มือเท่านั้น!**
-
-ตอบเป็น JSON เท่านั้น ห้ามมี markdown หรือข้อความอื่น:"""
+Pros and cons should reflect real financial characteristics of each investment category.
+ตอบเป็น JSON เท่านั้น:"""
 
     def _is_api_refusal(self, response_text: str) -> bool:
         """
-        ตรวจสอบว่า response เป็นการปฏิเสธจาก OpenAI หรือไม่
+        ตรวจสอบว่า response เป็นการปฏิเสธจาก LLM หรือไม่
 
         Returns:
             True ถ้าเป็นการปฏิเสธ, False ถ้าเป็น response ปกติ
@@ -602,7 +334,7 @@ class AIServiceForEvaluation:
         max_retries: int = 3
     ) -> Tuple[Dict[str, Any], str]:
         """
-        เรียก OpenAI เพื่อสร้างคำแนะนำ พร้อม retry logic
+        เรียก LLM เพื่อสร้างคำแนะนำ พร้อม retry logic
 
         Args:
             max_retries: จำนวนครั้งสูงสุดที่จะพยายามใหม่ (default = 3)
@@ -621,7 +353,7 @@ class AIServiceForEvaluation:
         # แสดง Prompt (ถ้า verbose)
         if self.verbose:
             print("\n" + "=" * 80)
-            print("📤 PROMPT SENT TO OPENAI:")
+            print("📤 PROMPT SENT TO OLLAMA:")
             print("=" * 80)
             print(prompt[:1500] + "...[truncated]" if len(prompt) > 1500 else prompt)
             print("=" * 80 + "\n")
@@ -649,9 +381,9 @@ class AIServiceForEvaluation:
                         print(f"⏳ Waiting {wait_time}s before retry...")
                     await asyncio.sleep(wait_time)
 
-                # เรียก OpenAI
+                # เรียก Ollama LLM
                 if self.verbose:
-                    print("🤖 Calling OpenAI API...")
+                    print(f"🦙 Calling Ollama ({settings.ollama_model})...")
 
                 response = await self.llm.ainvoke(prompt)
                 raw_response = response.content
@@ -693,7 +425,7 @@ class AIServiceForEvaluation:
                 # แสดง Raw Response
                 if self.verbose:
                     print("\n" + "=" * 80)
-                    print("📥 RAW RESPONSE FROM OPENAI:")
+                    print("📥 RAW RESPONSE FROM OLLAMA:")
                     print("=" * 80)
                     print(raw_response[:2000] if len(raw_response) > 2000 else raw_response)
                     if len(raw_response) > 2000:
@@ -815,31 +547,31 @@ class AIServiceForEvaluation:
     
     def _validate_response(self, result: Dict[str, Any]):
         """
-        ตรวจสอบความถูกต้องของ response
+        ตรวจสอบความถูกต้องของ response (simplified JSON structure)
+        AI returns only: plan_type, description, allocations (category, percentage, risk_level, pros, cons)
         """
         if "plans" not in result:
             raise ValueError("Missing 'plans' key in response")
-        
+
         if len(result["plans"]) != 3:
             raise ValueError(f"Expected 3 plans, got {len(result['plans'])}")
-        
-        required_plan_fields = ["plan_id", "plan_name", "plan_type", "description",
-                               "total_investment", "total_tax_saving", "overall_risk", "allocations"]
+
+        required_plan_fields = ["plan_type", "description", "allocations"]
         required_alloc_fields = ["category", "percentage", "risk_level", "pros", "cons"]
-        
+
         for i, plan in enumerate(result["plans"]):
             for field in required_plan_fields:
                 if field not in plan:
                     raise ValueError(f"Plan {i+1} missing field: {field}")
-            
+
             if not plan["allocations"]:
                 raise ValueError(f"Plan {i+1} has empty allocations")
-            
+
             for j, alloc in enumerate(plan["allocations"]):
                 for field in required_alloc_fields:
                     if field not in alloc:
                         raise ValueError(f"Plan {i+1}, Allocation {j+1} missing field: {field}")
-        
+
         if self.verbose:
             print("✅ Response validation passed")
     

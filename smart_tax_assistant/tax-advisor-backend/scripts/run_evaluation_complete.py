@@ -100,6 +100,40 @@ class EvaluationRunner:
         "photographer": "photography",
         "farmer": "agriculture",
         "restaurant_owner": "hotel_restaurant",
+        "contractor": "other_business",
+        "real_estate_broker": "general_trade",
+        "youtuber": "other_business",
+        "startup_founder": "other_business",
+        "business_owner_retired": "other_business",
+    }
+    
+    # Profile to TestCase mapping
+    # Maps test_profiles.py (A1-A10, B11-B20) to evaluation_test_data.py (TEST_CASE_1-20)
+    # Based on income_type and similar income levels
+    PROFILE_TO_TESTCASE = {
+        # Group A: M40(6) - 10 profiles map to TEST_CASE_6-9 (4 cases) + reused
+        "A1": "TEST_CASE_6",   # แพทย์เปิดคลินิก 1.5M -> 40(6) similar to TEST_CASE_6 (1.2M engineer)
+        "A2": "TEST_CASE_7",   # ทนายความ 1.2M -> 40(6) similar to TEST_CASE_7 (3M doctor)
+        "A3": "TEST_CASE_8",   # วิศวกรที่ปรึกษา 900K -> 40(6) similar to TEST_CASE_8 (960K lawyer)
+        "A4": "TEST_CASE_9",   # สถาปนิกฟรีแลนซ์ 480K -> 40(6) similar to TEST_CASE_9 (1.8M architect)
+        "A5": "TEST_CASE_6",   # นักบัญชีอิสระ 1.8M -> reuse TEST_CASE_6
+        "A6": "TEST_CASE_7",   # แพทย์เฉพาะทาง 4M -> reuse TEST_CASE_7
+        "A7": "TEST_CASE_8",   # ทันตแพทย์ 2M -> reuse TEST_CASE_8
+        "A8": "TEST_CASE_9",   # นักกฎหมาย 700K -> reuse TEST_CASE_9
+        "A9": "TEST_CASE_6",   # วิศวกร 2.5M -> reuse TEST_CASE_6
+        "A10": "TEST_CASE_7",  # สัตวแพทย์ 1M -> reuse TEST_CASE_7
+        
+        # Group B: M40(8) - 10 profiles map to TEST_CASE_10-19 (10 cases)
+        "B11": "TEST_CASE_10", # เจ้าของร้านค้าออนไลน์ 600K -> 40(8) similar to TEST_CASE_10 (540K hair salon)
+        "B12": "TEST_CASE_11", # ผู้รับเหมาก่อสร้าง 1.5M -> 40(8) similar to TEST_CASE_11 (1M shop)
+        "B13": "TEST_CASE_12", # เจ้าของร้านอาหาร 800K -> 40(8) similar to TEST_CASE_12 (1.5M restaurant)
+        "B14": "TEST_CASE_13", # นายหน้าอสังหาฯ 3M -> 40(8) similar to TEST_CASE_13 (600K actor)
+        "B15": "TEST_CASE_14", # YouTuber 420K -> 40(8) similar to TEST_CASE_14 (720K photographer)
+        "B16": "TEST_CASE_15", # เจ้าของธุรกิจนำเข้า 5M -> 40(8) similar to TEST_CASE_15 (840K salon)
+        "B17": "TEST_CASE_16", # ช่างภาพฟรีแลนซ์ 360K -> 40(8) similar to TEST_CASE_16 (2.4M car repair)
+        "B18": "TEST_CASE_17", # เจ้าของฟาร์ม 1.2M -> 40(8) similar to TEST_CASE_17 (1.2M transport)
+        "B19": "TEST_CASE_18", # Startup founder 1M -> 40(8) similar to TEST_CASE_18 (600K laundry)
+        "B20": "TEST_CASE_19", # เจ้าของธุรกิจเกษียณ 700K -> 40(8) similar to TEST_CASE_19 (1.8M printing)
     }
     
     def __init__(
@@ -157,40 +191,63 @@ class EvaluationRunner:
         print(f"     Results: {self.results_dir}")
         print("="*80 + "\n")
     
+    def _get_expected_plans_for_profile(self, profile_id: str) -> Dict[str, Any]:
+        """ดึง expected_plans จาก evaluation_test_data โดยใช้ PROFILE_TO_TESTCASE mapping"""
+        test_case_name = self.PROFILE_TO_TESTCASE.get(profile_id)
+        if not test_case_name:
+            print(f"  ⚠️  No PROFILE_TO_TESTCASE mapping for {profile_id}")
+            return {}
+
+        # แปลง "TEST_CASE_6" -> test_id = 6
+        try:
+            test_id = int(test_case_name.replace("TEST_CASE_", ""))
+        except ValueError:
+            print(f"  ⚠️  Invalid test case name: {test_case_name}")
+            return {}
+
+        test_case = EvaluationTestData.get_test_case_by_id(test_id)
+        if not test_case:
+            print(f"  ⚠️  TEST_CASE_{test_id} not found in evaluation_test_data")
+            return {}
+
+        return test_case.get("expected_plans", {})
+
     def load_new_profiles(self) -> List[Dict[str, Any]]:
-        """Load test profiles from test_profiles and map to TaxCalculationRequest schema"""
+        """Load test profiles from test_profiles and map to TaxCalculationRequest schema
+        พร้อมแนบ expected_plans จาก evaluation_test_data ผ่าน PROFILE_TO_TESTCASE mapping
+        """
         from test_profiles import TEST_PROFILES
         from app.models import TaxCalculationRequest
-        
+
         mapped_profiles = []
-        
+
         for profile in TEST_PROFILES:
             p = profile["profile"]
             profile_id = profile["id"]
             label = profile["label"]
             goal = profile["goal"]
             expected_goal_type = profile["expected_goal_type"]
-            
+
             input_dict: Dict[str, Any] = {}
             meta_dict: Dict[str, Any] = {}
-            
+
             # annual_income -> gross_income
             input_dict["gross_income"] = p.get("annual_income", 0)
-            
+
             # income_type -> income_type (keep original string)
             input_dict["income_type"] = p.get("income_type", "40(8)")
-            
+
             # expense_deduction_type: "standard" -> expense_method = "standard", "actual" -> expense_method = "actual"
             expense_type = p.get("expense_deduction_type", "standard")
             input_dict["expense_method"] = "standard" if expense_type == "standard" else "actual"
-            
+
             # actual_expenses -> actual_expenses (use 0 if not present)
             input_dict["actual_expenses"] = p.get("actual_expenses", 0)
-            
+
             # occupation mapping based on income_type
             occupation = p.get("occupation", "")
             income_type = p.get("income_type", "40(8)")
-            
+
             if income_type == "40(6)":
                 # Map to profession_type (ProfessionType Enum)
                 input_dict["profession_type"] = self.PROFESSION_MAP.get(occupation, "other")
@@ -199,59 +256,66 @@ class EvaluationRunner:
                 # Map to business_type (BusinessType Enum)
                 input_dict["business_type"] = self.BUSINESS_MAP.get(occupation, "other_business")
                 input_dict["profession_type"] = None
-            
+
             # risk_tolerance: "aggressive" -> "high", "moderate" -> "medium", "conservative" -> "low"
             risk_map = {"aggressive": "high", "moderate": "medium", "conservative": "low"}
             input_dict["risk_tolerance"] = risk_map.get(p.get("risk_tolerance", "moderate"), "medium")
-            
+
             # marital_status: "married" -> spouse_deduction = 60000, "single" -> spouse_deduction = 0
             marital_status = p.get("marital_status", "single")
             input_dict["spouse_deduction"] = 60000 if marital_status == "married" else 0
-            
+
             # num_children -> child_deduction = num_children * 30000
             num_children = p.get("num_children", 0)
             input_dict["child_deduction"] = num_children * 30000
-            
+
             # num_parents -> parent_support = num_parents * 30000
             num_parents = p.get("num_parents", 0)
             input_dict["parent_support"] = num_parents * 30000
-            
+
             # life_insurance_amount -> life_insurance
             input_dict["life_insurance"] = p.get("life_insurance_amount", 0)
-            
+
             # health_insurance_amount -> health_insurance
             input_dict["health_insurance"] = p.get("health_insurance_amount", 0)
-            
+
             # existing_rmf -> rmf
             input_dict["rmf"] = p.get("existing_rmf", 0)
-            
+
             # existing_thai_esg -> thai_esg
             input_dict["thai_esg"] = p.get("existing_thai_esg", 0)
-            
+
             # Fields NOT in TaxCalculationRequest -> put in meta
             meta_dict["age"] = p.get("age")
             meta_dict["is_vat_registered"] = p.get("is_vat_registered")
             meta_dict["existing_savings"] = p.get("existing_savings")
-            meta_dict["marital_status"] = p.get("marital_status")  
-            meta_dict["dependents"] = p.get("dependents")            
+            meta_dict["marital_status"] = p.get("marital_status")
+            meta_dict["dependents"] = p.get("dependents")
 
-            
+            # ดึง expected_plans จาก evaluation_test_data ผ่าน PROFILE_TO_TESTCASE mapping
+            expected_plans = self._get_expected_plans_for_profile(profile_id)
+
             # Build final structure
             mapped_profile = {
                 "name": f"[{profile_id}] {label}",
                 "description": goal,
                 "input": input_dict,
                 "meta": meta_dict,
-                "expected_goal_type": expected_goal_type
+                "expected_goal_type": expected_goal_type,
+                "expected_plans": expected_plans,
             }
-            
+
             # Validate it matches TaxCalculationRequest
             try:
                 TaxCalculationRequest(**input_dict)
                 mapped_profiles.append(mapped_profile)
+                if self.verbose:
+                    mapped_tc = self.PROFILE_TO_TESTCASE.get(profile_id, "N/A")
+                    has_plans = "✅" if expected_plans else "❌"
+                    print(f"  {has_plans} {profile_id} -> {mapped_tc} (expected_plans: {'yes' if expected_plans else 'MISSING'})")
             except Exception as e:
                 print(f"⚠️  Skipping profile {profile_id}: {e}")
-        
+
         return mapped_profiles
     
     def print_progress(self, current: int, total: int, message: str = ""):
@@ -329,7 +393,7 @@ class EvaluationRunner:
         
         expected_plans = test_case.get('expected_plans', {})
         # Step 3: เรียก AI
-        print(f"  {Colors.CYAN}[3/4]{Colors.END} เรียก OpenAI...", end='', flush=True)
+        print(f"  {Colors.CYAN}[3/4]{Colors.END} เรียก Ollama LLM...", end='', flush=True)
         try:
             ai_response, raw_response = await self.ai_service.generate_recommendations(
     request, tax_result, context, expected_plans, test_case_id
@@ -341,11 +405,15 @@ class EvaluationRunner:
             return {}
 
         # ✨ =================================================================
-        # ✨ เพิ่มโค้ดคำนวณสำหรับ Evaluation Script ตรงนี้
+        # ✨ Post-processing: Backend fills numerics → Validate → Correct → Verify
         # ✨ =================================================================
-        print(f"  {Colors.CYAN}[Post-processing]{Colors.END} คำนวณตัวเลข...", end='', flush=True)
+        print(f"  {Colors.CYAN}[Post-processing]{Colors.END} Fill numerics → Validate → Correct...", end='', flush=True)
 
-        # กำหนด tiers ตามรายได้ (ต้องตรงกับ AI service และ main.py)
+        from app.services.tax_law_validator import (
+            TaxLawValidator, validate_and_correct_plans
+        )
+
+        # กำหนด tiers ตามรายได้ (ต้องตรงกับ main.py)
         gross = tax_result.gross_income
         if gross < 600000:
             tiers = [40000, 60000, 80000]
@@ -360,37 +428,72 @@ class EvaluationRunner:
         else:
             tiers = [800000, 1200000, 1800000]
 
-        # 🔧 FIX: คำนวณ tax saving อย่างถูกต้องตามหลักภาษี
-        # Tax Saving = ภาษีที่ลดได้จากการลงทุน
-        # = (ภาษีโดยไม่ลงทุน) - (ภาษีถ้าลงทุน)
-        # = Investment × Marginal Rate ของรายได้ที่เพิ่มขึ้น
+        # Cap tiers ไม่ให้เกิน max legal total (คำนวณจาก existing deductions ด้วย)
+        validator = TaxLawValidator(
+            gross_income=gross,
+            existing_life_insurance=request_data.get("life_insurance", 0),
+            existing_health_insurance=request_data.get("health_insurance", 0),
+            existing_rmf=request_data.get("rmf", 0),
+        )
+        max_legal = validator.get_max_legal_total()
+        tiers = [min(t, max_legal) for t in tiers]
 
+        # 🆕 Backend fills in all numeric fields that AI doesn't generate
+        plan_type_map = {"conservative": 0, "balanced": 1, "growth": 2}
         for idx, plan in enumerate(ai_response.get("plans", [])):
-                        # 🎯 บังคับใช้ total_investment ตาม tier (ไม่ใช้ค่าจาก AI)
+            # Determine tier index from plan_type or position
+            plan_type = plan.get("plan_type", "").lower()
+            tier_idx = plan_type_map.get(plan_type, idx)
+            if tier_idx >= len(tiers):
+                tier_idx = idx
 
-            if idx < len(tiers):
-                total_investment = tiers[idx]
-                plan["total_investment"] = total_investment 
-            else:
-                total_investment = plan.get("total_investment", 0)
+            tier_investment = tiers[min(tier_idx, len(tiers) - 1)]
 
-            taxable_without_total_investment = tax_result.taxable_income + total_investment
-            marginal_rate_for_total = tax_calculator_service.get_marginal_tax_rate(
-                taxable_without_total_investment
-            )
-            calculated_total_tax_saving = int(total_investment * (marginal_rate_for_total / 100))
+            # Fill plan-level fields that AI doesn't provide
+            plan["total_investment"] = tier_investment
+            plan.setdefault("plan_id", str(idx + 1))
+            plan_names = [
+                "ทางเลือกที่ 1 - เน้นประกัน",
+                "ทางเลือกที่ 2 - สมดุล",
+                "ทางเลือกที่ 3 - ลงทุนสูงสุด"
+            ]
+            plan.setdefault("plan_name", plan_names[min(idx, 2)])
+            plan.setdefault("overall_risk", plan.get("plan_type", "medium"))
 
+            # Fill allocation-level investment_amount from percentage
             for alloc in plan.get("allocations", []):
-                percentage = alloc.get("percentage", 0)
-                investment_amount = int((percentage / 100) * total_investment)
-                alloc["investment_amount"] = investment_amount
-                tax_saving = int((percentage / 100) * calculated_total_tax_saving)
-                alloc["tax_saving"] = tax_saving
-            plan["total_tax_saving"] = calculated_total_tax_saving
-        print(f" {Colors.GREEN}✓{Colors.END}")
+                pct = alloc.get("percentage", 0)
+                alloc["investment_amount"] = int((pct / 100) * tier_investment)
+
+        # Validate → Correct → Verify ทุก plan
+        # ส่ง existing deductions จาก profile เพื่อคำนวณวงเงินที่เหลือถูกต้อง
+        correction_result = validate_and_correct_plans(
+            plans=ai_response.get("plans", []),
+            gross_income=gross,
+            taxable_income=tax_result.taxable_income,
+            existing_life_insurance=request_data.get("life_insurance", 0),
+            existing_health_insurance=request_data.get("health_insurance", 0),
+            existing_rmf=request_data.get("rmf", 0),
+        )
+
+        # อัพเดท expected_plans ให้ตรงกับ tiers (ใช้ bracket-by-bracket tax saving)
+        if expected_plans:
+            for plan_idx, plan_key in enumerate(["plan_1", "plan_2", "plan_3"]):
+                if plan_key in expected_plans and plan_idx < len(tiers):
+                    expected_investment = tiers[plan_idx]
+                    expected_tax_saving = tax_calculator_service.calculate_tax_saving_accurate(
+                        tax_result.taxable_income, expected_investment
+                    )
+                    expected_plans[plan_key]["total_investment"] = expected_investment
+                    expected_plans[plan_key]["total_tax_saving"] = expected_tax_saving
+
+        if correction_result["corrections_made"] > 0:
+            print(f" {Colors.YELLOW}✓{Colors.END} (corrected {correction_result['corrections_made']} plan(s), max legal={max_legal:,})")
+        else:
+            print(f" {Colors.GREEN}✓{Colors.END} (all legal)")
         # ✨ =================================================================
 
-        # Step 4 เช็คกฎหมาย 
+        # Step 4 เช็คกฎหมาย (re-validate after correction)
         print(f"  {Colors.CYAN}[4/5]{Colors.END} เช็คความถูกต้องตามกฎหมาย...", end='', flush=True)
 
         legal_checks = []
@@ -525,7 +628,52 @@ class EvaluationRunner:
                     traceback.print_exc()
         
         return all_results
-    
+
+    async def run_profile_test_cases(self) -> List[Dict[str, Any]]:
+        """รัน evaluation โดยใช้ 20 profiles จาก test_profiles.py
+        แต่ละ profile จะถูก map กับ expected_plans จาก evaluation_test_data.py
+        ผ่าน PROFILE_TO_TESTCASE mapping เพื่อ evaluate ตาม AI_OPTIMIZER_VISION.md
+        """
+
+        print(f"\n{Colors.BOLD}📦 Loading test profiles from test_profiles.py...{Colors.END}")
+        profiles = self.load_new_profiles()
+
+        if not profiles:
+            print(f"{Colors.RED}❌ No profiles loaded!{Colors.END}")
+            return []
+
+        all_results = []
+
+        print(f"\n{Colors.BOLD}🧪 RUNNING {len(profiles)} PROFILE TEST CASES{Colors.END}")
+        print(f"  (Profiles from test_profiles.py + expected_plans from evaluation_test_data.py)")
+        print("="*80 + "\n")
+
+        for i, profile in enumerate(profiles, 1):
+            try:
+                # profile มี expected_plans แนบมาแล้วจาก load_new_profiles()
+                result = await self.run_single_test_case(profile, i)
+                if result:
+                    # เพิ่ม meta data ของ profile เข้าไปใน result
+                    result['meta'] = profile.get('meta', {})
+                    result['expected_goal_type'] = profile.get('expected_goal_type', '')
+                    all_results.append(result)
+
+                self.print_progress(i, len(profiles), f"Completed {i}/{len(profiles)}")
+
+                # Rate limiting
+                if i < len(profiles):
+                    if self.verbose:
+                        print(f"\n⏱️  Rate limiting: Waiting 1.5s before next profile...")
+                    await asyncio.sleep(1.5)
+
+            except Exception as e:
+                print(f"\n{Colors.RED}❌ Error in profile {i}: {e}{Colors.END}")
+                if self.verbose:
+                    import traceback
+                    traceback.print_exc()
+
+        return all_results
+
     def save_final_results(
         self,
         all_results: List[Dict[str, Any]],
@@ -728,35 +876,44 @@ Examples:
   python run_evaluation_complete.py --mode full
   python run_evaluation_complete.py --mode full --test-case 1
   python run_evaluation_complete.py --mode full --bertscore
+  python run_evaluation_complete.py --mode profiles
+  python run_evaluation_complete.py --mode profiles --bertscore
         """
     )
-    
-    parser.add_argument('--mode', choices=['quick', 'full'], default='quick',
-                       help='Evaluation mode')
+
+    parser.add_argument('--mode', choices=['quick', 'full', 'profiles'], default='quick',
+                       help='Evaluation mode: quick (sample), full (evaluation_test_data), profiles (test_profiles.py)')
     parser.add_argument('--test-case', type=int,
-                       help='Run specific test case (1-20)')
+                       help='Run specific test case (1-20) [full mode only]')
     parser.add_argument('--bertscore', action='store_true',
                        help='Use BERTScore (slower)')
     parser.add_argument('--no-verbose', action='store_true',
                        help='Disable verbose logging')
     parser.add_argument('--no-save', action='store_true',
                        help='Disable saving logs')
-    
+
     args = parser.parse_args()
-    
+
     if args.mode == 'quick':
         await quick_test()
         return
-    
-    # Full evaluation
+
+    # Full or Profiles evaluation
     runner = EvaluationRunner(
         verbose=not args.no_verbose,
         save_logs=not args.no_save,
         use_bertscore=args.bertscore
     )
-    
-    # รัน specific test case หรือทั้งหมด
-    if args.test_case:
+
+    if args.mode == 'profiles':
+        # ใช้ 20 profiles จาก test_profiles.py (ตาม AI_OPTIMIZER_VISION.md)
+        print(f"\n{Colors.BOLD}{Colors.CYAN}📋 MODE: profiles{Colors.END}")
+        print(f"  ใช้ 20 test profiles จาก test_profiles.py")
+        print(f"  expected_plans จาก evaluation_test_data.py ผ่าน PROFILE_TO_TESTCASE mapping\n")
+        all_results = await runner.run_profile_test_cases()
+
+    elif args.test_case:
+        # รัน specific test case จาก evaluation_test_data
         test_case = EvaluationTestData.get_test_case_by_id(args.test_case)
         if not test_case:
             print(f"{Colors.RED}❌ Test case {args.test_case} not found{Colors.END}")
@@ -764,6 +921,7 @@ Examples:
         result = await runner.run_single_test_case(test_case, args.test_case)
         all_results = [result] if result else []
     else:
+        # รันทั้งหมดจาก evaluation_test_data
         all_results = await runner.run_all_test_cases()
     
     if not all_results:

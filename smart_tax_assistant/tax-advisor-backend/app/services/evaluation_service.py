@@ -897,7 +897,8 @@ class EvaluationService:
         # Save to file
         if save_to_file and output_dir:
             output_dir.mkdir(parents=True, exist_ok=True)
-            report_file = output_dir / f"report_{test_case_name.replace(' ', '_')}.json"
+            safe_name = test_case_name.replace(' ', '_').replace('/', '_')
+            report_file = output_dir / f"report_{safe_name}.json"
             with open(report_file, 'w', encoding='utf-8') as f:
                 json.dump(results, f, indent=2, ensure_ascii=False)
             print(f"{Colors.GREEN}💾 Report saved to: {report_file}{Colors.END}\n")
