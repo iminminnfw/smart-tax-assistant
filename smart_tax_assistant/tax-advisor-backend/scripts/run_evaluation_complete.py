@@ -192,25 +192,15 @@ class EvaluationRunner:
         print("="*80 + "\n")
     
     def _get_expected_plans_for_profile(self, profile_id: str) -> Dict[str, Any]:
-        """ดึง expected_plans จาก evaluation_test_data โดยใช้ PROFILE_TO_TESTCASE mapping"""
-        test_case_name = self.PROFILE_TO_TESTCASE.get(profile_id)
-        if not test_case_name:
-            print(f"  ⚠️  No PROFILE_TO_TESTCASE mapping for {profile_id}")
+        """ดึง expected_plans จาก test_profiles.PROFILE_EXPECTED_PLANS โดยตรง"""
+        from test_profiles import PROFILE_EXPECTED_PLANS
+
+        expected_plans = PROFILE_EXPECTED_PLANS.get(profile_id)
+        if not expected_plans:
+            print(f"  ⚠️  No PROFILE_EXPECTED_PLANS for {profile_id}")
             return {}
 
-        # แปลง "TEST_CASE_6" -> test_id = 6
-        try:
-            test_id = int(test_case_name.replace("TEST_CASE_", ""))
-        except ValueError:
-            print(f"  ⚠️  Invalid test case name: {test_case_name}")
-            return {}
-
-        test_case = EvaluationTestData.get_test_case_by_id(test_id)
-        if not test_case:
-            print(f"  ⚠️  TEST_CASE_{test_id} not found in evaluation_test_data")
-            return {}
-
-        return test_case.get("expected_plans", {})
+        return expected_plans
 
     def load_new_profiles(self) -> List[Dict[str, Any]]:
         """Load test profiles from test_profiles and map to TaxCalculationRequest schema
@@ -310,9 +300,8 @@ class EvaluationRunner:
                 TaxCalculationRequest(**input_dict)
                 mapped_profiles.append(mapped_profile)
                 if self.verbose:
-                    mapped_tc = self.PROFILE_TO_TESTCASE.get(profile_id, "N/A")
                     has_plans = "✅" if expected_plans else "❌"
-                    print(f"  {has_plans} {profile_id} -> {mapped_tc} (expected_plans: {'yes' if expected_plans else 'MISSING'})")
+                    print(f"  {has_plans} {profile_id} (expected_plans: {'yes' if expected_plans else 'MISSING'})")
             except Exception as e:
                 print(f"⚠️  Skipping profile {profile_id}: {e}")
 
@@ -631,8 +620,7 @@ class EvaluationRunner:
 
     async def run_profile_test_cases(self) -> List[Dict[str, Any]]:
         """รัน evaluation โดยใช้ 20 profiles จาก test_profiles.py
-        แต่ละ profile จะถูก map กับ expected_plans จาก evaluation_test_data.py
-        ผ่าน PROFILE_TO_TESTCASE mapping เพื่อ evaluate ตาม AI_OPTIMIZER_VISION.md
+        แต่ละ profile มี expected_plans เฉพาะจาก PROFILE_EXPECTED_PLANS ใน test_profiles.py
         """
 
         print(f"\n{Colors.BOLD}📦 Loading test profiles from test_profiles.py...{Colors.END}")
@@ -909,7 +897,7 @@ Examples:
         # ใช้ 20 profiles จาก test_profiles.py (ตาม AI_OPTIMIZER_VISION.md)
         print(f"\n{Colors.BOLD}{Colors.CYAN}📋 MODE: profiles{Colors.END}")
         print(f"  ใช้ 20 test profiles จาก test_profiles.py")
-        print(f"  expected_plans จาก evaluation_test_data.py ผ่าน PROFILE_TO_TESTCASE mapping\n")
+        print(f"  expected_plans จาก test_profiles.PROFILE_EXPECTED_PLANS (เฉพาะแต่ละ profile)\n")
         all_results = await runner.run_profile_test_cases()
 
     elif args.test_case:

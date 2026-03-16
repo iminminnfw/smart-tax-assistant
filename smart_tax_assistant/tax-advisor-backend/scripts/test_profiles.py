@@ -545,5 +545,869 @@ def print_profile_summary():
     print(f"{'='*110}")
     print(f"Total: {len(TEST_PROFILES)} profiles configured.")
 
+# =============================================================================
+# COMMON ALLOCATION PROS/CONS TEMPLATES
+# =============================================================================
+
+_ALLOC_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    "ประกันชีวิต": {
+        "category": "ประกันชีวิต",
+        "pros": ["ให้ความคุ้มครองชีวิตและครอบครัว", "ลดหย่อนภาษีได้สูงสุด 100,000 บาท", "สร้างความมั่นใจทางการเงิน"],
+        "cons": ["ผลตอบแทนจากการลงทุนต่ำ", "ต้องจ่ายเบี้ยประกันต่อเนื่อง", "ไม่เหมาะสำหรับการเติบโตของเงิน"],
+    },
+    "ประกันสุขภาพ": {
+        "category": "ประกันสุขภาพ",
+        "pros": ["ให้ความคุ้มครองค่ารักษาพยาบาล", "ลดหย่อนภาษีได้สูงสุด 25,000 บาท", "ช่วยลดภาระค่าใช้จ่ายทางการแพทย์"],
+        "cons": ["ไม่มีผลตอบแทนจากการลงทุน", "ต้องจ่ายเบี้ยประกันต่อเนื่อง", "ไม่เหมาะสำหรับการเติบโตของเงิน"],
+    },
+    "ประกันบำนาญ": {
+        "category": "ประกันบำนาญ",
+        "pros": ["รับประกันรายได้หลังเกษียณ", "ลดหย่อนภาษีได้สูงสุด 200,000 บาท", "ผลตอบแทนที่แน่นอนและมั่นคง"],
+        "cons": ["ต้องถือครองจนถึงอายุที่กำหนด", "ผลตอบแทนต่ำกว่าการลงทุนในตลาดทุน", "สภาพคล่องต่ำ"],
+    },
+    "RMF": {
+        "category": "RMF",
+        "pros": ["ลดหย่อนภาษีได้สูงถึง 30% ของรายได้", "ผลตอบแทนระยะยาวจากการลงทุนในตลาดทุน", "เหมาะสำหรับการวางแผนเกษียณ"],
+        "cons": ["ต้องถือจนอายุ 55 ปีหรือครบ 5 ปี", "ต้องลงทุนต่อเนื่องทุกปี", "มีความเสี่ยงจากตลาดหุ้น"],
+    },
+    "ThaiESG": {
+        "category": "ThaiESG",
+        "pros": ["ลดหย่อนภาษีได้สูงสุด 300,000 บาท", "ลงทุนในบริษัทที่คำนึงถึงความยั่งยืน", "ผลตอบแทนดีจากกองทุนหุ้นคุณภาพ"],
+        "cons": ["ต้องถือครองอย่างน้อย 8 ปี", "มีความเสี่ยงจากตลาดหุ้น", "ทางเลือกกองทุนจำกัด"],
+    },
+    "เงินบริจาค": {
+        "category": "เงินบริจาค",
+        "pros": ["ลดหย่อนภาษีได้ทันที", "บริจาคการศึกษาลดหย่อนได้ 2 เท่า", "ไม่ต้องถือครองหรือล็อคเงิน"],
+        "cons": ["ไม่มีผลตอบแทนจากการลงทุน", "เป็นค่าใช้จ่ายที่ไม่ได้คืน", "วงเงินลดหย่อนจำกัดตามกฎหมาย"],
+    },
+}
+
+
+def _alloc(cat: str) -> Dict[str, Any]:
+    """Return standard pros/cons template for a category"""
+    return _ALLOC_TEMPLATES[cat].copy()
+
+
+# =============================================================================
+# PROFILE_EXPECTED_PLANS - 20 profiles × 3 plans
+# expected_text descriptions ที่สอดคล้องกับแต่ละ profile
+# total_investment / total_tax_saving จะถูก overwrite โดย backend
+# =============================================================================
+
+PROFILE_EXPECTED_PLANS: Dict[str, Dict[str, Any]] = {
+    # =====================================================================
+    # A1: แพทย์เปิดคลินิก 1.5M | no existing | aggressive | TAX_SAVING
+    # Insurance remaining: 100K | RMF remaining: 450K | Pension: 200K
+    # =====================================================================
+    "A1": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นสร้างความคุ้มครองพื้นฐานด้วยประกันชีวิตและสุขภาพ เหมาะสำหรับแพทย์ที่เริ่มต้นวางแผนภาษีและยังไม่มีประกัน",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ความคุ้มครอง", "ประกันชีวิต", "ประกันสุขภาพ", "แพทย์", "ลดหย่อนภาษี"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายการลงทุนระหว่างประกันและกองทุนรวม สร้างสมดุลระหว่างความคุ้มครองและผลตอบแทน",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "กระจายความเสี่ยง", "กองทุน", "ประกัน", "ผลตอบแทน"],
+                "key_points": ["กองทุน", "ประกัน", "กระจายความเสี่ยง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลดหย่อนภาษีสูงสุดด้วย RMF และ ThaiESG ใช้สิทธิลดหย่อนเต็มวงเงินสำหรับรายได้สูง",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["ลดหย่อนสูงสุด", "RMF", "ThaiESG", "ผลตอบแทน", "เติบโต"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี", "ผลตอบแทนสูง"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A2: ทนายความ 1.2M | life=30K health=10K RMF=50K | moderate | HYBRID
+    # Insurance remaining: 60K | RMF remaining: 310K | Pension: 180K
+    # =====================================================================
+    "A2": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มความคุ้มครองครอบครัวด้วยประกันชีวิตและสุขภาพเพิ่มเติม เหมาะกับครอบครัวที่มีลูกเล็ก",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ความคุ้มครอง", "ครอบครัว", "ประกันชีวิต", "ประกันสุขภาพ", "ลูก"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครองครอบครัว"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างความคุ้มครองและการลงทุน เพิ่ม RMF ต่อยอดจากที่มีอยู่พร้อมรักษาสภาพคล่อง",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "RMF", "ประกัน", "สภาพคล่อง", "ครอบครัว"],
+                "key_points": ["RMF", "ประกัน", "สมดุล"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นการลงทุนเพื่อผลตอบแทนระยะยาวพร้อมสิทธิประโยชน์ทางภาษี เพิ่ม RMF และ ThaiESG",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["ผลตอบแทน", "RMF", "ThaiESG", "ลดหย่อน", "ระยะยาว"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A3: วิศวกรที่ปรึกษา 900K | life=50K | moderate | CASH_FLOW
+    # Insurance remaining: 50K | RMF remaining: 270K | Pension: 135K
+    # =====================================================================
+    "A3": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นสภาพคล่องและความคุ้มครองพื้นฐาน เพิ่มประกันสุขภาพเพื่อรองรับค่าใช้จ่ายดูแลพ่อแม่",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["สภาพคล่อง", "คุ้มครอง", "ประกันสุขภาพ", "ดูแลพ่อแม่", "ประกัน"],
+                "key_points": ["ประกันสุขภาพ", "สภาพคล่อง", "ดูแลพ่อแม่"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างสภาพคล่องและการลดหย่อนภาษี กระจายเงินในประกันและกองทุนรวม",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "สภาพคล่อง", "ลดหย่อน", "กองทุน", "ประกัน"],
+                "key_points": ["กองทุน", "ประกัน", "สภาพคล่อง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มการลดหย่อนภาษีด้วย RMF และ ThaiESG โดยยังรักษาสภาพคล่องสำหรับดูแลพ่อแม่",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อน", "สภาพคล่อง", "ดูแลพ่อแม่"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A4: สถาปนิกฟรีแลนซ์ 480K | no existing | aggressive | TAX_SAVING
+    # Insurance remaining: 100K | RMF remaining: 144K | Pension: 72K
+    # =====================================================================
+    "A4": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นวางแผนภาษีด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองพื้นฐานสำหรับสถาปนิกจบใหม่",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เริ่มต้น", "ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "วางแผนภาษี"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "เริ่มต้นวางแผน"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายการลงทุนระหว่างประกันและกองทุนรวม เหมาะสำหรับผู้เริ่มต้นวางแผนภาษี",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "กองทุน", "ประกัน", "เริ่มต้น", "สมดุล"],
+                "key_points": ["กองทุน", "ประกัน", "กระจายความเสี่ยง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลดหย่อนภาษีสูงสุดด้วยกองทุน RMF และ ThaiESG สำหรับรายได้ระดับเริ่มต้น",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["ลดหย่อนสูงสุด", "RMF", "ThaiESG", "เติบโต", "รายได้"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A5: นักบัญชีอิสระ 1.8M | life=100K health=25K RMF=300K | conservative | RETIREMENT
+    # Insurance FULL (combined>100K) | RMF remaining: 200K | Pension: 200K
+    # Retirement cap remaining: 500K - 300K = 200K
+    # =====================================================================
+    "A5": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นความมั่นคงหลังเกษียณด้วยประกันบำนาญ เพิ่มความมั่นใจสำหรับเกษียณใน 4 ปี",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เกษียณ", "ประกันบำนาญ", "มั่นคง", "ความปลอดภัย", "รายได้หลังเกษียณ"],
+                "key_points": ["ประกันบำนาญ", "เกษียณ", "ความมั่นคง"],
+                "expected_allocations": [_alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่าง RMF เพิ่มเติมและ ThaiESG เตรียมพร้อมสำหรับเกษียณอีก 4 ปี",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "RMF", "ThaiESG", "เกษียณ", "เตรียมพร้อม"],
+                "key_points": ["RMF", "ThaiESG", "เกษียณ"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่ม RMF และ ThaiESG เพื่อลดหย่อนภาษีสูงสุดก่อนเกษียณ ใช้สิทธิที่เหลืออยู่ให้คุ้มค่า",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อนสูงสุด", "เกษียณ", "คุ้มค่า"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี", "เกษียณ"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A6: แพทย์เฉพาะทาง 4M | life=100K health=25K RMF=200K ThaiESG=100K | aggressive | HYBRID
+    # Insurance FULL | RMF remaining: 300K | ThaiESG remaining: 200K | Pension: 200K
+    # Retirement cap remaining: 500K - 200K = 300K
+    # =====================================================================
+    "A6": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่ม RMF ต่อยอดจากที่มีอยู่ พร้อมประกันบำนาญเพื่อวางแผนเกษียณตอน 55",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["RMF", "ประกันบำนาญ", "เกษียณ", "ต่อยอด", "แพทย์"],
+                "key_points": ["RMF", "ประกันบำนาญ", "เกษียณตอน 55"],
+                "expected_allocations": [_alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายการลงทุนใน RMF ThaiESG และประกันบำนาญ เพื่อใช้สิทธิลดหย่อนอย่างครบถ้วน",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "RMF", "ThaiESG", "ประกันบำนาญ", "ลดหย่อน"],
+                "key_points": ["RMF", "ThaiESG", "ประกันบำนาญ"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลงทุนเต็มวงเงินใน RMF และ ThaiESG พร้อมเงินบริจาคการศึกษาเพื่อลดหย่อนสูงสุด",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "เงินบริจาค", "ลดหย่อนสูงสุด", "เติบโต"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษีสูงสุด"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("เงินบริจาค")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A7: ทันตแพทย์ 2M | life=50K health=20K | moderate | LIFE_EVENT
+    # Insurance remaining: 30K | RMF remaining: 500K | Pension: 200K
+    # =====================================================================
+    "A7": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มความคุ้มครองครอบครัวด้วยประกันชีวิตเพิ่มเติม เตรียมเงินสำหรับดาวน์บ้าน",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["คุ้มครอง", "ครอบครัว", "ประกันชีวิต", "ดาวน์บ้าน", "ประกัน"],
+                "key_points": ["ประกันชีวิต", "คุ้มครองครอบครัว", "ดาวน์บ้าน"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างประกันและกองทุนรวม สร้างเงินออมเพื่อเป้าหมายดาวน์บ้านพร้อมลดหย่อนภาษี",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "กองทุน", "ดาวน์บ้าน", "เงินออม", "ลดหย่อน"],
+                "key_points": ["กองทุน", "ประกัน", "ดาวน์บ้าน"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นการลงทุนใน RMF และ ThaiESG เพื่อลดหย่อนภาษีสูงสุดและเพิ่มเงินออมสำหรับเป้าหมาย",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อนสูงสุด", "เงินออม", "เป้าหมาย"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A8: นักกฎหมาย 700K | life=20K | conservative | TAX_SAVING
+    # Insurance remaining: 80K | RMF remaining: 210K | Pension: 105K
+    # =====================================================================
+    "A8": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นประกันชีวิตและสุขภาพเพิ่มเติม เหมาะกับผู้ที่ไม่อยากเสี่ยงลงทุนแต่ต้องการลดหย่อนภาษี",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ประกันชีวิต", "ประกันสุขภาพ", "ไม่เสี่ยง", "ลดหย่อน", "ปลอดภัย"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "ปลอดภัย"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างประกันและกองทุนความเสี่ยงต่ำ ลดหย่อนภาษีอย่างปลอดภัย",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "ความเสี่ยงต่ำ", "ประกัน", "กองทุน", "ลดหย่อน"],
+                "key_points": ["กองทุน", "ประกัน", "ความเสี่ยงต่ำ"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มการลดหย่อนด้วย RMF ความเสี่ยงต่ำและประกันบำนาญ เหมาะกับผู้ที่ต้องการความมั่นคง",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ประกันบำนาญ", "ความเสี่ยงต่ำ", "มั่นคง", "ลดหย่อน"],
+                "key_points": ["RMF", "ประกันบำนาญ", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A9: วิศวกร 2.5M | life=100K health=25K RMF=400K ThaiESG=200K | moderate | TAX_SAVING
+    # Insurance FULL | RMF remaining: 100K | ThaiESG remaining: 100K | Pension: 200K
+    # Retirement cap remaining: 500K - 400K = 100K
+    # =====================================================================
+    "A9": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่ม RMF อีกเล็กน้อยเพื่อเติมเต็มวงเงิน พร้อมประกันบำนาญสำหรับสิทธิที่เหลือ",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["RMF", "ประกันบำนาญ", "เติมเต็ม", "สิทธิที่เหลือ", "วงเงิน"],
+                "key_points": ["RMF", "ประกันบำนาญ", "สิทธิที่เหลือ"],
+                "expected_allocations": [_alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่ม ThaiESG อีก 100,000 บาทและ RMF เพื่อใช้สิทธิลดหย่อนที่เหลืออยู่อย่างสมดุล",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["ThaiESG", "RMF", "สมดุล", "สิทธิลดหย่อน", "เพิ่ม"],
+                "key_points": ["ThaiESG", "RMF", "สิทธิที่เหลือ"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เติมเต็มทั้ง RMF และ ThaiESG ให้เต็มเพดาน พร้อมประกันบำนาญเพื่อลดหย่อนสูงสุด",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "เต็มเพดาน", "ลดหย่อนสูงสุด", "ประกันบำนาญ"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี", "เต็มวงเงิน"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # A10: สัตวแพทย์ 1M | no existing | aggressive | TAX_SAVING | low savings
+    # Insurance remaining: 100K | RMF remaining: 300K | Pension: 150K
+    # =====================================================================
+    "A10": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองพื้นฐานก่อนลงทุนเพิ่ม",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เริ่มต้น", "ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "พื้นฐาน"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "เริ่มต้นวางแผน"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายระหว่างประกันและกองทุน เริ่มต้นวางแผนภาษีอย่างเป็นระบบแม้เงินสำรองน้อย",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "ประกัน", "กองทุน", "วางแผน", "เงินสำรอง"],
+                "key_points": ["กองทุน", "ประกัน", "วางแผนภาษี"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลดหย่อนภาษีสูงสุดด้วย RMF และ ThaiESG สำหรับสัตวแพทย์ที่มีรายได้ดี",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อนสูงสุด", "เติบโต", "รายได้ดี"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B11: เจ้าของร้านค้าออนไลน์ 600K | no existing | moderate | TAX_SAVING
+    # Insurance remaining: 100K | RMF remaining: 180K | Pension: 90K
+    # =====================================================================
+    "B11": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองสำหรับเจ้าของธุรกิจออนไลน์",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "ธุรกิจ", "เริ่มต้น"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครองธุรกิจ"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างประกันและกองทุนรวม กระจายความเสี่ยงสำหรับธุรกิจออนไลน์",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "กระจายความเสี่ยง", "กองทุน", "ประกัน", "ธุรกิจ"],
+                "key_points": ["กองทุน", "ประกัน", "กระจายความเสี่ยง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลดหย่อนภาษีด้วย RMF และ ThaiESG สำหรับรายได้ระดับกลางจากธุรกิจ",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อน", "ธุรกิจ", "เติบโต"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B12: ผู้รับเหมาก่อสร้าง 1.5M | life=50K health=25K RMF=100K | moderate | HYBRID
+    # Insurance remaining: 25K (combined=75K) | RMF remaining: 350K | Pension: 200K
+    # =====================================================================
+    "B12": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มความคุ้มครองครอบครัวด้วยประกันชีวิตเพิ่มเติม สมดุลภาษีธุรกิจและบุคคลธรรมดา",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["คุ้มครอง", "ครอบครัว", "ประกันชีวิต", "ธุรกิจ", "ภาษี"],
+                "key_points": ["ประกันชีวิต", "คุ้มครองครอบครัว", "สมดุลภาษี"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างประกันและกองทุน เพิ่ม RMF ต่อยอดจากที่มีอยู่เพื่อลดหย่อนเพิ่ม",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "RMF", "ประกัน", "ต่อยอด", "ลดหย่อน"],
+                "key_points": ["RMF", "ประกัน", "สมดุล"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลงทุนใน RMF และ ThaiESG เพื่อลดหย่อนภาษีสูงสุดสำหรับผู้รับเหมา",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อนสูงสุด", "ผู้รับเหมา", "ลงทุน"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B13: เจ้าของร้านอาหาร 800K | life=20K health=10K | conservative | CASH_FLOW
+    # Insurance remaining: 70K (combined=30K) | RMF remaining: 240K | Pension: 120K
+    # =====================================================================
+    "B13": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นสภาพคล่องและเพิ่มความคุ้มครองด้วยประกันชีวิตและสุขภาพเพิ่มเติม",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["สภาพคล่อง", "คุ้มครอง", "ประกันชีวิต", "ประกันสุขภาพ", "ร้านอาหาร"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "สภาพคล่อง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างสภาพคล่องและการลดหย่อน เหมาะกับธุรกิจร้านอาหารที่รายได้ผันผวน",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "สภาพคล่อง", "ลดหย่อน", "ผันผวน", "ร้านอาหาร"],
+                "key_points": ["กองทุน", "ประกัน", "สภาพคล่อง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มการลดหย่อนด้วยกองทุนความเสี่ยงต่ำ โดยรักษาเงินหมุนเวียนธุรกิจร้านอาหาร",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["กองทุน", "ลดหย่อน", "ความเสี่ยงต่ำ", "เงินหมุนเวียน", "ธุรกิจ"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B14: นายหน้าอสังหาฯ 3M | life=100K RMF=200K ThaiESG=100K | aggressive | TAX_SAVING
+    # Insurance FULL (life=100K) | RMF remaining: 300K | ThaiESG remaining: 200K | Pension: 200K
+    # Retirement cap remaining: 500K - 200K = 300K
+    # =====================================================================
+    "B14": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่ม RMF ต่อยอดจาก 200,000 บาทที่มีอยู่ พร้อมประกันบำนาญเพิ่มความมั่นคง",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["RMF", "ประกันบำนาญ", "ต่อยอด", "มั่นคง", "นายหน้า"],
+                "key_points": ["RMF", "ประกันบำนาญ", "ต่อยอด"],
+                "expected_allocations": [_alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายการลงทุนใน RMF และ ThaiESG ต่อยอดจากที่มีอยู่เพื่อใช้สิทธิลดหย่อนเพิ่ม",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["RMF", "ThaiESG", "กระจาย", "สิทธิลดหย่อน", "ต่อยอด"],
+                "key_points": ["RMF", "ThaiESG", "สิทธิลดหย่อน"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลงทุนเต็มวงเงินใน RMF และ ThaiESG พร้อมเงินบริจาคการศึกษาเพื่อลดหย่อนสูงสุด",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "เงินบริจาค", "ลดหย่อนสูงสุด", "เต็มวงเงิน"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษีสูงสุด"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("เงินบริจาค")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B15: YouTuber 420K | no existing | aggressive | TAX_SAVING
+    # Insurance remaining: 100K | RMF remaining: 126K | Pension: 63K
+    # =====================================================================
+    "B15": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองสำหรับรายได้ที่เติบโตเร็ว",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เริ่มต้น", "ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "เติบโต"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "เริ่มต้นวางแผน"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายระหว่างประกันและกองทุนรวม เหมาะกับคนรุ่นใหม่ที่เริ่มต้นวางแผนภาษี",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "กองทุน", "ประกัน", "คนรุ่นใหม่", "วางแผน"],
+                "key_points": ["กองทุน", "ประกัน", "กระจายความเสี่ยง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้น RMF และ ThaiESG เพื่อลดหย่อนภาษีสูงสุดสำหรับรายได้ระดับเริ่มต้น",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อนสูงสุด", "รายได้", "เติบโต"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B16: ธุรกิจนำเข้า 5M | life=100K health=25K RMF=500K ThaiESG=300K | moderate | HYBRID
+    # Insurance FULL | RMF FULL | ThaiESG FULL | Retirement cap FULL (500K-500K=0)
+    # Almost no deductions left — edge case profile
+    # =====================================================================
+    "B16": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "ท่านใช้สิทธิลดหย่อนภาษีเกือบเต็มวงเงินแล้ว พิจารณาเงินบริจาคการศึกษาเพื่อลดหย่อนเพิ่มเติม",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เต็มวงเงิน", "บริจาค", "การศึกษา", "ลดหย่อน", "ภาษี"],
+                "key_points": ["เงินบริจาค", "สิทธิเต็มวงเงิน"],
+                "expected_allocations": [_alloc("เงินบริจาค")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นการจัดการสินทรัพย์ที่มีอยู่และการวางแผนเกษียณจากเงินลงทุน RMF และ ThaiESG ที่ลงไปแล้ว",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["จัดการสินทรัพย์", "เกษียณ", "RMF", "ThaiESG", "วางแผน"],
+                "key_points": ["จัดการสินทรัพย์", "เกษียณ"],
+                "expected_allocations": [_alloc("เงินบริจาค")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "พิจารณาเงินบริจาคการศึกษาหรือกีฬา ซึ่งลดหย่อนได้ 2 เท่า เพื่อเพิ่มสิทธิประโยชน์ทางภาษี",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["บริจาค", "การศึกษา", "2 เท่า", "สิทธิประโยชน์", "ภาษี"],
+                "key_points": ["เงินบริจาค", "ลดหย่อน 2 เท่า"],
+                "expected_allocations": [_alloc("เงินบริจาค")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B17: ช่างภาพฟรีแลนซ์ 360K | no existing | moderate | TAX_SAVING
+    # Insurance remaining: 100K | RMF remaining: 108K | Pension: 54K
+    # =====================================================================
+    "B17": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองพื้นฐานสำหรับฟรีแลนซ์รายได้น้อย",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["เริ่มต้น", "ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "ฟรีแลนซ์"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายระหว่างประกันและกองทุนรวม เหมาะสำหรับช่างภาพที่ต้องการเริ่มต้นลดหย่อนภาษี",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "ประกัน", "กองทุน", "ช่างภาพ", "ลดหย่อน"],
+                "key_points": ["กองทุน", "ประกัน", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้น RMF และ ThaiESG เพื่อลดหย่อนภาษีให้มากที่สุดตามวงเงินรายได้",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อน", "วงเงิน", "รายได้"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B18: เจ้าของฟาร์ม 1.2M | life=40K RMF=50K | conservative | CASH_FLOW
+    # Insurance remaining: 60K (combined=40K) | RMF remaining: 310K | Pension: 180K
+    # =====================================================================
+    "B18": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นสภาพคล่องและเพิ่มประกันชีวิตและสุขภาพ สำหรับครอบครัวที่มีภาระดูแลเยอะ",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["สภาพคล่อง", "ประกันชีวิต", "ประกันสุขภาพ", "ครอบครัว", "ภาระ"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "สภาพคล่อง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างสภาพคล่องและการลดหย่อน เน้นประกันและกองทุนความเสี่ยงต่ำ",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "สภาพคล่อง", "ลดหย่อน", "ประกัน", "ความเสี่ยงต่ำ"],
+                "key_points": ["กองทุน", "ประกัน", "สภาพคล่อง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มการลดหย่อนด้วย RMF ต่อยอดและ ThaiESG โดยยังรักษาสภาพคล่องสำหรับครอบครัว",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อน", "สภาพคล่อง", "ครอบครัว"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B19: Startup founder 1M | ThaiESG=50K | aggressive | HYBRID
+    # Insurance remaining: 100K | RMF remaining: 300K | ThaiESG remaining: 250K | Pension: 150K
+    # =====================================================================
+    "B19": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เริ่มต้นด้วยประกันชีวิตและสุขภาพ สร้างความคุ้มครองสำหรับ Startup founder",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง", "Startup", "เริ่มต้น"],
+                "key_points": ["ประกันชีวิต", "ประกันสุขภาพ", "คุ้มครอง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันสุขภาพ"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "กระจายระหว่างประกันและกองทุน เพิ่ม ThaiESG ต่อยอดจากที่มีอยู่พร้อม RMF",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["กระจาย", "ThaiESG", "RMF", "ต่อยอด", "กองทุน"],
+                "key_points": ["ThaiESG", "RMF", "กระจายความเสี่ยง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ThaiESG")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เน้นลงทุนเชิงรุกใน RMF และ ThaiESG เพื่อผลตอบแทนและลดหย่อนภาษีสูงสุด",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "เชิงรุก", "ผลตอบแทน", "ลดหย่อนสูงสุด"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี", "ผลตอบแทนสูง"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+
+    # =====================================================================
+    # B20: เจ้าของธุรกิจเกษียณ 700K | life=50K health=25K | conservative | TAX_SAVING
+    # Insurance remaining: 25K (combined=75K) | RMF remaining: 210K | Pension: 105K
+    # Age 63 - limited investment horizon
+    # =====================================================================
+    "B20": {
+        "plan_1": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มประกันชีวิตเล็กน้อยและประกันบำนาญ เหมาะกับผู้ที่อายุเกิน 60 ปีต้องการความมั่นคง",
+                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
+                "keywords": ["ประกันชีวิต", "ประกันบำนาญ", "มั่นคง", "อายุเกิน 60", "ปลอดภัย"],
+                "key_points": ["ประกันชีวิต", "ประกันบำนาญ", "ความมั่นคง"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("ประกันบำนาญ"), _alloc("RMF")],
+            },
+        },
+        "plan_2": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "สมดุลระหว่างประกันและกองทุนความเสี่ยงต่ำ จัดการภาษีจากรายได้ธุรกิจหลังเกษียณ",
+                "plan_name": "ทางเลือกที่ 2 - สมดุล",
+                "keywords": ["สมดุล", "ความเสี่ยงต่ำ", "ภาษี", "ธุรกิจ", "หลังเกษียณ"],
+                "key_points": ["กองทุน", "ประกัน", "ความเสี่ยงต่ำ"],
+                "expected_allocations": [_alloc("ประกันชีวิต"), _alloc("RMF"), _alloc("ประกันบำนาญ")],
+            },
+        },
+        "plan_3": {
+            "total_investment": 0,
+            "total_tax_saving": 0,
+            "expected_text": {
+                "description": "เพิ่มการลดหย่อนด้วย RMF และ ThaiESG ความเสี่ยงต่ำ สำหรับรายได้หลังเกษียณ",
+                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
+                "keywords": ["RMF", "ThaiESG", "ลดหย่อน", "ความเสี่ยงต่ำ", "หลังเกษียณ"],
+                "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษี"],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ประกันบำนาญ")],
+            },
+        },
+    },
+}
+
+
+def get_expected_plans_by_profile_id(profile_id: str) -> Dict[str, Any]:
+    """ดึง expected_plans สำหรับ profile ที่ระบุ"""
+    return PROFILE_EXPECTED_PLANS.get(profile_id, {})
+
+
 if __name__ == "__main__":
     print_profile_summary()
+    print(f"\n📋 PROFILE_EXPECTED_PLANS: {len(PROFILE_EXPECTED_PLANS)} profiles configured.")
