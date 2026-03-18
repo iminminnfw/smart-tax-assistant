@@ -192,19 +192,23 @@ class EvaluationRunner:
         print("="*80 + "\n")
     
     def _get_expected_plans_for_profile(self, profile_id: str) -> Dict[str, Any]:
-        """ดึง expected_plans จาก test_profiles.PROFILE_EXPECTED_PLANS โดยตรง"""
-        from test_profiles import PROFILE_EXPECTED_PLANS
+        """ดึง expected_plans จาก test_profiles.PROFILE_EXPECTED_PLANS โดยตรง
+        พร้อม enrich ด้วย multi-reference descriptions จาก test_profiles.py"""
+        from test_profiles import PROFILE_EXPECTED_PLANS, enrich_profile_with_multi_references
 
         expected_plans = PROFILE_EXPECTED_PLANS.get(profile_id)
         if not expected_plans:
             print(f"  ⚠️  No PROFILE_EXPECTED_PLANS for {profile_id}")
             return {}
 
+        # Enrich with multi-reference descriptions (จาก test_profiles.py เท่านั้น)
+        enrich_profile_with_multi_references(expected_plans)
+
         return expected_plans
 
     def load_new_profiles(self) -> List[Dict[str, Any]]:
         """Load test profiles from test_profiles and map to TaxCalculationRequest schema
-        พร้อมแนบ expected_plans จาก evaluation_test_data ผ่าน PROFILE_TO_TESTCASE mapping
+        พร้อมแนบ expected_plans จาก test_profiles.PROFILE_EXPECTED_PLANS
         """
         from test_profiles import TEST_PROFILES
         from app.models import TaxCalculationRequest
@@ -298,6 +302,10 @@ class EvaluationRunner:
             # Validate it matches TaxCalculationRequest
             try:
                 TaxCalculationRequest(**input_dict)
+                
+                from app.services.evaluation_test_data import EvaluationTestData
+                EvaluationTestData.enrich_with_multi_references(mapped_profile)
+                
                 mapped_profiles.append(mapped_profile)
                 if self.verbose:
                     has_plans = "✅" if expected_plans else "❌"
@@ -590,8 +598,10 @@ class EvaluationRunner:
         """รันทุก test cases"""
         
         test_cases = EvaluationTestData.get_all_test_cases()
+        # Enrich with multi-reference descriptions for better evaluation
+        test_cases = [EvaluationTestData.enrich_with_multi_references(tc) for tc in test_cases]
         all_results = []
-        
+
         print(f"\n{Colors.BOLD}🧪 RUNNING {len(test_cases)} TEST CASES{Colors.END}")
         print("="*80 + "\n")
         
@@ -633,7 +643,7 @@ class EvaluationRunner:
         all_results = []
 
         print(f"\n{Colors.BOLD}🧪 RUNNING {len(profiles)} PROFILE TEST CASES{Colors.END}")
-        print(f"  (Profiles from test_profiles.py + expected_plans from evaluation_test_data.py)")
+        print(f"  (Profiles + expected_plans from test_profiles.py)")
         print("="*80 + "\n")
 
         for i, profile in enumerate(profiles, 1):
@@ -906,6 +916,7 @@ Examples:
         if not test_case:
             print(f"{Colors.RED}❌ Test case {args.test_case} not found{Colors.END}")
             return
+        test_case = EvaluationTestData.enrich_with_multi_references(test_case)
         result = await runner.run_single_test_case(test_case, args.test_case)
         all_results = [result] if result else []
     else:

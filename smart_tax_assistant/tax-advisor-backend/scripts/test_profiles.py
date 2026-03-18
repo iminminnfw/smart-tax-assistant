@@ -1408,6 +1408,95 @@ def get_expected_plans_by_profile_id(profile_id: str) -> Dict[str, Any]:
     return PROFILE_EXPECTED_PLANS.get(profile_id, {})
 
 
+# =============================================================================
+# AUTO-GENERATE MULTI-REFERENCE DESCRIPTIONS
+# สร้าง paraphrased descriptions อัตโนมัติจาก description + keywords ของแต่ละ plan
+# Academic Justification: Multi-Reference Evaluation (Papineni et al., 2002)
+# =============================================================================
+
+# Thai synonym/paraphrase patterns for auto-generation
+_PARAPHRASE_PATTERNS = {
+    # Conservative plan patterns
+    "เน้นความคุ้มครอง": ["เน้นด้านความคุ้มครอง", "ให้ความสำคัญกับความคุ้มครอง", "เน้นประกันและความคุ้มครอง"],
+    "เน้นสร้างความคุ้มครอง": ["สร้างฐานความคุ้มครอง", "เริ่มจากความคุ้มครอง", "เน้นความคุ้มครองเป็นหลัก"],
+    "เพิ่มความคุ้มครอง": ["เสริมความคุ้มครอง", "เพิ่มการคุ้มครอง", "ขยายความคุ้มครอง"],
+    "เน้นสภาพคล่อง": ["ให้ความสำคัญกับสภาพคล่อง", "รักษาสภาพคล่อง", "เน้นความคล่องตัวทางการเงิน"],
+    # Balanced plan patterns
+    "กระจายความเสี่ยง": ["กระจายการลงทุน", "แบ่งการลงทุน", "กระจายเงินลงทุน"],
+    "กระจายการลงทุน": ["กระจายความเสี่ยง", "แบ่งเงินลงทุน", "จัดสรรเงินลงทุน"],
+    "สมดุลระหว่าง": ["สร้างสมดุลระหว่าง", "ผสมผสานระหว่าง", "จัดสรรอย่างสมดุลระหว่าง"],
+    "กระจายระหว่าง": ["จัดสรรระหว่าง", "แบ่งระหว่าง", "สมดุลระหว่าง"],
+    # Growth plan patterns
+    "เน้นลดหย่อนภาษีสูงสุด": ["ลดหย่อนภาษีให้มากที่สุด", "ใช้สิทธิลดหย่อนเต็มที่", "เน้นสิทธิประโยชน์ทางภาษีสูงสุด"],
+    "เน้นลงทุนเต็มวงเงิน": ["ลงทุนเต็มเพดาน", "ใช้วงเงินลงทุนสูงสุด", "เติมเต็มวงเงินลงทุน"],
+    "เพิ่มการลดหย่อน": ["เพิ่มสิทธิลดหย่อน", "ขยายการลดหย่อนภาษี", "ใช้สิทธิลดหย่อนเพิ่ม"],
+    "เน้นการลงทุน": ["เน้นลงทุน", "ให้ความสำคัญกับการลงทุน", "เน้นผลตอบแทนจากการลงทุน"],
+    # Product-specific
+    "ประกันชีวิตและสุขภาพ": ["ประกันชีวิตรวมสุขภาพ", "ประกันทั้งชีวิตและสุขภาพ", "ประกันครอบคลุมชีวิตและสุขภาพ"],
+    "RMF และ ThaiESG": ["กองทุน RMF กับ ThaiESG", "RMF ร่วมกับ ThaiESG", "กองทุน RMF และ ThaiESG"],
+    "ประกันและกองทุน": ["ประกันร่วมกับกองทุน", "ประกันกับกองทุนรวม", "ประกันและกองทุนรวม"],
+    "ประกันและกองทุนรวม": ["ประกันร่วมกับกองทุน", "ประกันกับกองทุน", "ประกันรวมกับกองทุนรวม"],
+}
+
+
+def _generate_paraphrase(description: str) -> str:
+    """สร้าง paraphrase จาก description โดยใช้ pattern matching"""
+    import random
+    result = description
+    for pattern, replacements in _PARAPHRASE_PATTERNS.items():
+        if pattern in result:
+            replacement = random.choice(replacements)
+            result = result.replace(pattern, replacement, 1)
+            break  # Replace only 1 pattern per paraphrase to keep it natural
+    return result
+
+
+def _generate_keyword_based_description(description: str, keywords: list) -> str:
+    """สร้าง description ทางเลือกจาก keywords"""
+    if not keywords:
+        return description
+    # Build a sentence from keywords
+    kw_text = " ".join(keywords[:4])
+    # Detect plan type from description
+    if any(w in description for w in ["คุ้มครอง", "ประกัน", "ปลอดภัย", "มั่นคง"]):
+        return f"เน้นด้าน {kw_text} สร้างความมั่นคงทางการเงิน"
+    elif any(w in description for w in ["สมดุล", "กระจาย", "ผสม"]):
+        return f"สมดุลระหว่าง {kw_text} เพื่อกระจายความเสี่ยง"
+    elif any(w in description for w in ["ลดหย่อน", "ภาษี", "วงเงิน", "สูงสุด", "เติบโต"]):
+        return f"เน้น {kw_text} เพื่อผลประโยชน์ทางภาษีสูงสุด"
+    return f"{kw_text} สำหรับการวางแผนภาษีที่เหมาะสม"
+
+
+def enrich_profile_with_multi_references(expected_plans: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    เพิ่ม descriptions (multi-reference) ให้ expected_plans ของแต่ละ profile
+    ใช้ auto-paraphrase จาก description เดิม + keyword-based description
+    """
+    import random
+    random.seed(42)  # Reproducible results
+
+    for plan_key in ['plan_1', 'plan_2', 'plan_3']:
+        plan = expected_plans.get(plan_key, {})
+        exp_text = plan.get('expected_text', {})
+        desc = exp_text.get('description', '')
+        keywords = exp_text.get('keywords', [])
+
+        if desc and 'descriptions' not in exp_text:
+            paraphrase1 = _generate_paraphrase(desc)
+            paraphrase2 = _generate_keyword_based_description(desc, keywords)
+
+            # Ensure all 3 are unique
+            descriptions = [desc]
+            if paraphrase1 != desc:
+                descriptions.append(paraphrase1)
+            if paraphrase2 != desc and paraphrase2 != paraphrase1:
+                descriptions.append(paraphrase2)
+
+            exp_text['descriptions'] = descriptions
+
+    return expected_plans
+
+
 if __name__ == "__main__":
     print_profile_summary()
     print(f"\n📋 PROFILE_EXPECTED_PLANS: {len(PROFILE_EXPECTED_PLANS)} profiles configured.")

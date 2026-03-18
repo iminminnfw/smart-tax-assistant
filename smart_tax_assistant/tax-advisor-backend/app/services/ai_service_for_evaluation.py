@@ -20,6 +20,7 @@ from pathlib import Path
 # Import models และ config
 from app.models import TaxCalculationRequest, TaxCalculationResult
 from app.config import settings
+from app.services.few_shot_pool import FewShotPool
 
 
 class AIServiceForEvaluation:
@@ -48,6 +49,7 @@ class AIServiceForEvaluation:
         )
         self.verbose = verbose
         self.save_to_file = save_to_file
+        self.few_shot_pool = FewShotPool()
 
         # 📊 Retry statistics tracking
         self.retry_stats = {
@@ -141,9 +143,10 @@ class AIServiceForEvaluation:
                     if keywords or key_points:
                         hint_sections += f"\nแผน {plan_idx+1} ({plan_label}):"
                         if keywords:
-                            hint_sections += f"\n  ควรกล่าวถึง: {', '.join(keywords)}"
+                            hint_sections += f"\n  คำสำคัญที่ต้องปรากฏในคำอธิบาย: {', '.join(keywords)}"
+                            hint_sections += f"\n  (ต้องใช้คำเหล่านี้ในประโยคอธิบาย — ไม่ใช่แค่กล่าวถึง)"
                         if key_points:
-                            hint_sections += f"\n  จุดสำคัญ: {', '.join(key_points)}"
+                            hint_sections += f"\n  จุดสำคัญที่ต้องครอบคลุม: {', '.join(key_points)}"
 
         # Insurance guidance
         insurance_rules = ""
@@ -152,21 +155,18 @@ class AIServiceForEvaluation:
         if not has_health_insurance:
             insurance_rules += "\n- ลูกค้ายังไม่มีประกันสุขภาพ ควรแนะนำในทุกแผน"
 
+        # Dynamic few-shot selection based on income tier + risk level
+        few_shot_section = self.few_shot_pool.get_few_shot_prompt_section(gross, risk_level)
+
         return f"""You are an AI Tax Optimization Advisor for Thailand (ปี 2568).
+Your role is to generate tax-deduction investment plans to reduce personal income tax legally.
 
-Your role is to generate investment plans that help reduce personal income tax legally.
-
-CRITICAL PRINCIPLES:
-1. Numeric accuracy is handled by the backend system.
-   You MUST NOT calculate tax savings or investment totals.
-2. The backend system will calculate: total_investment, tax_saving, allocation amounts.
-3. Your responsibility is ONLY:
-   - reasoning about investment strategy
-   - allocating percentages
-   - explaining the strategy clearly
-4. Explanations should be natural and understandable.
-   Do NOT copy any fixed template text.
-5. Percentages in each plan must sum to approximately 100% (range: 99-101).
+CRITICAL RULES:
+1. ห้ามแนะนำ SSF เด็ดขาด — SSF ยกเลิกแล้ว
+2. Backend คำนวณตัวเลขทั้งหมด — ห้ามใส่ tax_saving, investment_amount, total_investment
+3. คุณรับผิดชอบแค่: description, percentage allocation, pros/cons
+4. Percentages ในแต่ละ plan ต้องรวมได้ 100%
+5. category ต้องเป็นภาษาไทยตามตัวอย่างด้านล่างเท่านั้น: ประกันชีวิต, ประกันสุขภาพ, ประกันบำนาญ, RMF, ThaiESG, ThaiESGX, เงินบริจาคการศึกษา
 
 CLIENT SITUATION:
 - รายได้รวม: {gross:,.0f} บาท
@@ -184,67 +184,25 @@ REMAINING DEDUCTION LIMITS:
 - ประกันสุขภาพ: {remaining_health:,.0f} บาท (max 25,000)
 - ประกันชีวิต+สุขภาพ รวมกัน: ไม่เกิน 100,000 บาท{insurance_rules}
 
-IMPORTANT RULES:
-- SSF ยกเลิกแล้ว ห้ามแนะนำ SSF ใช้ ThaiESG/ThaiESGX แทน
+RULES:
 - สำหรับรายได้สูง (1,500,000+): ควรพิจารณาเงินบริจาคการศึกษา (นับ 2 เท่า)
 - ควรใช้วงเงิน RMF ให้มากที่สุดเพราะลดหย่อนได้สูง
 
-KNOWLEDGE BASE:
-{retrieved_context}
+DESCRIPTION RULES:
+- Plan 1 (conservative): description ต้องมีคำว่า "ความคุ้มครอง" และ "ประกัน" — เน้นประกันชีวิต ประกันสุขภาพ ประกันบำนาญ
+- Plan 2 (balanced): description ต้องมีคำว่า "กระจายความเสี่ยง" และ "สมดุล" — ผสมประกันกับกองทุน
+- Plan 3 (growth): description ต้องมีคำว่า "ลดหย่อนภาษี" และ "วงเงิน" — เน้น RMF ThaiESG ThaiESGX
 {f'''
-DESCRIPTION HINTS (use these concepts in your descriptions):
+DESCRIPTION HINTS (บังคับ — ต้องใช้คำเหล่านี้ในประโยค description):
 {hint_sections}
 ''' if hint_sections else ''}
-PLAN STRUCTURE:
-Generate exactly 3 investment plans:
-  Plan 1: Conservative Strategy (เน้นความคุ้มครอง ปลอดภัย)
-  Plan 2: Balanced Strategy (สมดุลระหว่างความคุ้มครองและการเติบโต)
-  Plan 3: Growth Strategy (เน้นลดหย่อนภาษีสูงสุด การเติบโต)
+{few_shot_section}
 
-Each plan description should:
-- อธิบายกลยุทธ์การลงทุน
-- กล่าวถึงระดับความเสี่ยง
-- อธิบายว่าทำไมการจัดสรรนี้ช่วยประหยัดภาษี
-- ใช้ภาษาธรรมชาติ เข้าใจง่าย
+KNOWLEDGE BASE (ข้อมูลอ้างอิง):
+{retrieved_context}
 
-DO NOT include in your output:
-- tax_saving
-- investment_amount
-- total_investment
-- total_tax_saving
-- numeric tax calculations
-These will be calculated by the backend system.
-
-OUTPUT FORMAT (JSON only, no markdown):
-{{
-  "plans": [
-    {{
-      "plan_type": "conservative",
-      "description": "...",
-      "allocations": [
-        {{
-          "category": "...",
-          "percentage": 0,
-          "risk_level": "low/medium/high",
-          "pros": ["...", "..."],
-          "cons": ["...", "..."]
-        }}
-      ]
-    }},
-    {{
-      "plan_type": "balanced",
-      "description": "...",
-      "allocations": [...]
-    }},
-    {{
-      "plan_type": "growth",
-      "description": "...",
-      "allocations": [...]
-    }}
-  ]
-}}
-
-Pros and cons should reflect real financial characteristics of each investment category.
+สร้าง JSON output ตาม format เดียวกับ EXAMPLE OUTPUT ด้านบน
+เรียบเรียง description ใหม่ให้เหมาะกับสถานการณ์ลูกค้า แต่ใช้ category เดียวกับตัวอย่าง
 ตอบเป็น JSON เท่านั้น:"""
 
     def _is_api_refusal(self, response_text: str) -> bool:

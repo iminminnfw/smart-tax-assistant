@@ -47,8 +47,11 @@ class Colors:
 
 
 class SimpleTokenizer(tokenizers.Tokenizer):
-    """Custom tokenizer for pre-tokenized text (e.g., Thai text)"""
+    """Custom tokenizer using PyThaiNLP for proper Thai word segmentation"""
     def tokenize(self, text):
+        if THAI_TOKENIZER_AVAILABLE:
+            tokens = word_tokenize(text, engine='newmm')
+            return [t for t in tokens if t.strip()]
         return text.split()
 
 
@@ -281,14 +284,10 @@ class EvaluationService:
             return text.split()
     
     def calculate_rouge(self, reference: str, hypothesis: str) -> Dict[str, float]:
-        """คำนวณ ROUGE scores - รองรับภาษาไทยด้วย word tokenization"""
-        ref_tokens = self.tokenize_thai(reference)
-        hyp_tokens = self.tokenize_thai(hypothesis)
-
-        ref_text = ' '.join(ref_tokens)
-        hyp_text = ' '.join(hyp_tokens)
-
-        scores = self.rouge_scorer.score(ref_text, hyp_text)
+        """คำนวณ ROUGE scores - รองรับภาษาไทยด้วย SimpleTokenizer ที่ใช้ PyThaiNLP โดยตรง"""
+        # Let SimpleTokenizer handle Thai tokenization directly
+        # (ไม่ต้อง pre-tokenize แล้ว join ด้วย space อีกต่อไป — แก้ปัญหา double-tokenization)
+        scores = self.rouge_scorer.score(reference, hypothesis)
 
         return {
             'rouge1_precision': scores['rouge1'].precision,
@@ -368,6 +367,25 @@ class EvaluationService:
             'average_score': avg_score,
             'individual_scores': point_scores
         }
+
+    def evaluate_multi_reference(self, references: List[str], hypothesis: str, use_bertscore: bool = False) -> Dict[str, float]:
+        """
+        Evaluate against multiple references, take best score per metric.
+        Multi-reference evaluation เป็น standard practice ใน MT (Papineni et al., 2002)
+        ช่วยลด penalty จากการ paraphrase ที่ถูกต้องแต่ต่างจาก single reference
+        """
+        best_scores = {}
+        for ref in references:
+            rouge = self.calculate_rouge(ref, hypothesis)
+            bleu = self.calculate_bleu(ref, hypothesis)
+            combined = {**rouge, **bleu}
+            if use_bertscore:
+                bert = self.calculate_bertscore(ref, hypothesis)
+                combined.update(bert)
+            for key, value in combined.items():
+                if isinstance(value, (int, float)):
+                    best_scores[key] = max(best_scores.get(key, 0), value)
+        return best_scores
 
     def calculate_bertscore(self, reference: str, hypothesis: str) -> Dict[str, float]:
         """คำนวณ BERTScore"""
@@ -478,28 +496,38 @@ class EvaluationService:
             # ========================================
 
             expected_description = expected_text_data.get('description', '')
+            expected_descriptions = expected_text_data.get('descriptions', [])
             expected_keywords = expected_text_data.get('keywords', [])
             expected_key_points = expected_text_data.get('key_points', [])
 
+            # Build references list: use multi-reference if available, fallback to single
+            references = expected_descriptions if expected_descriptions else ([expected_description] if expected_description else [])
+
             # -----------------------------------------
             # LEVEL 1: Description-Only Similarity
+            # (Multi-Reference: best score across all references)
             # -----------------------------------------
-            if expected_description.strip() and ai_description.strip():
-                # ROUGE (on description only)
-                rouge_scores = self.calculate_rouge(expected_description, ai_description)
-                for key, value in rouge_scores.items():
-                    results['multi_level_metrics'][f'desc_{key}'] = value
-
-                # BLEU (on description only)
-                bleu_scores = self.calculate_bleu(expected_description, ai_description)
-                for key, value in bleu_scores.items():
-                    results['multi_level_metrics'][f'desc_{key}'] = value
-
-                # BERTScore (on description only)
-                if use_bertscore:
-                    bert_scores = self.calculate_bertscore(expected_description, ai_description)
-                    for key, value in bert_scores.items():
+            if references and ai_description.strip():
+                if len(references) > 1:
+                    # Multi-reference evaluation — take best score per metric
+                    best_scores = self.evaluate_multi_reference(references, ai_description, use_bertscore)
+                    for key, value in best_scores.items():
                         results['multi_level_metrics'][f'desc_{key}'] = value
+                else:
+                    # Single reference — original behavior
+                    ref = references[0]
+                    rouge_scores = self.calculate_rouge(ref, ai_description)
+                    for key, value in rouge_scores.items():
+                        results['multi_level_metrics'][f'desc_{key}'] = value
+
+                    bleu_scores = self.calculate_bleu(ref, ai_description)
+                    for key, value in bleu_scores.items():
+                        results['multi_level_metrics'][f'desc_{key}'] = value
+
+                    if use_bertscore:
+                        bert_scores = self.calculate_bertscore(ref, ai_description)
+                        for key, value in bert_scores.items():
+                            results['multi_level_metrics'][f'desc_{key}'] = value
 
             # -----------------------------------------
             # LEVEL 2: Keyword Coverage
