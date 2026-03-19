@@ -317,6 +317,8 @@ model UserFinancialProfile {
   usedProvidentFund   Decimal? @default(0) @db.Decimal(12, 2)
   usedSocialSecurity  Decimal? @default(0) @db.Decimal(12, 2)
 
+  taxFormData Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

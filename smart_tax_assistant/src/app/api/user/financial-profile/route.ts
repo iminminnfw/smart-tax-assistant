@@ -75,6 +75,9 @@ export async function GET() {
       social_security: fp?.usedSocialSecurity ? Number(fp.usedSocialSecurity) : 0,
     },
 
+    // ข้อมูลฟอร์มลดหย่อนภาษีทั้งหมด
+    tax_form_data: fp?.taxFormData || null,
+
     // Meta
     has_profile: !!fp,
     financial_goals: [],
@@ -137,6 +140,7 @@ export async function POST(req: Request) {
       usedPensionFund: body.current_deductions?.pension_fund || 0,
       usedProvidentFund: body.current_deductions?.provident_fund || 0,
       usedSocialSecurity: body.current_deductions?.social_security || 0,
+      taxFormData: body.tax_form_data ?? undefined,
     },
     update: {
       monthlyExpenses: body.monthly_expenses || null,
@@ -156,6 +160,7 @@ export async function POST(req: Request) {
       usedPensionFund: body.current_deductions?.pension_fund ?? undefined,
       usedProvidentFund: body.current_deductions?.provident_fund ?? undefined,
       usedSocialSecurity: body.current_deductions?.social_security ?? undefined,
+      taxFormData: body.tax_form_data ?? undefined,
     },
   });
 

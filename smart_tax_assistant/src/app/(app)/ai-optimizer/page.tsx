@@ -200,9 +200,9 @@ function buildGoalFromForm(form: GoalForm, profile: UserProfile): string {
 }
 
 const RISK_OPTIONS = [
-  { value: 'conservative', label: 'ระมัดระวัง', description: 'เน้นความปลอดภัย ผลตอบแทนต่ำ' },
+  { value: 'conservative', label: 'ต่ำ', description: 'เน้นความปลอดภัย ผลตอบแทนต่ำ' },
   { value: 'moderate', label: 'ปานกลาง', description: 'สมดุลระหว่างความเสี่ยงและผลตอบแทน' },
-  { value: 'aggressive', label: 'กล้าเสี่ยง', description: 'ยอมรับความเสี่ยงสูงเพื่อผลตอบแทนสูง' },
+  { value: 'aggressive', label: 'สูง', description: 'ยอมรับความเสี่ยงสูงเพื่อผลตอบแทนสูง' },
 ];
 
 export default function AIOptimizerPage() {
