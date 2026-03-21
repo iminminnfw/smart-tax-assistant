@@ -190,7 +190,7 @@ export default function TaxDeductionCalculator() {
         risk_tolerance: f.risk_tolerance,
       };
 
-      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.CALCULATE_TAX), {
+      const response = await fetch('/api/calculate-tax', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(apiPayload),
