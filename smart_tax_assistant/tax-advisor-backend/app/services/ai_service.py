@@ -103,7 +103,7 @@ class AIService:
         remaining_thai_esg = max_thai_esg - request.thai_esg
         remaining_thai_esgx_new = max_thai_esgx_new - request.thai_esgx_new
         remaining_thai_esgx_ltf = max_thai_esgx_ltf - request.thai_esgx_ltf
-        remaining_pvd = max_pvd - request.provident_fund
+        remaining_pvd = max_pvd  # PVD ใช้ได้เฉพาะ 40(1) เงินเดือน ไม่มีใน request
         remaining_pension = max_pension - request.pension_insurance
         remaining_life = 100000 - request.life_insurance
         remaining_life_pension = 10000 - request.life_insurance_pension  # ใหม่ปี 2568
