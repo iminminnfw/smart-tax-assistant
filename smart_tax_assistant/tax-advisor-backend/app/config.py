@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     rag_chunk_size: int = 1000
     rag_chunk_overlap: int = 200
     
+    # Cron / Scheduler
+    nextauth_url: str = "http://localhost:3000"
+    cron_secret: str = ""
+
     # Application Settings
     app_name: str = "AI Tax Advisor"
     app_version: str = "1.0.0"

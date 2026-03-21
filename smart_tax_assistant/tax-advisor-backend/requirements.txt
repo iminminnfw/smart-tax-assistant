@@ -29,6 +29,9 @@ redis==7.1.0
 # HTTP client (SEC API)
 curl_cffi==0.14.0
 
+# Scheduler (Tax Reminder Cron)
+apscheduler==3.11.0
+
 # Config / Validation
 python-dotenv==1.1.1
 pydantic==2.12.3

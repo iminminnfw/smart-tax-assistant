@@ -13,6 +13,13 @@ import { sendEmailViaSES } from '@/lib/aws-ses';
 // ============================================================
 const TAX_DEADLINES = [
   {
+    id: 'test-deadline',
+    date: new Date('2026-03-28'),
+    title: 'ทดสอบแจ้งเตือน (7 วัน)',
+    form: 'TEST',
+    filingMethod: 'paper' as const,
+  },
+  {
     id: 'pnd94-2025-paper',
     date: new Date('2025-09-30'),
     title: 'ภ.ง.ด. 94 กลางปี (เอกสาร)',
@@ -43,32 +50,33 @@ const TAX_DEADLINES = [
 ];
 
 // ============================================================
-// Notification Levels (ส่งทุกวันตาม range)
+// Notification Levels (ส่งเฉพาะ 3 จุด)
 // ============================================================
-// range 30-23 → normal  (สีน้ำเงิน)
-// range 22-14 → warning (สีเหลือง)
-// range 13-1  → critical (สีแดง)
+// 30 วัน → normal  (สีน้ำเงิน)
+// 15 วัน → warning (สีเหลือง)
+//  7 วัน → critical (สีแดง)
+
+const NOTIFY_DAYS = [30, 15, 7] as const;
 
 type NotifyLevel = 'normal' | 'warning' | 'critical';
 
 function getNotifyLevel(daysLeft: number): NotifyLevel {
-  if (daysLeft >= 23) return 'normal';
-  if (daysLeft >= 14) return 'warning';
-  return 'critical';
+  if (daysLeft === 30) return 'normal';
+  if (daysLeft === 15) return 'warning';
+  return 'critical'; // 7 วัน
 }
 
 function buildEmailText(deadlineTitle: string, daysLeft: number): string {
   const level = getNotifyLevel(daysLeft);
 
   if (level === 'normal') {
-    return `[SmartTax] เหลือเวลาอีก ${daysLeft} วันสำหรับ Deadline ${deadlineTitle} รีบเตรียมเอกสารและสรุปยอดลดหย่อน (RMF, ThaiESG) ให้พร้อมก่อนหมดเวลาได้เลยครับ`;
+    return `[SmartTax] เหลือเวลาอีก 30 วันสำหรับ Deadline ${deadlineTitle} รีบเตรียมเอกสารและสรุปยอดลดหย่อน (RMF, ThaiESG) ให้พร้อมก่อนหมดเวลาได้เลยครับ`;
   }
   if (level === 'warning') {
-    return `[SmartTax] ⚠️ เหลืออีกเพียง ${daysLeft} วันสำหรับ Deadline ${deadlineTitle}! ยังไม่ได้ยื่นอยู่ใช่ไหม? เข้า Smart Tax Assistant ดูสรุปแผนภาษีแล้วรีบยื่นได้เลยครับ`;
+    return `[SmartTax] ⚠️ เหลืออีกเพียง 15 วันสำหรับ Deadline ${deadlineTitle}! ยังไม่ได้ยื่นอยู่ใช่ไหม? เข้า Smart Tax Assistant ดูสรุปแผนภาษีแล้วรีบยื่นได้เลยครับ`;
   }
-  // critical 1-13 วัน
-  const dayWord = daysLeft === 1 ? 'พรุ่งนี้คือ' : `อีก ${daysLeft} วันคือ`;
-  return `[SmartTax] 🚨 ด่วนมาก! ${dayWord} Deadline สุดท้ายของ ${deadlineTitle} ถ้าไม่ยื่นวันนี้จะเสียสิทธิ์ขอคืนภาษีและโดนค่าปรับทันที!`;
+  // critical — 7 วัน
+  return `[SmartTax] 🚨 ด่วนมาก! เหลืออีกแค่ 7 วันคือ Deadline สุดท้ายของ ${deadlineTitle} ถ้าไม่ยื่นจะเสียสิทธิ์ขอคืนภาษีและโดนค่าปรับทันที!`;
 }
 
 function buildEmailHTML(deadlineTitle: string, daysLeft: number, userName: string): string {
@@ -149,10 +157,10 @@ export async function POST(req: NextRequest) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // หา deadline ที่อยู่ใน range 1-30 วัน (ส่งทุกวัน)
+  // หา deadline ที่ตรงกับ 30, 15, หรือ 7 วันพอดี
   const triggeredDeadlines = TAX_DEADLINES.filter((d) => {
     const daysLeft = Math.round((d.date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return daysLeft >= 1 && daysLeft <= 30;
+    return (NOTIFY_DAYS as readonly number[]).includes(daysLeft);
   });
 
   if (triggeredDeadlines.length === 0) {

@@ -8,6 +8,9 @@ load_dotenv()  # Load .env file before anything else
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import httpx
+import logging
 
 from app.models import TaxCalculationRequest, TaxCalculationResponse
 from app.services.tax_calculator import tax_calculator_service
@@ -15,8 +18,46 @@ from app.services.rag_service import RAGService
 from app.services.ai_service import AIService
 from app.config import settings
 
-# Import AI Optimizer router and lifespan
-from app.routers.ai_optimizer import router as ai_optimizer_router, lifespan
+# Import AI Optimizer router and lifespan (for services init)
+from app.routers.ai_optimizer import router as ai_optimizer_router, lifespan as ai_lifespan
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+logger = logging.getLogger(__name__)
+
+# ============================================================
+# Tax Reminder Job — เรียก Next.js cron endpoint ทุกวัน 08:00 ICT
+# ============================================================
+async def run_tax_reminder():
+    frontend_url = settings.nextauth_url.rstrip("/")
+    url = f"{frontend_url}/api/cron/tax-reminder"
+    headers = {"x-cron-secret": settings.cron_secret}
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            res = await client.post(url, headers=headers)
+        logger.info(f"[tax-reminder] status={res.status_code} body={res.text[:200]}")
+    except Exception as e:
+        logger.error(f"[tax-reminder] failed: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # รัน lifespan ของ AI Optimizer (init services)
+    async with ai_lifespan(app):
+        # เริ่ม APScheduler
+        scheduler = AsyncIOScheduler(timezone="Asia/Bangkok")
+        # ทุกวัน 08:00 น. (ICT) — ตรงกับเวลาที่ EventBridge เคยทำ
+        scheduler.add_job(run_tax_reminder, CronTrigger(hour=8, minute=0))
+        scheduler.start()
+        logger.info("✅ Tax Reminder Scheduler started (daily 08:00 ICT)")
+
+        yield
+
+        scheduler.shutdown(wait=False)
+        logger.info("✅ Scheduler stopped")
+
 
 app = FastAPI(
     title="AI Tax Advisor API",
@@ -33,7 +74,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include AI Optimizer router
 app.include_router(ai_optimizer_router, prefix="/api/ai-optimizer", tags=["AI Optimizer"])
 
 # Initialize services
