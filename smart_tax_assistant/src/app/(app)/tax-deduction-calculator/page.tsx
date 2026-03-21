@@ -387,7 +387,7 @@ export default function TaxDeductionCalculator() {
                 <p className="text-green-700">รายได้สุทธิ {fmt(result.tax_result?.taxable_income ?? 0)} บาท ≤ 150,000 บาท (เกณฑ์ยกเว้นภาษี)</p>
               </div>
             ) : (
-              <MultiplePlansView result={result} />
+              <MultiplePlansView plans={result.investment_plans?.plans ?? []} />
             )}
           </>
         )}

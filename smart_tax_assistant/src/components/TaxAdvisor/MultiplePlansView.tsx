@@ -50,6 +50,8 @@ const MultiplePlansView: React.FC<MultiplePlansViewProps> = ({ plans }) => {
 
   const currentPlan = plans[selectedPlan];
 
+  if (!currentPlan) return null;
+
   // เตรียมข้อมูลสำหรับ Pie Chart
   const chartData = currentPlan.allocations.map((item) => ({
     name: item.category,
