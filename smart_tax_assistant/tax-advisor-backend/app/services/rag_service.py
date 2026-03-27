@@ -1,6 +1,17 @@
 """
 RAG Service - Qdrant Version
-Version: Support Qdrant Vector Database + Ollama Embeddings
+Version: Support Qdrant Vector Database + Ollama/BGE-M3/OpenAI Embeddings
+
+Embedding options (config: embedding_provider):
+  - "ollama"  : Ollama model (qwen2.5:14b, 5120 dim)
+  - "bge-m3"  : BAAI/bge-m3 via sentence-transformers (1024 dim, multilingual, 8192 tokens)
+  - "openai"  : OpenAI text-embedding-ada-002 (1536 dim)
+
+BGE-M3 ให้ผลดีที่สุดสำหรับภาษาไทย + กฎหมาย เพราะรองรับ:
+  1. Multilingual (ภาษาไทยเชิงลึก)
+  2. 8192 token context (มาตรายาวๆ ครบในหนึ่งเวกเตอร์)
+  3. Hybrid Dense+Sparse search (จับทั้ง semantic + exact keyword)
+ref: BGE-M3 (arxiv), NitiBench
 """
 
 from langchain_openai import OpenAIEmbeddings
@@ -12,23 +23,67 @@ import traceback
 from app.config import settings
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# BGE-M3 Embedding wrapper (LangChain compatible)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class BGEM3Embeddings:
+    """BAAI/bge-m3 embedding via sentence-transformers (LangChain compatible)
+
+    - 1024 dimensions, multilingual, 8192 token context
+    - Dense embeddings (ใช้กับ Qdrant cosine similarity)
+    """
+
+    def __init__(self, model_name: str = "BAAI/bge-m3"):
+        try:
+            from sentence_transformers import SentenceTransformer
+            print(f"   Loading BGE-M3: {model_name}...")
+            self.model = SentenceTransformer(model_name)
+            self.dimension = self.model.get_sentence_embedding_dimension()
+            print(f"   BGE-M3 loaded (dim={self.dimension})")
+        except ImportError:
+            raise ImportError(
+                "sentence-transformers is required for BGE-M3. "
+                "Install with: pip install sentence-transformers"
+            )
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        embeddings = self.model.encode(texts, normalize_embeddings=True)
+        return embeddings.tolist()
+
+    def embed_query(self, text: str) -> List[float]:
+        embedding = self.model.encode([text], normalize_embeddings=True)
+        return embedding[0].tolist()
+
+
+def create_embeddings():
+    """สร้าง embedding instance ตาม config"""
+    provider = settings.embedding_provider
+
+    if provider == "bge-m3":
+        print(f"   RAG using BGE-M3 Embeddings (multilingual, 8192 token context)")
+        return BGEM3Embeddings(), 1024
+
+    elif provider == "ollama" or settings.use_ollama:
+        from langchain_ollama import OllamaEmbeddings
+        print(f"   RAG using Ollama Embeddings: {settings.ollama_model}")
+        emb = OllamaEmbeddings(
+            model=settings.ollama_model,
+            base_url=settings.ollama_base_url,
+        )
+        return emb, 5120
+
+    else:
+        print(f"   RAG using OpenAI Embeddings")
+        emb = OpenAIEmbeddings(openai_api_key=settings.openai_api_key)
+        return emb, 1536
+
+
 class RAGService:
     """RAG Service สำหรับ Qdrant Vector Database"""
 
     def __init__(self):
-        # เลือก Embeddings ตาม config (Ollama หรือ OpenAI)
-        if settings.use_ollama:
-            from langchain_ollama import OllamaEmbeddings
-            print(f"🦙 RAG using Ollama Embeddings: {settings.ollama_model} at {settings.ollama_base_url}")
-            self.embeddings = OllamaEmbeddings(
-                model=settings.ollama_model,
-                base_url=settings.ollama_base_url,
-            )
-        else:
-            print(f"🤖 RAG using OpenAI Embeddings")
-            self.embeddings = OpenAIEmbeddings(
-                openai_api_key=settings.openai_api_key
-            )
+        self.embeddings, self._vector_size = create_embeddings()
         self.vector_store = None
         self.qdrant_client = None
         self._connect_to_qdrant()

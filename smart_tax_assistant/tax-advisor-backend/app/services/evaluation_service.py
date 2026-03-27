@@ -18,7 +18,7 @@ from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 # BERTScore
 try:
-    from bert_score import score as bert_score
+    from bert_score import BERTScorer
     BERTSCORE_AVAILABLE = True
 except:
     BERTSCORE_AVAILABLE = False
@@ -86,18 +86,22 @@ class EvaluationService:
         self,
         plan: Dict[str, Any],
         gross_income: int,
-        verbose: bool = True
+        verbose: bool = True,
+        existing_rmf: int = 0,
+        existing_life_insurance: int = 0,
+        existing_health_insurance: int = 0,
     ) -> Dict[str, Any]:
         """
         ตรวจสอบว่าแผนการลงทุนถูกต้องตามกฎหมายหรือไม่
+        โดยรวมยอดที่มีอยู่แล้ว (existing) + ยอดที่ AI แนะนำ เทียบกับเพดานกฎหมาย
 
         ตรวจสอบ (สำหรับ 40(6) และ 40(8) เท่านั้น):
         1. ประกันบำนาญ: ≤ min(15% of income, 200,000)
-        2. RMF: ≤ min(30% of income, 500,000)
+        2. RMF: existing_rmf + recommended ≤ min(30% of income, 500,000)
         3. ThaiESG/ThaiESGX: ≤ min(30% of income, 300,000)
-        4. Life Insurance: ≤ 100,000
-        5. Health Insurance: ≤ 25,000
-        6. Combined Life + Health: ≤ 125,000
+        4. Life Insurance: existing_life + recommended ≤ 100,000
+        5. Health Insurance: existing_health + recommended ≤ 25,000
+        6. Combined Life + Health: (existing + recommended) รวมกัน ≤ 100,000
 
         หมายเหตุ: PVD/กบข./กบศ. ไม่รวมเพราะใช้ได้เฉพาะ 40(1) เงินเดือน
 
@@ -112,21 +116,33 @@ class EvaluationService:
         violations = []
         warnings = []
 
-        # คำนวณเพดานตามกฎหมาย (สำหรับ 40(6) และ 40(8) - ไม่รวม PVD/กบข./กบศ.)
-        limits = {
+        # เพดานตามกฎหมาย (absolute limits)
+        abs_limits = {
             "pension_insurance": min(int(gross_income * 0.15), 200000),
             "rmf": min(int(gross_income * 0.30), 500000),
             "thai_esg": min(int(gross_income * 0.30), 300000),
             "thai_esgx": min(int(gross_income * 0.30), 300000),
             "life_insurance": 100000,
             "health_insurance": 25000,
-            "combined_insurance": 125000
+            "combined_insurance": 100000
+        }
+
+        # วงเงินคงเหลือ (remaining limits = absolute - existing)
+        existing_combined = existing_life_insurance + existing_health_insurance
+        limits = {
+            "pension_insurance": abs_limits["pension_insurance"],
+            "rmf": max(0, abs_limits["rmf"] - existing_rmf),
+            "thai_esg": abs_limits["thai_esg"],
+            "thai_esgx": abs_limits["thai_esgx"],
+            "life_insurance": max(0, abs_limits["life_insurance"] - existing_life_insurance),
+            "health_insurance": max(0, abs_limits["health_insurance"] - existing_health_insurance),
+            "combined_insurance": max(0, abs_limits["combined_insurance"] - existing_combined),
         }
 
         total_investment = plan.get("total_investment", 0)
         allocations = plan.get("allocations", [])
 
-        # ติดตามยอดรวม
+        # ติดตามยอดรวม (เฉพาะที่ AI แนะนำใหม่)
         totals = {
             "pension_insurance": 0,
             "rmf": 0,
@@ -142,7 +158,7 @@ class EvaluationService:
             percentage = allocation.get("percentage", 0)
             amount = allocation.get("investment_amount")
 
-            # ถ้าไม่มี nvestment_amountให้คำนวณจากpercentage
+            # ถ้าไม่มี investment_amount ให้คำนวณจาก percentage
             if amount is None and total_investment > 0:
                 amount = int(total_investment * percentage / 100)
 
@@ -159,23 +175,27 @@ class EvaluationService:
                         "recommended_amount": amount,
                         "legal_max": limits["pension_insurance"],
                         "excess": amount - limits["pension_insurance"],
-                        "violation_percentage": ((amount - limits["pension_insurance"]) / limits["pension_insurance"]) * 100,
+                        "violation_percentage": ((amount - limits["pension_insurance"]) / limits["pension_insurance"]) * 100 if limits["pension_insurance"] > 0 else 100,
                         "reason": f"เกินขีดจำกัด 15% ของรายได้ ({int(gross_income * 0.15):,}) หรือ 200,000 บาท",
                         "law_reference": "tax_deductions_update280168.pdf, Page 2, Item 13"
                     })
 
-            # ตรวจสอบ RMF
+            # ตรวจสอบ RMF (existing + recommended ≤ limit)
             if "rmf" in category_lower:
                 totals["rmf"] += amount
                 if amount > limits["rmf"]:
+                    total_with_existing = amount + existing_rmf
                     violations.append({
                         "category": "RMF",
                         "allocation_index": idx,
                         "recommended_amount": amount,
-                        "legal_max": limits["rmf"],
+                        "existing_amount": existing_rmf,
+                        "total_with_existing": total_with_existing,
+                        "legal_max": abs_limits["rmf"],
+                        "remaining_quota": limits["rmf"],
                         "excess": amount - limits["rmf"],
-                        "violation_percentage": ((amount - limits["rmf"]) / limits["rmf"]) * 100,
-                        "reason": f"เกินขีดจำกัด 30% ของรายได้ ({int(gross_income * 0.30):,}) หรือ 500,000 บาท",
+                        "violation_percentage": ((amount - limits["rmf"]) / limits["rmf"]) * 100 if limits["rmf"] > 0 else 100,
+                        "reason": f"existing ({existing_rmf:,}) + แนะนำ ({amount:,}) = {total_with_existing:,} > เพดาน {abs_limits['rmf']:,} บาท (30% ของรายได้ หรือ 500,000)",
                         "law_reference": "tax_deductions_update280168.pdf, Page 1, Item 12"
                     })
 
@@ -187,40 +207,49 @@ class EvaluationService:
                         "category": "ThaiESG/ThaiESGX",
                         "allocation_index": idx,
                         "recommended_amount": amount,
-                        "legal_max": limits["thai_esg"],
+                        "legal_max": abs_limits["thai_esg"],
+                        "remaining_quota": limits["thai_esg"],
                         "excess": amount - limits["thai_esg"],
-                        "violation_percentage": ((amount - limits["thai_esg"]) / limits["thai_esg"]) * 100,
+                        "violation_percentage": ((amount - limits["thai_esg"]) / limits["thai_esg"]) * 100 if limits["thai_esg"] > 0 else 100,
                         "reason": f"เกินขีดจำกัด 30% ของรายได้ ({int(gross_income * 0.30):,}) หรือ 300,000 บาท",
                         "law_reference": "tax_deductions_update280168.pdf, Page 2, Item 21"
                     })
 
-            # ตรวจสอบ ประกันชีวิต
+            # ตรวจสอบ ประกันชีวิต (existing + recommended ≤ 100,000)
             if "ประกันชีวิต" in category and "สุขภาพ" not in category and "บำนาญ" not in category:
                 totals["life_insurance"] += amount
                 if amount > limits["life_insurance"]:
+                    total_with_existing = amount + existing_life_insurance
                     violations.append({
                         "category": "ประกันชีวิต",
                         "allocation_index": idx,
                         "recommended_amount": amount,
-                        "legal_max": limits["life_insurance"],
+                        "existing_amount": existing_life_insurance,
+                        "total_with_existing": total_with_existing,
+                        "legal_max": abs_limits["life_insurance"],
+                        "remaining_quota": limits["life_insurance"],
                         "excess": amount - limits["life_insurance"],
-                        "violation_percentage": ((amount - limits["life_insurance"]) / limits["life_insurance"]) * 100,
-                        "reason": "เกินขีดจำกัด 100,000 บาท",
+                        "violation_percentage": ((amount - limits["life_insurance"]) / limits["life_insurance"]) * 100 if limits["life_insurance"] > 0 else 100,
+                        "reason": f"existing ({existing_life_insurance:,}) + แนะนำ ({amount:,}) = {total_with_existing:,} > เพดาน {abs_limits['life_insurance']:,} บาท",
                         "law_reference": "tax_deductions_update280168.pdf, Page 1, Item 8"
                     })
 
-            # ตรวจสอบ ประกันสุขภาพ
+            # ตรวจสอบ ประกันสุขภาพ (existing + recommended ≤ 25,000)
             if "ประกันสุขภาพ" in category or ("สุขภาพ" in category and "ประกันชีวิต" not in category):
                 totals["health_insurance"] += amount
                 if amount > limits["health_insurance"]:
+                    total_with_existing = amount + existing_health_insurance
                     violations.append({
                         "category": "ประกันสุขภาพ",
                         "allocation_index": idx,
                         "recommended_amount": amount,
-                        "legal_max": limits["health_insurance"],
+                        "existing_amount": existing_health_insurance,
+                        "total_with_existing": total_with_existing,
+                        "legal_max": abs_limits["health_insurance"],
+                        "remaining_quota": limits["health_insurance"],
                         "excess": amount - limits["health_insurance"],
-                        "violation_percentage": ((amount - limits["health_insurance"]) / limits["health_insurance"]) * 100,
-                        "reason": "เกินขีดจำกัด 25,000 บาท",
+                        "violation_percentage": ((amount - limits["health_insurance"]) / limits["health_insurance"]) * 100 if limits["health_insurance"] > 0 else 100,
+                        "reason": f"existing ({existing_health_insurance:,}) + แนะนำ ({amount:,}) = {total_with_existing:,} > เพดาน {abs_limits['health_insurance']:,} บาท",
                         "law_reference": "tax_deductions_update280168.pdf, Page 1, Item 9"
                     })
 
@@ -231,15 +260,20 @@ class EvaluationService:
                 totals["life_insurance"] += estimated_life
                 totals["health_insurance"] += estimated_health
 
-        # เช็ครวม Life + Health Insurance
-        combined_insurance = totals["life_insurance"] + totals["health_insurance"]
-        if combined_insurance > limits["combined_insurance"]:
-            warnings.append({
+        # เช็ครวม Life + Health Insurance (existing + recommended ≤ 100,000)
+        new_combined = totals["life_insurance"] + totals["health_insurance"]
+        total_combined = new_combined + existing_combined
+        if total_combined > abs_limits["combined_insurance"]:
+            violations.append({
                 "category": "รวมประกันชีวิต + สุขภาพ",
-                "total_amount": combined_insurance,
-                "legal_max": limits["combined_insurance"],
-                "excess": combined_insurance - limits["combined_insurance"],
-                "reason": "ประกันชีวิตและสุขภาพรวมกันไม่เกิน 125,000 บาท"
+                "recommended_combined": new_combined,
+                "existing_combined": existing_combined,
+                "total_amount": total_combined,
+                "legal_max": abs_limits["combined_insurance"],
+                "excess": total_combined - abs_limits["combined_insurance"],
+                "violation_percentage": ((total_combined - abs_limits["combined_insurance"]) / abs_limits["combined_insurance"]) * 100,
+                "reason": f"existing ({existing_combined:,}) + แนะนำ ({new_combined:,}) = {total_combined:,} > เพดาน 100,000 บาท",
+                "law_reference": "tax_deductions_update280168.pdf, Page 1, Item 8-9"
             })
 
         # คำนวณคะแนน Legal Compliance
@@ -250,15 +284,11 @@ class EvaluationService:
         if verbose and violations:
             print(f"\n{Colors.RED}🚨 LEGAL VIOLATIONS DETECTED in Plan {plan.get('plan_id', '?')}{Colors.END}")
             for v in violations:
-                print(f"   {Colors.RED}❌{Colors.END} {v['category']}: {v['recommended_amount']:,} บาท")
+                amount_display = v.get('recommended_amount') or v.get('total_amount', 0)
+                print(f"   {Colors.RED}❌{Colors.END} {v['category']}: {amount_display:,} บาท")
                 print(f"      Legal Max: {v['legal_max']:,} บาท")
                 print(f"      Excess: {v['excess']:,} บาท ({v['violation_percentage']:.1f}% over)")
                 print(f"      Reason: {v['reason']}")
-
-        if verbose and warnings:
-            print(f"\n{Colors.YELLOW}⚠️  WARNINGS in Plan {plan.get('plan_id', '?')}{Colors.END}")
-            for w in warnings:
-                print(f"   {Colors.YELLOW}⚠️ {Colors.END} {w['category']}: {w['total_amount']:,} > {w['legal_max']:,}")
 
         return {
             "is_legal": is_legal,
@@ -267,8 +297,12 @@ class EvaluationService:
             "legal_compliance_score": legal_compliance_score,
             "totals": totals,
             "limits": limits,
+            "abs_limits": abs_limits,
             "details": {
                 "gross_income": gross_income,
+                "existing_rmf": existing_rmf,
+                "existing_life_insurance": existing_life_insurance,
+                "existing_health_insurance": existing_health_insurance,
                 "total_violations": len(violations),
                 "total_warnings": len(warnings)
             }
@@ -338,9 +372,11 @@ class EvaluationService:
 
         for key_point in key_points:
             if use_bertscore and BERTSCORE_AVAILABLE:
-                # Semantic matching using BERTScore
+                # Semantic matching using BERTScore (reuse singleton scorer)
                 try:
-                    _, _, F1 = bert_score([ai_full_text], [key_point], lang='th', verbose=False)
+                    if EvaluationService._bertscore_scorer is None:
+                        self.calculate_bertscore("", "")  # trigger lazy init
+                    _, _, F1 = EvaluationService._bertscore_scorer.score([ai_full_text], [key_point])
                     score = F1.mean().item()
                     # Threshold: consider covered if BERTScore F1 > 0.7
                     is_covered = score > 0.7
@@ -387,13 +423,43 @@ class EvaluationService:
                     best_scores[key] = max(best_scores.get(key, 0), value)
         return best_scores
 
+    # WangchanBERTa: โมเดลตระกูล RoBERTa-base ที่ถูกฝึกฝนด้วยชุดข้อมูลภาษาไทย 78.5GB
+    # ลด Unknown Token จาก 46-52% (mBERT) และเพิ่มความแม่นยำเชิงความหมายสำหรับศัพท์กฎหมายภาษี
+    BERTSCORE_MODEL = "airesearch/wangchanberta-base-att-spm-uncased"
+
+    _bertscore_scorer = None  # Singleton — โหลดโมเดลครั้งเดียว
+
     def calculate_bertscore(self, reference: str, hypothesis: str) -> Dict[str, float]:
-        """คำนวณ BERTScore"""
+        """คำนวณ BERTScore ด้วย WangchanBERTa backbone (แทน mBERT)
+
+        WangchanBERTa ให้ผลดีกว่า mBERT สำหรับภาษาไทยอย่างมีนัยสำคัญ
+        เนื่องจากถูก pretrain ด้วยข้อมูลภาษาไทย 78.5GB โดยเฉพาะ
+        ref: arxiv.org/abs/2101.09635
+
+        ใช้ BERTScorer class แทน score() function เพื่อ:
+        1. patch tokenizer.model_max_length (WangchanBERTa = 1e30 → overflow)
+        2. โหลดโมเดลครั้งเดียว (singleton) — ไม่ต้องโหลดใหม่ทุกครั้ง
+        """
         if not BERTSCORE_AVAILABLE:
             return {}
 
         try:
-            P, R, F1 = bert_score([hypothesis], [reference], lang='th', verbose=False)
+            # Lazy init — โหลดโมเดลครั้งแรกเท่านั้น
+            if EvaluationService._bertscore_scorer is None:
+                scorer = BERTScorer(
+                    model_type=self.BERTSCORE_MODEL,
+                    num_layers=9,
+                    lang='th',
+                )
+                # Patch: WangchanBERTa tokenizer มี model_max_length = 1e30
+                # ทำให้ tokenizers library OverflowError → ตั้งเป็น 512
+                if scorer._tokenizer.model_max_length > 100_000:
+                    scorer._tokenizer.model_max_length = 512
+                EvaluationService._bertscore_scorer = scorer
+
+            P, R, F1 = EvaluationService._bertscore_scorer.score(
+                [hypothesis], [reference],
+            )
             return {
                 'bertscore_precision': P.mean().item(),
                 'bertscore_recall': R.mean().item(),
@@ -414,8 +480,10 @@ class EvaluationService:
         
         return (accuracy, is_within_tolerance)
     
-    def get_score_color(self, score: float, metric_type: str = 'general') -> str:
+    def get_score_color(self, score, metric_type: str = 'general') -> str:
         """เลือกสีตามคะแนน"""
+        if score is None:
+            return Colors.YELLOW
         if metric_type == 'accuracy':
             if score >= 90:
                 return Colors.GREEN
@@ -431,8 +499,10 @@ class EvaluationService:
             else:
                 return Colors.RED
     
-    def get_score_emoji(self, score: float, metric_type: str = 'general') -> str:
+    def get_score_emoji(self, score, metric_type: str = 'general') -> str:
         """เลือก emoji ตามคะแนน"""
+        if score is None:
+            return "➖"
         if metric_type == 'accuracy':
             if score >= 90:
                 return "🎯"
@@ -699,6 +769,278 @@ class EvaluationService:
         
         return results
     
+    # =========================================================================
+    # NEW METRICS: Plan Diversity Score + Format Validity
+    # =========================================================================
+
+    def calculate_plan_diversity(self, ai_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        วัดว่า 3 แผนต่างกันจริงไหม — ผู้ใช้ได้ตัวเลือกที่มีความหมาย
+
+        วัด 3 มิติ:
+        1. Category Diversity  — แต่ละแผนใช้ category ต่างกันแค่ไหน
+        2. Allocation Diversity — สัดส่วน % ต่างกันแค่ไหน
+        3. Risk Profile Diversity — conservative ≠ balanced ≠ growth จริงไหม
+
+        Returns:
+            {
+                "diversity_score": 0-100,
+                "category_diversity": 0-1,
+                "allocation_diversity": 0-1,
+                "risk_profile_diversity": 0-1,
+                "details": {...}
+            }
+        """
+        plans = ai_response.get("plans", [])
+        if len(plans) < 2:
+            return {
+                "diversity_score": 0,
+                "category_diversity": 0,
+                "allocation_diversity": 0,
+                "risk_profile_diversity": 0,
+                "details": {"reason": "ไม่ถึง 2 แผน"}
+            }
+
+        # ─── 1. Category Diversity (Jaccard distance ระหว่างคู่แผน) ───
+        plan_categories = []
+        for plan in plans[:3]:
+            cats = set()
+            for alloc in plan.get("allocations", []):
+                cat = alloc.get("category", "").strip()
+                if cat:
+                    cats.add(cat)
+            plan_categories.append(cats)
+
+        jaccard_distances = []
+        for i in range(len(plan_categories)):
+            for j in range(i + 1, len(plan_categories)):
+                a, b = plan_categories[i], plan_categories[j]
+                if a or b:
+                    union = a | b
+                    intersection = a & b
+                    # Jaccard distance = 1 - (intersection / union)
+                    jaccard_dist = 1 - (len(intersection) / len(union)) if union else 0
+                    jaccard_distances.append(jaccard_dist)
+
+        category_diversity = np.mean(jaccard_distances) if jaccard_distances else 0
+
+        # ─── 2. Allocation Diversity (ค่าเฉลี่ย absolute % difference) ───
+        plan_vectors = []
+        all_cats_ordered = sorted(set().union(*plan_categories))
+
+        for plan in plans[:3]:
+            alloc_map = {}
+            for alloc in plan.get("allocations", []):
+                cat = alloc.get("category", "").strip()
+                pct = alloc.get("percentage", 0)
+                if cat:
+                    alloc_map[cat] = pct
+            vector = [alloc_map.get(c, 0) for c in all_cats_ordered]
+            plan_vectors.append(vector)
+
+        pct_diffs = []
+        for i in range(len(plan_vectors)):
+            for j in range(i + 1, len(plan_vectors)):
+                diff = np.mean(np.abs(np.array(plan_vectors[i]) - np.array(plan_vectors[j])))
+                pct_diffs.append(diff)
+
+        # Normalize: diff of 10+ percentage points = good diversity
+        avg_pct_diff = np.mean(pct_diffs) if pct_diffs else 0
+        allocation_diversity = min(1.0, avg_pct_diff / 15.0)
+
+        # ─── 3. Risk Profile Diversity ───
+        # ตรวจว่า conservative เน้นประกัน, growth เน้นกองทุน
+        insurance_cats = {"ประกันชีวิต", "ประกันสุขภาพ", "ประกันบำนาญ", "ประกันชีวิตและสุขภาพ"}
+        fund_cats = {"RMF", "ThaiESG", "ThaiESGX", "Thai ESGX"}
+
+        plan_insurance_pcts = []
+        for plan in plans[:3]:
+            ins_pct = 0
+            for alloc in plan.get("allocations", []):
+                cat = alloc.get("category", "").strip()
+                pct = alloc.get("percentage", 0)
+                # ตรวจว่าเป็นหมวดประกันหรือไม่
+                is_insurance = any(ic in cat for ic in insurance_cats)
+                if is_insurance:
+                    ins_pct += pct
+            plan_insurance_pcts.append(ins_pct)
+
+        # Conservative (plan 1) ควรมี insurance% สูงกว่า Growth (plan 3)
+        risk_profile_diversity = 0.0
+        if len(plan_insurance_pcts) >= 3:
+            # ถ้า plan1 insurance > plan3 insurance = ดี (progression ถูกทิศ)
+            if plan_insurance_pcts[0] > plan_insurance_pcts[2]:
+                risk_profile_diversity = 1.0
+            elif plan_insurance_pcts[0] > plan_insurance_pcts[1]:
+                risk_profile_diversity = 0.5
+            else:
+                # ตรวจว่ามี total_investment ต่างกันไหม (fallback)
+                investments = [p.get("total_investment", 0) for p in plans[:3]]
+                if len(set(investments)) >= 2:
+                    risk_profile_diversity = 0.3
+                else:
+                    risk_profile_diversity = 0.0
+
+        # ─── รวมคะแนน (weighted) ───
+        diversity_score = (
+            category_diversity * 35 +
+            allocation_diversity * 35 +
+            risk_profile_diversity * 30
+        )
+
+        return {
+            "diversity_score": round(diversity_score, 1),
+            "category_diversity": round(category_diversity, 4),
+            "allocation_diversity": round(allocation_diversity, 4),
+            "risk_profile_diversity": round(risk_profile_diversity, 4),
+            "details": {
+                "plan_categories": [sorted(list(cats)) for cats in plan_categories],
+                "plan_insurance_pcts": plan_insurance_pcts,
+                "avg_pct_diff": round(avg_pct_diff, 2),
+            }
+        }
+
+    def validate_format(self, ai_response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        ตรวจว่า AI output มี format ที่ Frontend ใช้งานได้จริง
+
+        ตรวจ:
+        1. มี plans array ที่มี 3 แผน
+        2. แต่ละ plan มี required fields ครบ + data type ถูก
+        3. แต่ละ allocation มี required fields ครบ
+        4. Percentage รวม ~100%
+        5. ไม่มี placeholder text เช่น [ระบุ...]
+
+        Returns:
+            {
+                "format_score": 0-100,
+                "is_valid": True/False,
+                "checks": {...},
+                "errors": [...]
+            }
+        """
+        errors = []
+        checks = {}
+        total_checks = 0
+        passed_checks = 0
+
+        # ─── Check 1: plans array exists ───
+        total_checks += 1
+        plans = ai_response.get("plans", [])
+        if isinstance(plans, list) and len(plans) > 0:
+            passed_checks += 1
+            checks["has_plans_array"] = True
+        else:
+            errors.append("ไม่มี plans array หรือว่างเปล่า")
+            checks["has_plans_array"] = False
+
+        # ─── Check 2: มี 3 แผน ───
+        total_checks += 1
+        if len(plans) >= 3:
+            passed_checks += 1
+            checks["has_3_plans"] = True
+        else:
+            errors.append(f"มีเพียง {len(plans)} แผน (ต้องการ 3)")
+            checks["has_3_plans"] = False
+
+        # ─── Check 3-5: แต่ละ plan มี required fields ───
+        PLAN_REQUIRED = {
+            "plan_id": str,
+            "plan_name": str,
+            "plan_type": str,
+            "description": str,
+            "total_investment": (int, float),
+            "total_tax_saving": (int, float),
+            "overall_risk": str,
+            "allocations": list,
+        }
+
+        ALLOC_REQUIRED = {
+            "category": str,
+            "percentage": (int, float),
+            "risk_level": str,
+            "pros": list,
+            "cons": list,
+        }
+
+        for idx, plan in enumerate(plans[:3]):
+            plan_label = f"Plan {idx + 1}"
+
+            # Plan-level fields
+            for field, expected_type in PLAN_REQUIRED.items():
+                total_checks += 1
+                value = plan.get(field)
+                if value is None:
+                    errors.append(f"{plan_label}: ไม่มี field '{field}'")
+                elif not isinstance(value, expected_type):
+                    errors.append(f"{plan_label}: '{field}' ควรเป็น {expected_type.__name__ if isinstance(expected_type, type) else expected_type} แต่ได้ {type(value).__name__}")
+                else:
+                    passed_checks += 1
+
+            # Description ไม่ว่าง
+            total_checks += 1
+            desc = plan.get("description", "")
+            if isinstance(desc, str) and len(desc.strip()) > 10:
+                passed_checks += 1
+            else:
+                errors.append(f"{plan_label}: description ว่างหรือสั้นเกินไป")
+
+            # Allocations
+            allocs = plan.get("allocations", [])
+            total_checks += 1
+            if len(allocs) >= 2:
+                passed_checks += 1
+            else:
+                errors.append(f"{plan_label}: allocations น้อยกว่า 2 รายการ")
+
+            for alloc_idx, alloc in enumerate(allocs):
+                for field, expected_type in ALLOC_REQUIRED.items():
+                    total_checks += 1
+                    value = alloc.get(field)
+                    if value is None:
+                        errors.append(f"{plan_label} Alloc {alloc_idx + 1}: ไม่มี '{field}'")
+                    elif not isinstance(value, expected_type):
+                        errors.append(f"{plan_label} Alloc {alloc_idx + 1}: '{field}' type ผิด")
+                    else:
+                        passed_checks += 1
+
+            # Percentage sum ~100%
+            total_checks += 1
+            pct_sum = sum(a.get("percentage", 0) for a in allocs)
+            if 95 <= pct_sum <= 105:
+                passed_checks += 1
+                checks[f"plan_{idx+1}_pct_sum"] = round(pct_sum, 1)
+            else:
+                errors.append(f"{plan_label}: percentage รวม = {pct_sum:.1f}% (ควร 95-105%)")
+                checks[f"plan_{idx+1}_pct_sum"] = round(pct_sum, 1)
+
+        # ─── Check: placeholder detection ───
+        total_checks += 1
+        placeholder_patterns = ["[ระบุ", "[ใส่", "ระบุเลข", "[fill", "[TODO"]
+        has_placeholder = False
+        for plan in plans[:3]:
+            desc = plan.get("description", "")
+            if any(p in desc for p in placeholder_patterns):
+                has_placeholder = True
+                break
+        if not has_placeholder:
+            passed_checks += 1
+            checks["no_placeholders"] = True
+        else:
+            errors.append("พบ placeholder text ใน description (เช่น [ระบุเลขมาตรา])")
+            checks["no_placeholders"] = False
+
+        format_score = round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 0
+
+        return {
+            "format_score": format_score,
+            "is_valid": len(errors) == 0,
+            "passed_checks": passed_checks,
+            "total_checks": total_checks,
+            "checks": checks,
+            "errors": errors[:10],  # จำกัด 10 errors
+        }
+
     #รวม3แผน
     def evaluate_complete_response(self, expected_plans: Dict[str, Dict], ai_response: Dict[str, Any], use_bertscore: bool = False) -> Dict[str, Any]:
         """ประเมินคำตอบทั้งหมด (3 แผน)"""
@@ -790,7 +1132,8 @@ class EvaluationService:
                     if not check['is_legal']:
                         print(f"  {Colors.RED}Plan {idx}:{Colors.END}")
                         for violation in check['violations']:
-                            print(f"    {Colors.RED}❌{Colors.END} {violation['category']}: {violation['recommended_amount']:,} บาท")
+                            v_amount = violation.get('recommended_amount') or violation.get('total_amount', 0)
+                            print(f"    {Colors.RED}❌{Colors.END} {violation['category']}: {v_amount:,} บาท")
                             print(f"       Legal Max: {violation['legal_max']:,} บาท")
                             print(f"       Excess: {violation['excess']:,} บาท ({violation['violation_percentage']:.1f}% over)")
                             print(f"       Reason: {violation['reason']}")
@@ -861,7 +1204,48 @@ class EvaluationService:
                     color = self.get_score_color(score, 'general')
                     emoji = self.get_score_emoji(score, 'general')
                     print(f"     {emoji} BERTScore:  {color}{score:.4f}{Colors.END}")
-            
+
+            # NitiBench (Thai Legal Quality)
+            if 'nitibench' in results:
+                nb = results['nitibench']
+                print(f"\n  ⚖️  NitiBench (Thai Legal Quality):")
+
+                # Coverage
+                cov = nb.get('coverage', {})
+                cov_score = cov.get('coverage_score', 0)
+                cov_ratio = cov.get('coverage_ratio', 0)
+                cov_color = Colors.GREEN if cov_score == 100 else Colors.YELLOW if cov_score == 50 else Colors.RED
+                cov_emoji = "✅" if cov_score == 100 else "⚠️" if cov_score == 50 else "❌"
+                print(f"     {cov_emoji} Coverage:      {cov_color}{cov_score}/100{Colors.END} ({cov.get('covered', 0)}/{cov.get('total', 0)} key points, ratio={cov_ratio:.2%})")
+
+                # Consistency
+                con = nb.get('consistency', {})
+                con_score = con.get('consistency_score', 0)
+                con_color = Colors.GREEN if con_score == 1 else Colors.RED
+                con_emoji = "✅" if con_score == 1 else "❌"
+                con_detail = ""
+                if con.get('contradictions'):
+                    reasons = [ct['reason'][:50] for ct in con['contradictions'][:2]]
+                    con_detail = f" — {'; '.join(reasons)}"
+                print(f"     {con_emoji} Consistency:   {con_color}{con_score}/1{Colors.END}{con_detail}")
+
+                # Citation F1
+                cite = nb.get('citation', {})
+                cite_f1 = cite.get('citation_f1')
+                cite_color = self.get_score_color(cite_f1, 'general')
+                cite_emoji = self.get_score_emoji(cite_f1, 'general')
+                cite_detail = ""
+                if cite.get('missing'):
+                    cite_detail = f" (missing: {', '.join(cite['missing'][:3])})"
+                cite_str = f"{cite_f1:.4f}" if cite_f1 is not None else "N/A"
+                print(f"     {cite_emoji} Citation F1:   {cite_color}{cite_str}{Colors.END}{cite_detail}")
+
+                # Joint Score
+                joint = nb.get('joint_score', 0)
+                joint_color = self.get_score_color(joint, 'general')
+                joint_emoji = self.get_score_emoji(joint, 'general')
+                print(f"     {joint_emoji} Joint Score:   {joint_color}{joint:.4f}{Colors.END} (Coverage 40% + Consistency 35% + Citation 25%)")
+
             print()
         
         # Plan by Plan
@@ -937,7 +1321,8 @@ class EvaluationService:
             'total_test_cases': len(all_results),
             'text_metrics': {},  # Legacy metrics
             'numeric_metrics': {},
-            'multi_level_metrics': {}  # NEW: Multi-level evaluation summary
+            'multi_level_metrics': {},  # NEW: Multi-level evaluation summary
+            'nitibench_metrics': {},  # NitiBench Thai Legal Quality
         }
 
         # Legacy metrics
@@ -957,6 +1342,16 @@ class EvaluationService:
         all_keyword_coverage = []
         all_semantic_bertscore_f1 = []
         all_keypoint_coverage = []
+
+        # NitiBench metrics
+        all_nb_coverage = []
+        all_nb_consistency = []
+        all_nb_citation_f1 = []
+        all_nb_joint = []
+
+        # 🆕 New metrics
+        all_diversity_scores = []
+        all_format_scores = []
 
         for result in all_results:
             if 'overall_metrics' in result:
@@ -999,6 +1394,32 @@ class EvaluationService:
                 if 'avg_numeric_accuracy' in overall:
                     all_numeric_acc.append(overall['avg_numeric_accuracy'])
 
+            # NitiBench metrics (stored at top level of result, not in overall_metrics)
+            if 'nitibench' in result:
+                nb = result['nitibench']
+                if 'coverage' in nb:
+                    all_nb_coverage.append(nb['coverage']['coverage_score'])
+                if 'consistency' in nb:
+                    all_nb_consistency.append(nb['consistency']['consistency_score'])
+                if 'citation' in nb:
+                    cite_f1 = nb['citation']['citation_f1']
+                    if cite_f1 is not None:  # ข้าม cases ที่ไม่มี expected citations
+                        all_nb_citation_f1.append(cite_f1)
+                if 'joint_score' in nb:
+                    all_nb_joint.append(nb['joint_score'])
+
+            # 🆕 Plan Diversity
+            if 'plan_diversity' in result:
+                ds = result['plan_diversity'].get('diversity_score')
+                if ds is not None:
+                    all_diversity_scores.append(ds)
+
+            # 🆕 Format Validity
+            if 'format_validity' in result:
+                fs = result['format_validity'].get('format_score')
+                if fs is not None:
+                    all_format_scores.append(fs)
+
         # Legacy metrics aggregation
         if all_rouge1:
             summary['text_metrics']['avg_rouge1_f1'] = np.mean(all_rouge1)
@@ -1034,6 +1455,31 @@ class EvaluationService:
             summary['numeric_metrics']['avg_accuracy'] = np.mean(all_numeric_acc)
             summary['numeric_metrics']['min_accuracy'] = np.min(all_numeric_acc)
             summary['numeric_metrics']['max_accuracy'] = np.max(all_numeric_acc)
+
+        # NitiBench metrics aggregation
+        if all_nb_coverage:
+            summary['nitibench_metrics']['avg_coverage_score'] = np.mean(all_nb_coverage)
+        if all_nb_consistency:
+            summary['nitibench_metrics']['avg_consistency_score'] = np.mean(all_nb_consistency)
+        if all_nb_citation_f1:
+            summary['nitibench_metrics']['avg_citation_f1'] = np.mean(all_nb_citation_f1)
+        if all_nb_joint:
+            summary['nitibench_metrics']['avg_joint_score'] = np.mean(all_nb_joint)
+
+        # 🆕 New metrics aggregation
+        if all_diversity_scores:
+            summary['plan_diversity_metrics'] = {
+                'avg_diversity_score': round(float(np.mean(all_diversity_scores)), 1),
+                'min_diversity_score': round(float(np.min(all_diversity_scores)), 1),
+                'max_diversity_score': round(float(np.max(all_diversity_scores)), 1),
+            }
+        if all_format_scores:
+            summary['format_validity_metrics'] = {
+                'avg_format_score': round(float(np.mean(all_format_scores)), 1),
+                'min_format_score': round(float(np.min(all_format_scores)), 1),
+                'perfect_format_count': sum(1 for s in all_format_scores if s == 100.0),
+                'total_evaluated': len(all_format_scores),
+            }
 
         return summary
     
@@ -1122,10 +1568,85 @@ class EvaluationService:
                 print(f"  {emoji} {metric_name:25} : {color}{value:.4f}{Colors.END}")
             print()
 
+        # NitiBench (Thai Legal Quality)
+        if 'nitibench_metrics' in summary and summary['nitibench_metrics']:
+            print(f"{Colors.BOLD}{Colors.CYAN}⚖️  NitiBench — Thai Legal Quality (Supplementary Metric):{Colors.END}")
+            print("=" * 80)
+            print(f"{Colors.CYAN}ใช้ควบคู่กับ ROUGE/BLEU/BERTScore — วัดคุณภาพเชิงกฎหมายที่ text metrics วัดไม่ได้{Colors.END}")
+            print("=" * 80)
+
+            nb = summary['nitibench_metrics']
+
+            if 'avg_coverage_score' in nb:
+                val = nb['avg_coverage_score']
+                color = Colors.GREEN if val >= 80 else Colors.YELLOW if val >= 40 else Colors.RED
+                emoji = "✅" if val >= 80 else "⚠️" if val >= 40 else "❌"
+                print(f"\n  {emoji} {Colors.BOLD}Coverage Score (0-100)     : {color}{val:.1f}{Colors.END}")
+
+            if 'avg_consistency_score' in nb:
+                val = nb['avg_consistency_score']
+                color = Colors.GREEN if val >= 0.8 else Colors.YELLOW if val >= 0.5 else Colors.RED
+                emoji = "✅" if val >= 0.8 else "⚠️" if val >= 0.5 else "❌"
+                print(f"  {emoji} {Colors.BOLD}Consistency Score (0-1)    : {color}{val:.4f}{Colors.END}")
+
+            if 'avg_citation_f1' in nb:
+                val = nb['avg_citation_f1']
+                color = self.get_score_color(val, 'general')
+                emoji = self.get_score_emoji(val, 'general')
+                print(f"  {emoji} {Colors.BOLD}Citation F1 (0-1)          : {color}{val:.4f}{Colors.END}")
+
+            if 'avg_joint_score' in nb:
+                val = nb['avg_joint_score']
+                color = self.get_score_color(val, 'general')
+                emoji = self.get_score_emoji(val, 'general')
+                print(f"  {emoji} {Colors.BOLD}Joint Score (weighted avg)  : {color}{val:.4f}{Colors.END}")
+                print(f"     (Coverage 40% + Consistency 35% + Citation 25%)")
+            print()
+
+        # 🆕 Plan Diversity
+        if 'plan_diversity_metrics' in summary:
+            pd = summary['plan_diversity_metrics']
+            print(f"{Colors.BOLD}🎲 Plan Diversity Score:{Colors.END}")
+            print("─" * 80)
+            val = pd['avg_diversity_score']
+            color = Colors.GREEN if val >= 50 else Colors.YELLOW if val >= 30 else Colors.RED
+            emoji = "✅" if val >= 50 else "⚠️" if val >= 30 else "❌"
+            print(f"  {emoji} Average: {color}{val}/100{Colors.END}")
+            print(f"     Min: {pd['min_diversity_score']}/100 | Max: {pd['max_diversity_score']}/100")
+            print()
+
+        # 🆕 Format Validity
+        if 'format_validity_metrics' in summary:
+            fv = summary['format_validity_metrics']
+            print(f"{Colors.BOLD}📋 Format Validity:{Colors.END}")
+            print("─" * 80)
+            val = fv['avg_format_score']
+            color = Colors.GREEN if val >= 90 else Colors.YELLOW if val >= 70 else Colors.RED
+            emoji = "✅" if val >= 90 else "⚠️" if val >= 70 else "❌"
+            print(f"  {emoji} Average: {color}{val}%{Colors.END}")
+            print(f"     Perfect format: {fv['perfect_format_count']}/{fv['total_evaluated']}")
+            print()
+
+        # 🆕 Generalization Test (ถ้ามี — จะถูก inject จาก runner)
+        if 'generalization_metrics' in summary:
+            gm = summary['generalization_metrics']
+            print(f"{Colors.BOLD}🧪 Generalization Test (unseen profiles):{Colors.END}")
+            print("=" * 80)
+            val = gm['generalization_score']
+            color = Colors.GREEN if val >= 70 else Colors.YELLOW if val >= 50 else Colors.RED
+            emoji = "✅" if val >= 70 else "⚠️" if val >= 50 else "❌"
+            print(f"  {emoji} Score: {color}{val}%{Colors.END} ({gm['passed_checks']}/{gm['total_checks']} checks)")
+            if 'profiles' in gm:
+                for p in gm['profiles']:
+                    p_emoji = "✅" if p.get("score", 0) >= 80 else "⚠️" if p.get("score", 0) >= 50 else "❌"
+                    print(f"  {p_emoji} {p['id']}: {p.get('label', '')} — {p.get('score', 0)}%")
+            print()
+
         # Numeric Metrics
         if 'numeric_metrics' in summary and summary['numeric_metrics']:
-            print(f"{Colors.BOLD}💰 Numeric Accuracy:{Colors.END}")
+            print(f"{Colors.BOLD}💰 Numeric Accuracy (Hardcoded Validation):{Colors.END}")
             print("─" * 80)
+            print(f"  {Colors.CYAN}ℹ️  ตัวเลขถูก hardcode ไว้ใน prompt — metric นี้ยืนยันว่า AI ใช้ค่าที่กำหนด ไม่คิดเอง{Colors.END}")
 
             for key, value in summary['numeric_metrics'].items():
                 metric_name = key.replace('_', ' ').title()

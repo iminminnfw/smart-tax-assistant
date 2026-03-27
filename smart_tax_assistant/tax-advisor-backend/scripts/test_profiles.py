@@ -515,6 +515,174 @@ TEST_PROFILES: List[Dict[str, Any]] = [
 ]
 
 # =============================================================================
+# GENERALIZATION TEST PROFILES (G1-G5)
+# Profile ที่ไม่อยู่ใน few-shot pool — วัดความสามารถจริงของ model
+# ไม่มี expected_plans (ใช้ rule-based validation แทน text matching)
+# =============================================================================
+
+GENERALIZATION_PROFILES: List[Dict[str, Any]] = [
+    {
+        "id": "G1",
+        "label": "นักดนตรี/ศิลปิน รายได้ไม่สม่ำเสมอ",
+        "profile": {
+            "income_type": "40(8)",
+            "occupation": "other_business",  # ไม่ตรงกับ few-shot pool ที่มี
+            "age": 28,
+            "annual_income": 480000,
+            "expense_deduction_type": "standard",
+            "is_vat_registered": False,
+            "marital_status": "single",
+            "dependents": 0,
+            "num_children": 0,
+            "num_parents": 0,
+            "existing_savings": 50000,
+            "risk_tolerance": "moderate",
+            "existing_rmf": 0,
+            "existing_thai_esg": 0,
+            "life_insurance_amount": 0,
+            "health_insurance_amount": 0,
+        },
+        "goal": "รายได้ไม่แน่นอน อยากวางแผนภาษีให้มั่นคง",
+        "expected_goal_type": "TAX_SAVING",
+        # Generalization checks (rule-based, ไม่ใช่ text matching)
+        "generalization_checks": {
+            "should_have_insurance": True,  # ยังไม่มีประกัน → ควรแนะนำ
+            "max_tier_1_investment": 80000,  # รายได้ต่ำ tier ควรต่ำ
+            "should_not_have": ["SSF"],  # SSF ยกเลิกแล้ว
+            "income_type_should_be": "40(8)",  # ไม่ใช่ 40(6)
+        },
+    },
+    {
+        "id": "G2",
+        "label": "โปรแกรมเมอร์ฟรีแลนซ์ + ขายของออนไลน์ (รายได้ 2 ทาง)",
+        "profile": {
+            "income_type": "40(8)",
+            "occupation": "other_business",
+            "age": 30,
+            "annual_income": 1800000,
+            "expense_deduction_type": "standard",
+            "is_vat_registered": True,  # เกิน 1.8M → VAT
+            "marital_status": "single",
+            "dependents": 0,
+            "num_children": 0,
+            "num_parents": 2,
+            "existing_savings": 300000,
+            "risk_tolerance": "aggressive",
+            "existing_rmf": 50000,
+            "existing_thai_esg": 0,
+            "life_insurance_amount": 0,
+            "health_insurance_amount": 0,
+        },
+        "goal": "รายได้เกิน 1.8 ล้าน ต้องจด VAT ไหม และลดหย่อนอะไรได้บ้าง",
+        "expected_goal_type": "HYBRID",
+        "generalization_checks": {
+            "should_have_insurance": True,
+            "should_consider_vat": True,  # รายได้ > 1.8M
+            "rmf_should_account_existing": True,  # มี existing RMF 50K
+            "should_not_have": ["SSF"],
+            "income_type_should_be": "40(8)",
+        },
+    },
+    {
+        "id": "G3",
+        "label": "ทันตแพทย์ + เปิดร้านกาแฟ (40(6) เป็นหลัก)",
+        "profile": {
+            "income_type": "40(6)",
+            "occupation": "dentist",
+            "age": 42,
+            "annual_income": 2500000,
+            "expense_deduction_type": "standard",
+            "is_vat_registered": True,  # เกิน 1.8M
+            "marital_status": "married",
+            "dependents": 1,
+            "num_children": 1,
+            "num_parents": 2,
+            "existing_savings": 1500000,
+            "risk_tolerance": "moderate",
+            "existing_rmf": 100000,
+            "existing_thai_esg": 0,
+            "life_insurance_amount": 50000,
+            "health_insurance_amount": 15000,
+        },
+        "goal": "มีรายได้หลายทาง ลดหย่อนยังไงให้คุ้มที่สุด",
+        "expected_goal_type": "HYBRID",
+        "generalization_checks": {
+            "should_have_insurance": False,  # มีประกันอยู่แล้ว
+            "should_consider_vat": True,
+            "rmf_should_account_existing": True,  # มี existing RMF 100K
+            "life_insurance_remaining": 50000,  # เหลือ 100K - 50K
+            "health_insurance_remaining": 10000,  # เหลือ 25K - 15K
+            "should_not_have": ["SSF"],
+            "income_type_should_be": "40(6)",
+        },
+    },
+    {
+        "id": "G4",
+        "label": "ผู้สูงอายุ 63 ปี มีรายได้จากดอกเบี้ยและเงินปันผล",
+        "profile": {
+            "income_type": "40(8)",
+            "occupation": "business_owner_retired",
+            "age": 63,
+            "annual_income": 900000,
+            "expense_deduction_type": "standard",
+            "is_vat_registered": False,
+            "marital_status": "married",
+            "dependents": 0,
+            "num_children": 0,
+            "num_parents": 0,
+            "existing_savings": 8000000,
+            "risk_tolerance": "conservative",
+            "existing_rmf": 0,
+            "existing_thai_esg": 0,
+            "life_insurance_amount": 80000,
+            "health_insurance_amount": 25000,
+        },
+        "goal": "อายุมาก ไม่อยากเสี่ยง แต่อยากลดภาษีให้ได้บ้าง",
+        "expected_goal_type": "RETIREMENT",
+        "generalization_checks": {
+            "should_have_insurance": False,  # มีเกือบเต็มแล้ว
+            "should_emphasize_low_risk": True,  # conservative + อายุ 63
+            "should_not_have_long_lock": True,  # ไม่ควรแนะนำ ThaiESG 8 ปี (อายุ 63+8=71)
+            "life_insurance_remaining": 20000,  # เหลือ 100K - 80K
+            "health_insurance_remaining": 0,  # เต็มแล้ว
+            "should_not_have": ["SSF"],
+            "income_type_should_be": "40(8)",
+        },
+    },
+    {
+        "id": "G5",
+        "label": "คนรายได้น้อยมาก (200K/ปี) พนักงานรับจ้างทั่วไป",
+        "profile": {
+            "income_type": "40(8)",
+            "occupation": "other_business",
+            "age": 25,
+            "annual_income": 200000,
+            "expense_deduction_type": "standard",
+            "is_vat_registered": False,
+            "marital_status": "single",
+            "dependents": 0,
+            "num_children": 0,
+            "num_parents": 0,
+            "existing_savings": 20000,
+            "risk_tolerance": "low",
+            "existing_rmf": 0,
+            "existing_thai_esg": 0,
+            "life_insurance_amount": 0,
+            "health_insurance_amount": 0,
+        },
+        "goal": "รายได้น้อยมาก ต้องเสียภาษีไหม",
+        "expected_goal_type": "TAX_SAVING",
+        "generalization_checks": {
+            "should_have_insurance": True,  # ไม่มีเลย
+            "should_be_minimal_investment": True,  # รายได้น้อย tier ต่ำสุด
+            "taxable_income_may_be_zero": True,  # 200K - 60% - 60K personal ≈ 20K → ภาษี 0
+            "should_not_have": ["SSF", "ThaiESGX"],
+            "income_type_should_be": "40(8)",
+        },
+    },
+]
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
@@ -577,8 +745,18 @@ _ALLOC_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "เงินบริจาค": {
         "category": "เงินบริจาค",
-        "pros": ["ลดหย่อนภาษีได้ทันที", "บริจาคการศึกษาลดหย่อนได้ 2 เท่า", "ไม่ต้องถือครองหรือล็อคเงิน"],
+        "pros": ["ลดหย่อนภาษีได้ทันที", "บริจาคการศึกษาลดหย่อนได้ 1 เท่า (ตั้งแต่ปี 2568)", "ไม่ต้องถือครองหรือล็อคเงิน"],
         "cons": ["ไม่มีผลตอบแทนจากการลงทุน", "เป็นค่าใช้จ่ายที่ไม่ได้คืน", "วงเงินลดหย่อนจำกัดตามกฎหมาย"],
+    },
+    "Solar_Rooftop": {
+        "category": "Solar Rooftop",
+        "pros": ["ลดหย่อนภาษีได้ตามจริงสูงสุด 200,000 บาท", "ประหยัดค่าไฟในระยะยาว", "สนับสนุนพลังงานสะอาดตามนโยบายรัฐ"],
+        "cons": ["ใช้เงินลงทุนก้อนใหญ่ในครั้งแรก", "ใช้สิทธิลดหย่อนได้เพียง 1 ครั้งตลอดโครงการ"],
+    },
+    "ThaiESGX": {
+        "category": "ThaiESGX",
+        "pros": ["ได้วงเงินพิเศษแยกต่างหากสูงสุด 300,000 บาท (เฉพาะปี 2568)", "สามารถโอนสับเปลี่ยนจาก LTF เดิมได้", "ลงทุนในหุ้น ESG ไทยที่ยั่งยืน"],
+        "cons": ["ต้องถือครองตามเงื่อนไขที่กำหนด", "วงเงินพิเศษจำกัดเฉพาะปีภาษี 2568"],
     },
 }
 
@@ -1150,11 +1328,11 @@ PROFILE_EXPECTED_PLANS: Dict[str, Dict[str, Any]] = {
             "total_investment": 0,
             "total_tax_saving": 0,
             "expected_text": {
-                "description": "เน้นลงทุนเต็มวงเงินใน RMF และ ThaiESG พร้อมเงินบริจาคการศึกษาเพื่อลดหย่อนสูงสุด",
+                "description": "เน้นลงทุนเต็มวงเงินใน RMF และ ThaiESG พร้อม Thai ESGX วงเงินพิเศษปี 2568 เพื่อลดหย่อนสูงสุด",
                 "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
-                "keywords": ["RMF", "ThaiESG", "เงินบริจาค", "ลดหย่อนสูงสุด", "เต็มวงเงิน"],
+                "keywords": ["RMF", "ThaiESG", "ThaiESGX", "ลดหย่อนสูงสุด", "เต็มวงเงิน"],
                 "key_points": ["RMF", "ThaiESG", "ลดหย่อนภาษีสูงสุด"],
-                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("เงินบริจาค")],
+                "expected_allocations": [_alloc("RMF"), _alloc("ThaiESG"), _alloc("ThaiESGX")],
             },
         },
     },
@@ -1209,33 +1387,33 @@ PROFILE_EXPECTED_PLANS: Dict[str, Dict[str, Any]] = {
             "total_investment": 0,
             "total_tax_saving": 0,
             "expected_text": {
-                "description": "ท่านใช้สิทธิลดหย่อนภาษีเกือบเต็มวงเงินแล้ว พิจารณาเงินบริจาคการศึกษาเพื่อลดหย่อนเพิ่มเติม",
-                "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
-                "keywords": ["เต็มวงเงิน", "บริจาค", "การศึกษา", "ลดหย่อน", "ภาษี"],
-                "key_points": ["เงินบริจาค", "สิทธิเต็มวงเงิน"],
-                "expected_allocations": [_alloc("เงินบริจาค")],
+                "description": "ท่านใช้สิทธิลดหย่อนกองทุนเต็มวงเงินแล้ว แนะนำติดตั้งระบบ Solar Rooftop เพื่อรับสิทธิลดหย่อนพิเศษสูงสุด 200,000 บาท",
+                "plan_name": "ทางเลือกที่ 1 - เน้นโครงสร้างพื้นฐาน",
+                "keywords": ["เต็มวงเงิน", "Solar Rooftop", "พลังงานสะอาด", "ลดหย่อน", "พิเศษ"],
+                "key_points": ["Solar Rooftop", "สิทธิเต็มวงเงิน", "พลังงานสะอาด"],
+                "expected_allocations": [_alloc("Solar_Rooftop")],
             },
         },
         "plan_2": {
             "total_investment": 0,
             "total_tax_saving": 0,
             "expected_text": {
-                "description": "เน้นการจัดการสินทรัพย์ที่มีอยู่และการวางแผนเกษียณจากเงินลงทุน RMF และ ThaiESG ที่ลงไปแล้ว",
-                "plan_name": "ทางเลือกที่ 2 - สมดุล",
-                "keywords": ["จัดการสินทรัพย์", "เกษียณ", "RMF", "ThaiESG", "วางแผน"],
-                "key_points": ["จัดการสินทรัพย์", "เกษียณ"],
-                "expected_allocations": [_alloc("เงินบริจาค")],
+                "description": "จัดการสินทรัพย์เดิมโดยพิจารณาโอนสับเปลี่ยน LTF ที่ครบกำหนดมายังกองทุน Thai ESGX เพื่อรับสิทธิลดหย่อนเพิ่มสูงสุด 300,000 บาท",
+                "plan_name": "ทางเลือกที่ 2 - จัดการสินทรัพย์เดิม",
+                "keywords": ["จัดการสินทรัพย์", "LTF", "Thai ESGX", "สับเปลี่ยน", "วงเงินพิเศษ"],
+                "key_points": ["Thai ESGX", "โอนสับเปลี่ยน LTF", "วงเงินพิเศษ"],
+                "expected_allocations": [_alloc("ThaiESGX")],
             },
         },
         "plan_3": {
             "total_investment": 0,
             "total_tax_saving": 0,
             "expected_text": {
-                "description": "พิจารณาเงินบริจาคการศึกษาหรือกีฬา ซึ่งลดหย่อนได้ 2 เท่า เพื่อเพิ่มสิทธิประโยชน์ทางภาษี",
-                "plan_name": "ทางเลือกที่ 3 - เน้นการเติบโต",
-                "keywords": ["บริจาค", "การศึกษา", "2 เท่า", "สิทธิประโยชน์", "ภาษี"],
-                "key_points": ["เงินบริจาค", "ลดหย่อน 2 เท่า"],
-                "expected_allocations": [_alloc("เงินบริจาค")],
+                "description": "ใช้สิทธิประโยชน์สูงสุดของปี 2568 ด้วยการผสานวงเงินพิเศษจาก Thai ESGX ควบคู่กับการลดหย่อน Solar Rooftop",
+                "plan_name": "ทางเลือกที่ 3 - ใช้สิทธิปี 2568 เต็มพิกัด",
+                "keywords": ["สิทธิประโยชน์", "ปี 2568", "Thai ESGX", "Solar Rooftop", "สูงสุด"],
+                "key_points": ["Thai ESGX", "Solar Rooftop", "ลดหย่อนภาษีปี 2568"],
+                "expected_allocations": [_alloc("ThaiESGX"), _alloc("Solar_Rooftop")],
             },
         },
     },
@@ -1401,6 +1579,67 @@ PROFILE_EXPECTED_PLANS: Dict[str, Dict[str, Any]] = {
         },
     },
 }
+
+
+# =============================================================================
+# EXPECTED CITATIONS PER PROFILE
+# อ้างอิงจากเอกสาร "ปรับปรุงเอกสารภาษีบุคคลธรรมดา 2568-2569.pdf"
+#
+# มาตรากฎหมายที่คำตอบ LLM ควรอ้างอิง เพื่อวัด Citation F1 ใน NitiBench
+# - มาตรา 40(6): เงินได้พึงประเมินจากวิชาชีพอิสระ (แพทย์ ทนาย วิศวกร สถาปนิก บัญชี ฯลฯ)
+# - มาตรา 40(8): เงินได้พึงประเมินจากธุรกิจ/พาณิชย์ (catch-all provision)
+# - พ.ร.ฎ. 629: พระราชกฤษฎีกาฉบับที่ 629 — ปรับอัตราหักค่าใช้จ่ายเหมา
+#   บังคับเพดานสูงสุด 60% สำหรับทุกประเภทกิจการตามมาตรา 40(8)
+#   และคงอัตราเดิมสำหรับ 40(6): แพทย์ 60%, อื่นๆ 30%
+# - มาตรา 81(1): ยกเว้นภาษีมูลค่าเพิ่ม (VAT) สำหรับวิชาชีพอิสระบางประเภท
+#   และกิจการบางประเภทตาม 40(8) — เกี่ยวข้องเมื่อรายรับเกิน 1.8 ล้านบาท/ปี
+# - ภ.ง.ด. 94: แบบแสดงรายการภาษีครึ่งปี สำหรับผู้มีเงินได้ตามมาตรา 40(5)-40(8)
+# =============================================================================
+
+_PROFILE_CITATIONS: Dict[str, List[str]] = {
+    # Group A: มาตรา 40(6) — วิชาชีพอิสระ
+    "A1":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # แพทย์เปิดคลินิก หักเหมา 60%
+    "A2":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # ทนายความ หักเหมา 30%
+    "A3":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # วิศวกรที่ปรึกษา หักตามจริง
+    "A4":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # สถาปนิกฟรีแลนซ์ หักเหมา 30%
+    "A5":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # นักบัญชีอิสระ หักตามจริง
+    "A6":  ["มาตรา 40(6)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # แพทย์เฉพาะทาง จด VAT (>1.8M)
+    "A7":  ["มาตรา 40(6)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # ทันตแพทย์ จด VAT (>1.8M)
+    "A8":  ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # นักกฎหมาย หักเหมา 30%
+    "A9":  ["มาตรา 40(6)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # วิศวกร จด VAT (>1.8M)
+    "A10": ["มาตรา 40(6)", "พ.ร.ฎ. 629"],              # สัตวแพทย์ หักเหมา
+
+    # Group B: มาตรา 40(8) — ธุรกิจ/พาณิชย์
+    # พ.ร.ฎ. 629 บังคับหักเหมาสูงสุด 60% ทุกประเภทกิจการ (เดิมบางประเภทสูงถึง 85%)
+    "B11": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # ร้านค้าออนไลน์
+    "B12": ["มาตรา 40(8)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # ผู้รับเหมาก่อสร้าง จด VAT
+    "B13": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # ร้านอาหาร
+    "B14": ["มาตรา 40(8)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # นายหน้าอสังหาฯ จด VAT
+    "B15": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # YouTuber/Content Creator
+    "B16": ["มาตรา 40(8)", "พ.ร.ฎ. 629", "มาตรา 81(1)"],  # ธุรกิจนำเข้า จด VAT
+    "B17": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # ช่างภาพฟรีแลนซ์
+    "B18": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # เจ้าของฟาร์ม (เกษตร ยกเว้น VAT ตาม ม.81)
+    "B19": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # Startup founder
+    "B20": ["มาตรา 40(8)", "พ.ร.ฎ. 629"],              # เจ้าของธุรกิจเกษียณ
+}
+
+
+def _inject_expected_citations() -> None:
+    """เพิ่ม expected_citations ให้ทุก plan ใน PROFILE_EXPECTED_PLANS จาก _PROFILE_CITATIONS
+
+    ทำ inject อัตโนมัติเพื่อไม่ต้องเขียนซ้ำใน 60 plans (20 profiles × 3 plans)
+    Citations เหมือนกันทุก plan ของ profile เดียวกัน เพราะอ้างอิงมาตราเดียวกัน
+    """
+    for profile_id, plans in PROFILE_EXPECTED_PLANS.items():
+        citations = _PROFILE_CITATIONS.get(profile_id, [])
+        for plan_key in ['plan_1', 'plan_2', 'plan_3']:
+            plan = plans.get(plan_key)
+            if plan and 'expected_text' in plan:
+                plan['expected_text']['expected_citations'] = citations
+
+
+# Auto-inject citations on module load
+_inject_expected_citations()
 
 
 def get_expected_plans_by_profile_id(profile_id: str) -> Dict[str, Any]:

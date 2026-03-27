@@ -248,9 +248,19 @@ async def lifespan(app):
 
         # Initialize AI Advisor
         use_ollama = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
+        use_mlx = os.getenv("USE_MLX", "false").lower() in ("true", "1", "yes")
         openai_key = os.getenv("OPENAI_API_KEY")
 
-        if use_ollama:
+        if use_mlx:
+            try:
+                mlx_model = os.getenv("MLX_MODEL", "mlx-community/Qwen2.5-14B-Instruct-4bit")
+                ai_advisor = AITaxAdvisor(provider="mlx", model=mlx_model)
+                logger.info(f"✅ AI Advisor initialized with MLX ({mlx_model})")
+            except Exception as e:
+                logger.warning(f"⚠️ MLX init failed: {e}, falling back to Ollama/OpenAI")
+                ai_advisor = None
+
+        if ai_advisor is None and use_ollama:
             try:
                 ai_advisor = AITaxAdvisor(provider="ollama")
                 logger.info(f"✅ AI Advisor initialized with Ollama ({os.getenv('OLLAMA_MODEL', 'qwen2.5:14b')})")

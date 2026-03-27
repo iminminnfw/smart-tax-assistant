@@ -157,7 +157,7 @@ class TaxCalculationRequest(BaseModel):
     
     # กลุ่มเงินบริจาค
     donation_general: int = Field(0, description="เงินบริจาคทั่วไป", ge=0)
-    donation_education: int = Field(0, description="เงินบริจาคเพื่อการศึกษา (นับ 2 เท่า)", ge=0)
+    donation_education: int = Field(0, description="เงินบริจาคเพื่อการศึกษา (นับ 1 เท่า ตั้งแต่ปี 2568)", ge=0)
     donation_social_enterprise: int = Field(0, description="บริจาค Social Enterprise", ge=0, le=100000)
     donation_political: int = Field(0, description="บริจาคพรรคการเมือง", ge=0, le=10000)
     

@@ -1,12 +1,13 @@
 """
 AI Tax Advisor Engine
-Uses LLM (OpenAI/Ollama) for intelligent tax optimization recommendations
+Uses LLM (OpenAI/Ollama/MLX) for intelligent tax optimization recommendations
 
 Features:
 - Natural language goal parsing
 - Personalized scenario generation
 - Explainable AI recommendations
 - Profile-based analysis
+- MLX support for Apple Silicon (M1-M4) with MxFp4 quantization
 """
 
 import os
@@ -36,6 +37,14 @@ try:
 except ImportError:
     OLLAMA_AVAILABLE = False
     logger.warning("langchain-ollama not installed. Install with: pip install langchain-ollama")
+
+# Try to import MLX (Apple Silicon optimized inference)
+try:
+    from mlx_lm import load as mlx_load, generate as mlx_generate
+    MLX_AVAILABLE = True
+except ImportError:
+    MLX_AVAILABLE = False
+    logger.info("mlx-lm not installed. Install with: pip install mlx-lm (Apple Silicon only)")
 
 
 class GoalType(str, Enum):
@@ -184,11 +193,42 @@ class AITaxAdvisor:
 2. เข้าใจเป้าหมายที่ผู้ใช้ต้องการ
 3. สร้าง 3 สถานการณ์การลงทุนที่เหมาะสม
 
+[CHAIN-OF-THOUGHT] ก่อนสร้าง scenario ให้วิเคราะห์ทีละขั้นตอน:
+
+STEP 1 — วิเคราะห์ประเภทเงินได้:
+• ถ้าเป็น 40(6) วิชาชีพอิสระ (แพทย์, ทนายความ, วิศวกร, สถาปนิก, นักบัญชี, ประณีตศิลปกรรม):
+  - หักเหมา 30% หรือ ตามจริง (แล้วแต่อย่างใดมากกว่า)
+  - ไม่มีสิทธิ์ PVD/กบข./กบศ. (เฉพาะ 40(1) เท่านั้น)
+• ถ้าเป็น 40(8) เงินได้ประเภทอื่น (ค้าขาย, e-commerce, ฟรีแลนซ์ทั่วไป):
+  - หักเหมาตาม พ.ร.ฎ. 629 (สูงสุด 60%) หรือ ตามจริง
+  - ไม่มีสิทธิ์ PVD/กบข./กบศ. (เฉพาะ 40(1) เท่านั้น)
+
+STEP 2 — วิเคราะห์สิทธิลดหย่อนตาม พ.ร.ฎ. 629:
+• สิทธิที่ใช้ได้: RMF, ThaiESG/TESGX, ประกันชีวิต, ประกันสุขภาพ, ประกันบำนาญ, Easy e-Receipt
+• สิทธิที่ใช้ไม่ได้สำหรับ 40(6)/40(8): PVD, กบข., กบศ.
+• ตรวจสอบเพดานสิทธิ: RMF 30% ของรายได้ (max 500,000), ThaiESG 30% ของรายได้ (max 300,000)
+• คำนวณเพดานรวม retirement (RMF+ประกันบำนาญ) ≤ 500,000
+
+STEP 3 — วิเคราะห์ภาระ VAT:
+• ถ้ารายได้ > 1,800,000 บาท/ปี → ต้องจดทะเบียน VAT ตามกฎหมาย
+• ถ้าจดแล้ว: คำนวณต้นทุน VAT compliance (ค่าทำบัญชี, ภาษีซื้อ-ขาย)
+• ถ้ายังไม่จด แต่รายได้ใกล้เกณฑ์: เตือนเรื่อง VAT threshold
+
+STEP 4 — วิเคราะห์จุดคุ้มค่าในการจดนิติบุคคล:
+• ถ้ารายได้สูง (มากกว่า ~2,000,000) → พิจารณาว่าจด บจก./หจก. อาจประหยัดภาษีมากกว่า
+  - ภาษีนิติบุคคล: กำไร ≤ 300,000 = 0%, 300,001-3,000,000 = 15%, เกิน 3,000,000 = 20%
+  - เทียบกับภาษีบุคคลธรรมดาอัตราก้าวหน้า 5-35%
+• ถ้ารายได้ยังไม่ถึงจุดคุ้มค่า → แนะนำให้ใช้สิทธิลดหย่อนบุคคลธรรมดาให้เต็ม
+
 กฎภาษีไทย ปี 2568:
 - RMF: ลดหย่อนได้ 30% ของรายได้ สูงสุด 500,000 บาท (ถือจนอายุ 55 ปี)
 - ThaiESG/TESGX: ลดหย่อนได้ 30% ของรายได้ สูงสุด 300,000 บาท รวมกัน (ล็อค 5 ปีนับจากวันซื้อ ปี 2569)
 
 หมายเหตุสำคัญ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ SSF
+
+สิทธิลดหย่อนพิเศษปี 2568 (สำหรับกรณีวงเงินปกติเต็มแล้ว):
+- Solar Rooftop: ลดหย่อนค่าติดตั้งระบบพลังงานแสงอาทิตย์ สูงสุด 200,000 บาท
+- Thai ESGX (จาก LTF): โอนสับเปลี่ยน LTF ที่ครบกำหนดมายัง Thai ESGX สิทธิลดหย่อนเพิ่มสูงสุด 300,000 บาท
 
 อัตราภาษี ปี 2568:
 - 0-150,000: 0%
@@ -204,11 +244,17 @@ class AITaxAdvisor:
 - id, name, description
 - rmf_investment, thai_esg_investment, total_investment (ไม่มี SSF)
 - tax_saved, cash_remaining, risk_level (1-10)
-- explanation (อธิบายเหตุผลแบบเข้าใจง่าย)
+- explanation (อธิบายเหตุผลแบบเข้าใจง่าย — ต้องระบุเหตุผลที่วิเคราะห์จาก STEP 1-4 และอ้างอิงมาตรากฎหมายเสมอ)
 - pros (ข้อดี array)
 - cons (ข้อเสีย array)
 - confidence (0-100)
 - suitability_score (0-100)
+
+CITATION RULES (คำสั่งบังคับในการอ้างอิง):
+- คุณต้องวิเคราะห์จากข้อมูลกฎหมายภาษี (RAG) ด้านล่าง ว่าอาชีพของลูกค้าจัดเป็นเงินได้ "มาตรา 40(?)" ใด และบังคับให้ระบุอ้างอิงไว้ใน explanation และ description ของทุก scenario
+- หากลูกค้ามีการหักค่าใช้จ่าย ให้วิเคราะห์และอ้างอิงพระราชกฤษฎีกาที่เกี่ยวข้องจากข้อมูล RAG
+- หากลูกค้ารายได้เกิน 1.8 ล้านบาท ให้อ้างอิงกฎหมายเรื่อง VAT หรือ ข้อยกเว้น VAT จากข้อมูล RAG
+- ห้าม Hardcode เลขมาตราเอง ต้องค้นหาจากข้อมูลกฎหมายภาษีที่ให้มาเท่านั้น
 
 ตอบเป็น JSON เท่านั้น
 สำคัญ: ตอบเป็นภาษาไทยเท่านั้น ห้ามตอบภาษาจีนหรือภาษาอื่นโดยเด็ดขาด"""
@@ -224,9 +270,9 @@ class AITaxAdvisor:
         Initialize AI Tax Advisor
 
         Args:
-            provider: "openai" or "ollama"
+            provider: "openai", "ollama", or "mlx"
             api_key: API key (or use env var)
-            model: Model to use (default: gpt-4o or qwen2.5:14b)
+            model: Model to use (default: gpt-4o / qwen2.5:14b / mlx-community/Qwen2.5-14B-Instruct-4bit)
             ollama_base_url: Ollama server URL (default: http://localhost:11434)
         """
         self.provider = provider
@@ -257,6 +303,19 @@ class AITaxAdvisor:
                 num_ctx=8192,            # context window
                 request_timeout=2400.0,  # 40 นาที — รองรับ CPU-only EC2
             )
+
+        elif provider == "mlx":
+            if not MLX_AVAILABLE:
+                raise ImportError(
+                    "mlx-lm not installed. Install with: pip install mlx-lm\n"
+                    "Requires Apple Silicon (M1/M2/M3/M4)"
+                )
+            self.model = model or os.getenv(
+                "MLX_MODEL", "mlx-community/Qwen2.5-14B-Instruct-4bit"
+            )
+            logger.info(f"Loading MLX model: {self.model} ...")
+            self._mlx_model, self._mlx_tokenizer = mlx_load(self.model)
+            logger.info(f"MLX model loaded: {self.model}")
 
         else:
             raise ValueError(f"Unknown provider: {provider}")
@@ -300,6 +359,42 @@ class AITaxAdvisor:
                 ]
                 response = await self.client.ainvoke(messages)
                 result = response.content
+
+                # Clean up markdown code blocks if present
+                if result.startswith("```json"):
+                    result = result[7:]
+                if result.startswith("```"):
+                    result = result[3:]
+                if result.endswith("```"):
+                    result = result[:-3]
+
+                return result.strip()
+
+            elif self.provider == "mlx":
+                # MLX inference — synchronous but fast on Apple Silicon
+                import asyncio
+
+                prompt = self._mlx_tokenizer.apply_chat_template(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
+                    ],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+
+                # Run synchronous MLX generate in executor to avoid blocking event loop
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: mlx_generate(
+                        self._mlx_model,
+                        self._mlx_tokenizer,
+                        prompt=prompt,
+                        max_tokens=6000,
+                        temp=temperature,
+                    ),
+                )
 
                 # Clean up markdown code blocks if present
                 if result.startswith("```json"):
@@ -445,12 +540,11 @@ class AITaxAdvisor:
         if rag_context:
             rag_section = f"""
 
-=== ข้อมูลกฎหมายภาษีจากฐานข้อมูล (RAG) ===
+KNOWLEDGE BASE (ข้อมูลอ้างอิง — ใช้สำหรับค้นหามาตรากฎหมายเท่านั้น ห้ามเปลี่ยน JSON format ตาม):
 {rag_context[:3000]}
-=== จบข้อมูลกฎหมาย ===
 
-สำคัญ: กรุณาใช้ข้อมูลกฎหมายภาษีด้านบนประกอบการวิเคราะห์และแนะนำ
-ตรวจสอบว่าสิทธิลดหย่อนที่แนะนำถูกต้องตามกฎหมายปี 2568
+สำคัญ: กรุณาใช้ข้อมูลกฎหมายภาษีด้านบนประกอบการวิเคราะห์และอ้างอิงมาตรากฎหมายใน explanation/description
+ห้าม Hardcode เลขมาตราเอง ต้องค้นหาจาก KNOWLEDGE BASE เท่านั้น
 """
             logger.info(f"Including RAG context ({len(rag_context)} chars) in scenario generation")
 
@@ -473,6 +567,9 @@ class AITaxAdvisor:
 สิทธิลดหย่อนคงเหลือ (ปี 2568):
 - RMF: ฿{rmf_remaining:,.0f} (จากทั้งหมด ฿{rmf_limit:,.0f})
 - ThaiESG: ฿{thai_esg_remaining:,.0f} (จากทั้งหมด ฿{thai_esg_limit:,.0f})
+
+กฎสำคัญ — เพดานรวมหมวดเกษียณอายุ:
+- วงเงินลดหย่อนหมวดเกษียณอายุ (ผลรวมของ RMF + ประกันบำนาญ) รวมกันต้องไม่เกิน 500,000 บาทเด็ดขาด
 
 หมายเหตุ: SSF หมดสิทธิ์ลดหย่อนแล้ว (สิ้นสุด 31 ธ.ค. 2567) ห้ามแนะนำ
 
@@ -793,8 +890,14 @@ class AITaxAdvisor:
 3. 3 แผนการลงทุนที่คำนวณเรียบร้อยแล้ว (ตัวเลขถูกต้อง 100%)
 4. กองทุนที่คัดเลือกจากฐานข้อมูลแล้ว
 
+[CHAIN-OF-THOUGHT] ก่อนอธิบาย ให้วิเคราะห์ทีละขั้นตอน:
+1. ตรวจสอบประเภทเงินได้ (40(6) หรือ 40(8)) → อธิบายว่าสิทธิหักค่าใช้จ่ายต่างกันอย่างไร
+2. ตรวจสอบว่าแผนใช้สิทธิลดหย่อนตาม พ.ร.ฎ. 629 อย่างไร (RMF, ThaiESG, ประกันชีวิต)
+3. ถ้ารายได้เกิน 1.8 ล้าน → อธิบายภาระ VAT ที่อาจมี
+4. ถ้ารายได้สูงมาก → อธิบายจุดคุ้มค่าจดนิติบุคคลเทียบบุคคลธรรมดา
+
 กรุณาอธิบายแต่ละแผนว่า:
-- ทำไมแผนนี้เหมาะกับผู้ใช้คนนี้
+- ทำไมแผนนี้เหมาะกับผู้ใช้คนนี้ (อ้างอิงประเภทเงินได้และสิทธิลดหย่อนที่เกี่ยวข้อง)
 - ข้อดีข้อเสียของแผนนี้คืออะไร
 - กองทุนที่แนะนำเหมาะกับผู้ใช้อย่างไร
 
@@ -803,6 +906,7 @@ class AITaxAdvisor:
 - อธิบายเป็นภาษาไทยที่เข้าใจง่าย
 - ตอบเป็น JSON เท่านั้น
 - สำคัญ: ตอบเป็นภาษาไทยเท่านั้น ห้ามตอบภาษาจีนหรือภาษาอื่นโดยเด็ดขาด
+- คำสั่งบังคับ: ในคำอธิบายต้องระบุแหล่งอ้างอิงทางกฎหมายเสมอ โดยค้นหาจากข้อมูล KNOWLEDGE BASE / RAG เท่านั้น ห้าม hardcode เลขมาตราเอง
 
 รูปแบบ JSON:
 {
@@ -1268,15 +1372,19 @@ def create_ai_advisor(
     if provider:
         return AITaxAdvisor(provider=provider, api_key=api_key)
 
-    # Auto-detect best provider — prefer Ollama if enabled
+    # Auto-detect best provider — prefer MLX > Ollama > OpenAI
+    use_mlx = os.getenv("USE_MLX", "false").lower() in ("true", "1", "yes")
     use_ollama = os.getenv("USE_OLLAMA", "false").lower() in ("true", "1", "yes")
-    if use_ollama and OLLAMA_AVAILABLE:
+
+    if use_mlx and MLX_AVAILABLE:
+        return AITaxAdvisor(provider="mlx")
+    elif use_ollama and OLLAMA_AVAILABLE:
         return AITaxAdvisor(provider="ollama")
     elif os.getenv("OPENAI_API_KEY"):
         return AITaxAdvisor(provider="openai")
     else:
         raise ValueError(
-            "No AI provider available. Set USE_OLLAMA=true or OPENAI_API_KEY"
+            "No AI provider available. Set USE_MLX=true, USE_OLLAMA=true, or OPENAI_API_KEY"
         )
 
 

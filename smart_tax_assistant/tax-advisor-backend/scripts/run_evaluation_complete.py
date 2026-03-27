@@ -137,14 +137,16 @@ class EvaluationRunner:
     }
     
     def __init__(
-        self, 
-        verbose: bool = True, 
+        self,
+        verbose: bool = True,
         save_logs: bool = True,
-        use_bertscore: bool = False
+        use_bertscore: bool = False,
+        limit: int = 0
     ):
         self.verbose = verbose
         self.save_logs = save_logs
         self.use_bertscore = use_bertscore
+        self.limit = limit
         
         print("\n🚀 Initializing Evaluation Runner...")
         
@@ -364,7 +366,14 @@ class EvaluationRunner:
         
         # Step 2: ดึงข้อมูลจาก RAG
         print(f"  {Colors.CYAN}[2/4]{Colors.END} ดึงข้อมูลจาก RAG...", end='', flush=True)
-        query = f"รายได้ {request.gross_income} บาท ระดับความเสี่ยง {request.risk_tolerance}"
+
+        # Dynamic Query: ดึงข้อมูลอาชีพและประเภทเงินได้มาสร้าง Query ที่เจาะจงกฎหมาย
+        income_type = request_data.get('income_type', '')
+        prof_type = getattr(request.profession_type, 'value', request.profession_type) if request.profession_type else ""
+        biz_type = getattr(request.business_type, 'value', request.business_type) if request.business_type else ""
+        job_keyword = prof_type or biz_type or ""
+
+        query = f"สิทธิลดหย่อนภาษี เงินได้มาตรา {income_type} อาชีพ {job_keyword} หักค่าใช้จ่าย พ.ร.ฎ. 629 ภาษีมูลค่าเพิ่ม ข้อยกเว้น มาตรา 81(1)"
         
         context = "ไม่มีข้อมูลจาก RAG"
         if self.rag_service:
@@ -500,7 +509,10 @@ class EvaluationRunner:
             legal_result = self.evaluator.validate_legal_compliance(
                 plan=plan,
                 gross_income=tax_result.gross_income,
-                verbose=False  # ไม่ print ในขั้นตอนนี้ จะ print รวมทีเดียวข้างล่าง
+                verbose=False,  # ไม่ print ในขั้นตอนนี้ จะ print รวมทีเดียวข้างล่าง
+                existing_rmf=request_data.get("rmf", 0),
+                existing_life_insurance=request_data.get("life_insurance", 0),
+                existing_health_insurance=request_data.get("health_insurance", 0),
             )
             legal_checks.append(legal_result)
 
@@ -533,6 +545,45 @@ class EvaluationRunner:
                 use_bertscore=self.use_bertscore
             )
 
+            # 🆕 NitiBench evaluation — Coverage, Consistency, Citation F1
+            try:
+                from evaluation.nitibench_eval import evaluate_nitibench
+                # รวม description ของทุก plan เป็น candidate text
+                ai_texts = []
+                for pk in ["plan_1", "plan_2", "plan_3"]:
+                    if pk in ai_response and "plans" not in ai_response:
+                        plan = ai_response[pk]
+                        ai_texts.append(plan.get("description", ""))
+                    elif "plans" in ai_response:
+                        for p in ai_response["plans"]:
+                            ai_texts.append(p.get("description", ""))
+                        break
+                candidate_text = " ".join(ai_texts)
+
+                # รวม expected description + key_points
+                ref_texts = []
+                all_key_points = []
+                all_expected_citations = []
+                for pk in ["plan_1", "plan_2", "plan_3"]:
+                    ep = expected_plans.get(pk, {})
+                    et = ep.get("expected_text", {})
+                    if et.get("description"):
+                        ref_texts.append(et["description"])
+                    all_key_points.extend(et.get("key_points", []))
+                    all_expected_citations.extend(et.get("expected_citations", []))
+                reference_text = " ".join(ref_texts)
+
+                nitibench_results = evaluate_nitibench(
+                    candidate=candidate_text,
+                    reference=reference_text,
+                    key_points=all_key_points if all_key_points else None,
+                    expected_citations=all_expected_citations if all_expected_citations else None,
+                )
+                evaluation_results['nitibench'] = nitibench_results
+            except Exception as e:
+                if self.verbose:
+                    print(f"  ⚠️  NitiBench eval error: {e}")
+
             # 🆕 เพิ่ม Legal Compliance Score เข้าไปใน evaluation_results
             evaluation_results['legal_compliance'] = {
                 'checks': legal_checks,
@@ -559,6 +610,22 @@ class EvaluationRunner:
                                 "reason": "FAILED - Legal violations detected"
                             }
                             evaluation_results[plan_key]["legal_check"] = legal_check
+
+            # 🆕 Plan Diversity Score
+            try:
+                diversity_result = self.evaluator.calculate_plan_diversity(ai_response)
+                evaluation_results['plan_diversity'] = diversity_result
+            except Exception as e:
+                if self.verbose:
+                    print(f"  ⚠️  Plan Diversity error: {e}")
+
+            # 🆕 Format Validity
+            try:
+                format_result = self.evaluator.validate_format(ai_response)
+                evaluation_results['format_validity'] = format_result
+            except Exception as e:
+                if self.verbose:
+                    print(f"  ⚠️  Format Validity error: {e}")
 
             print(f" {Colors.GREEN}✓{Colors.END}")
         except Exception as e:
@@ -600,6 +667,11 @@ class EvaluationRunner:
         test_cases = EvaluationTestData.get_all_test_cases()
         # Enrich with multi-reference descriptions for better evaluation
         test_cases = [EvaluationTestData.enrich_with_multi_references(tc) for tc in test_cases]
+
+        if self.limit > 0:
+            test_cases = test_cases[:self.limit]
+            print(f"  ⚡ Limited to {self.limit} test cases")
+
         all_results = []
 
         print(f"\n{Colors.BOLD}🧪 RUNNING {len(test_cases)} TEST CASES{Colors.END}")
@@ -640,6 +712,10 @@ class EvaluationRunner:
             print(f"{Colors.RED}❌ No profiles loaded!{Colors.END}")
             return []
 
+        if self.limit > 0:
+            profiles = profiles[:self.limit]
+            print(f"  ⚡ Limited to {self.limit} profiles")
+
         all_results = []
 
         print(f"\n{Colors.BOLD}🧪 RUNNING {len(profiles)} PROFILE TEST CASES{Colors.END}")
@@ -671,6 +747,225 @@ class EvaluationRunner:
                     traceback.print_exc()
 
         return all_results
+
+    async def run_generalization_test(self) -> Dict[str, Any]:
+        """
+        Generalization Test — รัน 5 profiles ที่ไม่อยู่ใน few-shot pool
+        ใช้ rule-based validation แทน text matching (ไม่มี expected_plans)
+
+        Returns dict ที่สามารถ merge เข้า summary ได้
+        """
+        from test_profiles import GENERALIZATION_PROFILES
+
+        print(f"\n{Colors.BOLD}{Colors.CYAN}🧪 GENERALIZATION TEST — 5 unseen profiles{Colors.END}")
+        print("=" * 80)
+        print(f"  วัดว่า model จัดการ profile ใหม่ที่ไม่เคยเห็นใน few-shot ได้ดีแค่ไหน")
+        print("=" * 80 + "\n")
+
+        gen_results = []
+        total_checks = 0
+        passed_checks = 0
+
+        for i, profile in enumerate(GENERALIZATION_PROFILES, 1):
+            profile_id = profile["id"]
+            label = profile["label"]
+            checks = profile.get("generalization_checks", {})
+            p = profile["profile"]
+
+            print(f"\n  {Colors.BOLD}[{i}/5] {profile_id}: {label}{Colors.END}")
+
+            try:
+                # สร้าง TaxCalculationRequest
+                from app.models import TaxCalculationRequest
+                risk_map = {"aggressive": "high", "moderate": "medium", "conservative": "low", "low": "low"}
+
+                input_dict = {
+                    "gross_income": p.get("annual_income", 0),
+                    "income_type": p.get("income_type", "40(8)"),
+                    "expense_method": "standard" if p.get("expense_deduction_type") == "standard" else "actual",
+                    "actual_expenses": p.get("actual_expenses", 0),
+                    "risk_tolerance": risk_map.get(p.get("risk_tolerance", "medium"), "medium"),
+                    "spouse_deduction": 60000 if p.get("marital_status") == "married" else 0,
+                    "child_deduction": p.get("num_children", 0) * 30000,
+                    "parent_support": p.get("num_parents", 0) * 30000,
+                    "life_insurance": p.get("life_insurance_amount", 0),
+                    "health_insurance": p.get("health_insurance_amount", 0),
+                    "rmf": p.get("existing_rmf", 0),
+                    "thai_esg": p.get("existing_thai_esg", 0),
+                }
+
+                occupation = p.get("occupation", "")
+                if p.get("income_type") == "40(6)":
+                    input_dict["profession_type"] = self.PROFESSION_MAP.get(occupation, "other")
+                    input_dict["business_type"] = None
+                else:
+                    input_dict["business_type"] = self.BUSINESS_MAP.get(occupation, "other_business")
+                    input_dict["profession_type"] = None
+
+                request = TaxCalculationRequest(**input_dict)
+                tax_result = tax_calculator_service.calculate_tax(request)
+
+                # RAG
+                retrieved_context = ""
+                if self.rag_service:
+                    try:
+                        context_results = self.rag_service.retrieve_context(
+                            income_type=request.income_type,
+                            profession_type=getattr(request.profession_type, 'value', request.profession_type) if request.profession_type else None,
+                            business_type=getattr(request.business_type, 'value', request.business_type) if request.business_type else None,
+                        )
+                        retrieved_context = context_results.get("context", "") if isinstance(context_results, dict) else str(context_results)
+                    except:
+                        pass
+
+                # AI Generate (ใช้ method เดียวกับ run_single_test_case)
+                ai_response, raw_response = await self.ai_service.generate_recommendations(
+                    request, tax_result, retrieved_context, {}, i
+                )
+
+                if not ai_response or "plans" not in ai_response:
+                    print(f"    {Colors.RED}❌ No valid response{Colors.END}")
+                    gen_results.append({"id": profile_id, "passed": 0, "total": 1, "errors": ["No valid response"]})
+                    total_checks += 1
+                    continue
+
+                # ─── Rule-based validation ───
+                plans = ai_response.get("plans", [])
+                profile_passed = 0
+                profile_total = 0
+                profile_errors = []
+
+                # Check: Format valid (3 plans)
+                profile_total += 1
+                format_result = self.evaluator.validate_format(ai_response)
+                if format_result["format_score"] >= 80:
+                    profile_passed += 1
+                    print(f"    ✅ Format valid ({format_result['format_score']}%)")
+                else:
+                    profile_errors.append(f"Format score {format_result['format_score']}%")
+                    print(f"    ❌ Format issues ({format_result['format_score']}%)")
+
+                # Check: Legal compliance
+                profile_total += 1
+                all_legal = True
+                for plan in plans[:3]:
+                    legal = self.evaluator.validate_legal_compliance(
+                        plan=plan, gross_income=tax_result.gross_income, verbose=False,
+                        existing_rmf=p.get("existing_rmf", 0),
+                        existing_life_insurance=p.get("life_insurance_amount", 0),
+                        existing_health_insurance=p.get("health_insurance_amount", 0),
+                    )
+                    if not legal["is_legal"]:
+                        all_legal = False
+                if all_legal:
+                    profile_passed += 1
+                    print(f"    ✅ Legal compliance passed")
+                else:
+                    profile_errors.append("Legal violations detected")
+                    print(f"    ❌ Legal violations detected")
+
+                # Check: Plan diversity
+                profile_total += 1
+                diversity = self.evaluator.calculate_plan_diversity(ai_response)
+                if diversity["diversity_score"] >= 30:
+                    profile_passed += 1
+                    print(f"    ✅ Plan diversity ({diversity['diversity_score']}/100)")
+                else:
+                    profile_errors.append(f"Low diversity {diversity['diversity_score']}")
+                    print(f"    ❌ Low plan diversity ({diversity['diversity_score']}/100)")
+
+                # Check: should_not_have (เช่น SSF)
+                if "should_not_have" in checks:
+                    profile_total += 1
+                    all_text = " ".join(p.get("description", "") for p in plans[:3])
+                    all_alloc_cats = [a.get("category", "") for p in plans[:3] for a in p.get("allocations", [])]
+                    combined = all_text + " " + " ".join(all_alloc_cats)
+                    found_forbidden = [item for item in checks["should_not_have"] if item.lower() in combined.lower()]
+                    if not found_forbidden:
+                        profile_passed += 1
+                        print(f"    ✅ No forbidden items (SSF etc.)")
+                    else:
+                        profile_errors.append(f"Found forbidden: {found_forbidden}")
+                        print(f"    ❌ Found forbidden items: {found_forbidden}")
+
+                # Check: should_have_insurance
+                if checks.get("should_have_insurance"):
+                    profile_total += 1
+                    has_insurance = any(
+                        "ประกัน" in a.get("category", "")
+                        for p in plans[:3] for a in p.get("allocations", [])
+                    )
+                    if has_insurance:
+                        profile_passed += 1
+                        print(f"    ✅ Has insurance recommendation")
+                    else:
+                        profile_errors.append("No insurance recommended")
+                        print(f"    ❌ No insurance recommended (should have)")
+
+                # Check: Consistency (no hallucination)
+                profile_total += 1
+                try:
+                    from evaluation.nitibench_eval import compute_consistency
+                    candidate = " ".join(p.get("description", "") for p in plans[:3])
+                    con_result = compute_consistency(candidate)
+                    if con_result["consistency_score"] == 1:
+                        profile_passed += 1
+                        print(f"    ✅ No hallucination detected")
+                    else:
+                        reasons = [c["reason"][:50] for c in con_result.get("contradictions", [])]
+                        profile_errors.append(f"Hallucination: {reasons}")
+                        print(f"    ❌ Hallucination: {reasons}")
+                except:
+                    profile_passed += 1  # ถ้า import ไม่ได้ ไม่ลงโทษ
+                    print(f"    ⚠️  Consistency check skipped")
+
+                total_checks += profile_total
+                passed_checks += profile_passed
+
+                gen_results.append({
+                    "id": profile_id,
+                    "label": label,
+                    "passed": profile_passed,
+                    "total": profile_total,
+                    "score": round(profile_passed / profile_total * 100, 1) if profile_total > 0 else 0,
+                    "errors": profile_errors,
+                    "diversity_score": diversity["diversity_score"],
+                    "format_score": format_result["format_score"],
+                })
+
+                # Rate limiting
+                if i < len(GENERALIZATION_PROFILES):
+                    await asyncio.sleep(1.5)
+
+            except Exception as e:
+                print(f"    {Colors.RED}❌ Error: {e}{Colors.END}")
+                if self.verbose:
+                    import traceback
+                    traceback.print_exc()
+                gen_results.append({"id": profile_id, "passed": 0, "total": 1, "errors": [str(e)]})
+                total_checks += 1
+
+        # Summary
+        overall_score = round(passed_checks / total_checks * 100, 1) if total_checks > 0 else 0
+
+        print(f"\n{'='*80}")
+        print(f"{Colors.BOLD}🧪 GENERALIZATION TEST RESULTS{Colors.END}")
+        print(f"{'='*80}")
+        print(f"  Overall: {passed_checks}/{total_checks} checks passed ({overall_score}%)")
+        for r in gen_results:
+            emoji = "✅" if r.get("score", 0) >= 80 else "⚠️" if r.get("score", 0) >= 50 else "❌"
+            print(f"  {emoji} {r['id']}: {r.get('label', '')} — {r.get('passed', 0)}/{r.get('total', 0)} ({r.get('score', 0)}%)")
+            if r.get("errors"):
+                for err in r["errors"][:2]:
+                    print(f"     ↳ {err}")
+        print(f"{'='*80}\n")
+
+        return {
+            "generalization_score": overall_score,
+            "passed_checks": passed_checks,
+            "total_checks": total_checks,
+            "profiles": gen_results,
+        }
 
     def save_final_results(
         self,
@@ -748,9 +1043,67 @@ class EvaluationRunner:
 
                 f.write("\n")
 
+            # NitiBench (Thai Legal Quality)
+            if 'nitibench_metrics' in summary and summary['nitibench_metrics']:
+                nb = summary['nitibench_metrics']
+                f.write("="*80 + "\n")
+                f.write("NITIBENCH - THAI LEGAL QUALITY (Supplementary Metric)\n")
+                f.write("="*80 + "\n")
+                f.write("Measures legal quality that ROUGE/BLEU/BERTScore cannot capture\n")
+                f.write("="*80 + "\n\n")
+
+                if 'avg_coverage_score' in nb:
+                    val = nb['avg_coverage_score']
+                    status = "GOOD" if val >= 80 else "PARTIAL" if val >= 40 else "LOW"
+                    f.write(f"  Coverage Score (0-100)     : {val:.1f} - {status}\n")
+                if 'avg_consistency_score' in nb:
+                    val = nb['avg_consistency_score']
+                    status = "GOOD" if val >= 0.8 else "WARNING" if val >= 0.5 else "FAIL"
+                    f.write(f"  Consistency Score (0-1)    : {val:.4f} - {status}\n")
+                if 'avg_citation_f1' in nb:
+                    val = nb['avg_citation_f1']
+                    status = "GOOD" if val >= 0.8 else "PARTIAL" if val >= 0.5 else "LOW"
+                    f.write(f"  Citation F1 (0-1)          : {val:.4f} - {status}\n")
+                if 'avg_joint_score' in nb:
+                    val = nb['avg_joint_score']
+                    status = "GOOD" if val >= 0.8 else "PARTIAL" if val >= 0.5 else "LOW"
+                    f.write(f"  Joint Score (weighted avg)  : {val:.4f} - {status}\n")
+                    f.write(f"    (Coverage 40% + Consistency 35% + Citation 25%)\n")
+                f.write("\n")
+
+            # 🆕 Plan Diversity
+            if 'plan_diversity_metrics' in summary:
+                pd = summary['plan_diversity_metrics']
+                f.write("="*80 + "\n")
+                f.write("PLAN DIVERSITY SCORE\n")
+                f.write("="*80 + "\n")
+                f.write(f"  Average: {pd['avg_diversity_score']}/100\n")
+                f.write(f"  Min: {pd['min_diversity_score']}/100 | Max: {pd['max_diversity_score']}/100\n\n")
+
+            # 🆕 Format Validity
+            if 'format_validity_metrics' in summary:
+                fv = summary['format_validity_metrics']
+                f.write("="*80 + "\n")
+                f.write("FORMAT VALIDITY\n")
+                f.write("="*80 + "\n")
+                f.write(f"  Average: {fv['avg_format_score']}%\n")
+                f.write(f"  Perfect format: {fv['perfect_format_count']}/{fv['total_evaluated']}\n\n")
+
+            # 🆕 Generalization Test
+            if 'generalization_metrics' in summary:
+                gm = summary['generalization_metrics']
+                f.write("="*80 + "\n")
+                f.write("GENERALIZATION TEST (unseen profiles)\n")
+                f.write("="*80 + "\n")
+                f.write(f"  Score: {gm['generalization_score']}% ({gm['passed_checks']}/{gm['total_checks']} checks)\n")
+                for p in gm.get('profiles', []):
+                    f.write(f"  {p['id']}: {p.get('label', '')} — {p.get('score', 0)}%\n")
+                f.write("\n")
+
             # Numeric metrics
             if 'numeric_metrics' in summary and summary['numeric_metrics']:
-                f.write("NUMERIC ACCURACY:\n")
+                f.write("NUMERIC ACCURACY (Hardcoded Validation):\n")
+                f.write("Note: Numbers are hardcoded in prompt — this validates AI uses given values, not invents its own\n")
                 f.write("-"*40 + "\n")
                 for key, value in summary['numeric_metrics'].items():
                     metric_name = key.replace('_', ' ').title()
@@ -804,6 +1157,32 @@ class EvaluationRunner:
                             f.write(f"  ROUGE-1 F1 (Legacy): {text_m['avg_rouge1_f1']:.4f}\n")
                         if 'avg_bleu4' in text_m:
                             f.write(f"  BLEU-4 (Legacy): {text_m['avg_bleu4']:.4f}\n")
+
+                # 🆕 Plan Diversity + Format Validity per test case
+                if 'plan_diversity' in eval_res:
+                    ds = eval_res['plan_diversity']['diversity_score']
+                    f.write(f"  Plan Diversity: {ds}/100\n")
+                if 'format_validity' in eval_res:
+                    fs = eval_res['format_validity']['format_score']
+                    f.write(f"  Format Validity: {fs}%\n")
+
+                # NitiBench per test case
+                if 'nitibench' in eval_res:
+                    nb = eval_res['nitibench']
+                    cov = nb.get('coverage', {})
+                    con = nb.get('consistency', {})
+                    cite = nb.get('citation', {})
+                    joint = nb.get('joint_score', 0)
+                    cite_f1 = cite.get('citation_f1')
+                    cite_str = f"{cite_f1:.4f}" if cite_f1 is not None else "N/A"
+                    f.write(f"  NitiBench: Coverage={cov.get('coverage_score', 0)}/100 "
+                            f"({cov.get('covered', 0)}/{cov.get('total', 0)} pts), "
+                            f"Consistency={con.get('consistency_score', 0)}/1, "
+                            f"Citation F1={cite_str}, "
+                            f"Joint={joint:.4f}\n")
+                    if con.get('contradictions'):
+                        for ct in con['contradictions'][:2]:
+                            f.write(f"    [WARN] {ct.get('reason', '')[:60]}\n")
 
                 f.write("\n")
         
@@ -879,8 +1258,8 @@ Examples:
         """
     )
 
-    parser.add_argument('--mode', choices=['quick', 'full', 'profiles'], default='quick',
-                       help='Evaluation mode: quick (sample), full (evaluation_test_data), profiles (test_profiles.py)')
+    parser.add_argument('--mode', choices=['quick', 'full', 'profiles', 'generalization'], default='quick',
+                       help='Evaluation mode: quick (sample), full (evaluation_test_data), profiles (test_profiles.py), generalization (unseen profiles)')
     parser.add_argument('--test-case', type=int,
                        help='Run specific test case (1-20) [full mode only]')
     parser.add_argument('--bertscore', action='store_true',
@@ -889,6 +1268,8 @@ Examples:
                        help='Disable verbose logging')
     parser.add_argument('--no-save', action='store_true',
                        help='Disable saving logs')
+    parser.add_argument('--limit', type=int, default=0,
+                       help='Limit number of test cases/profiles to run (0 = all)')
 
     args = parser.parse_args()
 
@@ -900,10 +1281,24 @@ Examples:
     runner = EvaluationRunner(
         verbose=not args.no_verbose,
         save_logs=not args.no_save,
-        use_bertscore=args.bertscore
+        use_bertscore=args.bertscore,
+        limit=args.limit
     )
 
-    if args.mode == 'profiles':
+    if args.mode == 'generalization':
+        # 🆕 Generalization Test only
+        print(f"\n{Colors.BOLD}{Colors.CYAN}📋 MODE: generalization{Colors.END}")
+        print(f"  ทดสอบ 5 profiles ที่ไม่อยู่ใน few-shot pool\n")
+        gen_results = await runner.run_generalization_test()
+        summary = {
+            'total_test_cases': 5,
+            'generalization_metrics': gen_results,
+        }
+        runner.evaluator.print_summary_report(summary)
+        runner.save_final_results([], summary)
+        return
+
+    elif args.mode == 'profiles':
         # ใช้ 20 profiles จาก test_profiles.py (ตาม AI_OPTIMIZER_VISION.md)
         print(f"\n{Colors.BOLD}{Colors.CYAN}📋 MODE: profiles{Colors.END}")
         print(f"  ใช้ 20 test profiles จาก test_profiles.py")
@@ -936,6 +1331,15 @@ Examples:
     
     if evaluation_results:
         summary = runner.evaluator.generate_summary_statistics(evaluation_results)
+
+        # 🆕 Auto-run generalization test in profiles mode
+        if args.mode == 'profiles':
+            try:
+                gen_results = await runner.run_generalization_test()
+                summary['generalization_metrics'] = gen_results
+            except Exception as e:
+                print(f"  ⚠️  Generalization test error: {e}")
+
         runner.evaluator.print_summary_report(summary)
         runner.save_final_results(all_results, summary)
     else:

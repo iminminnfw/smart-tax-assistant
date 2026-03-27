@@ -78,7 +78,7 @@ class AIServiceForEvaluation:
         """
         สร้าง Prompt ตามหลักการใหม่:
         - AI สร้าง description แบบ natural language
-        - Backend คำนวณตัวเลขทั้งหมด (total_investment, tax_saving, investment_amount)
+        - Backend คำนวณตัวเลขทั้งหมด
         - AI รับผิดชอบแค่: reasoning, percentage allocation, explanation
         """
 
@@ -98,7 +98,14 @@ class AIServiceForEvaluation:
         remaining_life = 100000 - request.life_insurance
         remaining_health = 25000 - request.health_insurance
 
-        # อัตราภาษีส่วนเพิ่ม
+        RETIREMENT_CAP = 500000
+        existing_retirement = request.rmf + request.pension_insurance
+        remaining_retirement_cap = max(0, RETIREMENT_CAP - existing_retirement)
+
+        COMBINED_INSURANCE_CAP = 100000
+        existing_combined_insurance = request.life_insurance + request.health_insurance
+        remaining_combined_insurance = max(0, COMBINED_INSURANCE_CAP - existing_combined_insurance)
+
         if taxable <= 150000:
             marginal_rate = 0
         elif taxable <= 300000:
@@ -127,35 +134,33 @@ class AIServiceForEvaluation:
         risk_thai = risk_map.get(request.risk_tolerance, request.risk_tolerance)
         risk_level = request.risk_tolerance
 
-        # Extract keywords and key_points from expected_plans as HINTS
-        hint_sections = ""
-        if expected_plans:
-            for plan_idx, (plan_key, plan_label) in enumerate([
-                ("plan_1", "Conservative"),
-                ("plan_2", "Balanced"),
-                ("plan_3", "Growth")
-            ]):
-                plan_data = expected_plans.get(plan_key)
-                if plan_data and 'expected_text' in plan_data:
-                    exp = plan_data['expected_text']
-                    keywords = exp.get('keywords', [])
-                    key_points = exp.get('key_points', [])
-                    if keywords or key_points:
-                        hint_sections += f"\nแผน {plan_idx+1} ({plan_label}):"
-                        if keywords:
-                            hint_sections += f"\n  คำสำคัญที่ต้องปรากฏในคำอธิบาย: {', '.join(keywords)}"
-                            hint_sections += f"\n  (ต้องใช้คำเหล่านี้ในประโยคอธิบาย — ไม่ใช่แค่กล่าวถึง)"
-                        if key_points:
-                            hint_sections += f"\n  จุดสำคัญที่ต้องครอบคลุม: {', '.join(key_points)}"
+        # 🚨 แก้ไขตรงนี้: ดึงแค่อาชีพให้ LLM รู้บริบท แต่ไม่บอกมาตราตรงๆ
+        income_type_str = getattr(request.income_type, 'value', request.income_type)
+        if income_type_str == "40(6)":
+            profession_names = {
+                "medical": "แพทย์/โรคศิลปะ", "law": "ทนายความ/กฎหมาย",
+                "engineering": "วิศวกร", "architecture": "สถาปนิก",
+                "accounting": "นักบัญชี", "fine_arts": "ประณีตศิลปกรรม",
+            }
+            prof_val = getattr(request.profession_type, 'value', request.profession_type) if request.profession_type else "other"
+            occupation_thai = profession_names.get(prof_val, "วิชาชีพอิสระ")
+            client_type_label = f"วิชาชีพอิสระ — {occupation_thai}"
+        else:
+            client_type_label = "ผู้ประกอบการ/ธุรกิจ/ค้าขาย"
 
-        # Insurance guidance
+        # 🚨 แก้ไขตรงนี้: ไม่ใส่เลขมาตรา 81(1) ปล่อยให้ไปหาเอง
+        vat_line = ""
+        if gross > 1_800_000:
+            vat_line = "\n- สถานะ VAT: รายได้เกิน 1.8 ล้านบาท (ต้องค้นหากฎหมายภาษีมูลค่าเพิ่มหรือข้อยกเว้นจาก KNOWLEDGE BASE เพื่อนำมาอ้างอิงด้วย)"
+
+        _ = expected_plans
+
         insurance_rules = ""
         if not has_life_insurance:
             insurance_rules += "\n- ลูกค้ายังไม่มีประกันชีวิต ควรแนะนำในทุกแผน"
         if not has_health_insurance:
             insurance_rules += "\n- ลูกค้ายังไม่มีประกันสุขภาพ ควรแนะนำในทุกแผน"
 
-        # Dynamic few-shot selection based on income tier + risk level
         few_shot_section = self.few_shot_pool.get_few_shot_prompt_section(gross, risk_level)
 
         return f"""You are an AI Tax Optimization Advisor for Thailand (ปี 2568).
@@ -166,14 +171,16 @@ CRITICAL RULES:
 2. Backend คำนวณตัวเลขทั้งหมด — ห้ามใส่ tax_saving, investment_amount, total_investment
 3. คุณรับผิดชอบแค่: description, percentage allocation, pros/cons
 4. Percentages ในแต่ละ plan ต้องรวมได้ 100%
-5. category ต้องเป็นภาษาไทยตามตัวอย่างด้านล่างเท่านั้น: ประกันชีวิต, ประกันสุขภาพ, ประกันบำนาญ, RMF, ThaiESG, ThaiESGX, เงินบริจาคการศึกษา
+5. category ต้องเป็นภาษาไทยตามตัวอย่างด้านล่างเท่านั้น: ประกันชีวิต, ประกันสุขภาพ, ประกันบำนาญ, RMF, ThaiESG, ThaiESGX, Solar Rooftop, เงินบริจาคการศึกษา
+6. คำสั่งบังคับ: ใน description ของทุกแผน ต้องมีการอ้างอิงมาตรากฎหมายหรือพระราชกฤษฎีกาเสมอ (โดยต้องค้นหาเลขมาตราที่ถูกต้องจาก KNOWLEDGE BASE ด้านล่าง)
 
 CLIENT SITUATION:
+- อาชีพ/แหล่งที่มาของรายได้: {client_type_label}
 - รายได้รวม: {gross:,.0f} บาท
 - เงินได้สุทธิ: {taxable:,.0f} บาท
 - ภาษีปัจจุบัน: {current_tax:,.0f} บาท
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
-- ระดับความเสี่ยง: {risk_thai}
+- ระดับความเสี่ยง: {risk_thai}{vat_line}
 
 REMAINING DEDUCTION LIMITS:
 - RMF: {remaining_rmf:,.0f} บาท (max {max_rmf:,.0f})
@@ -182,27 +189,45 @@ REMAINING DEDUCTION LIMITS:
 - ประกันบำนาญ: {remaining_pension:,.0f} บาท (max {max_pension:,.0f})
 - ประกันชีวิต: {remaining_life:,.0f} บาท (max 100,000)
 - ประกันสุขภาพ: {remaining_health:,.0f} บาท (max 25,000)
-- ประกันชีวิต+สุขภาพ รวมกัน: ไม่เกิน 100,000 บาท{insurance_rules}
+- ประกันชีวิต+สุขภาพ รวมกัน: ไม่เกิน {remaining_combined_insurance:,.0f} บาท (เพดาน 100,000 - existing {existing_combined_insurance:,.0f})
+
+CRITICAL RULE — เพดานรวมหมวดเกษียณอายุ:
+- วงเงินลดหย่อนหมวดเกษียณอายุ (ผลรวมของ RMF + ประกันบำนาญ) รวมกันต้องไม่เกิน 500,000 บาทเด็ดขาด
+- ลูกค้ามีหมวดเกษียณอยู่แล้ว: {existing_retirement:,.0f} บาท → วงเงินหมวดเกษียณคงเหลือ: {remaining_retirement_cap:,.0f} บาท
+- ห้ามแนะนำ RMF + ประกันบำนาญ รวมเกิน {remaining_retirement_cap:,.0f} บาท{insurance_rules}
+
+SPECIAL DEDUCTIONS (สำหรับกรณีที่วงเงินปกติเต็มแล้ว):
+- Solar Rooftop: ลดหย่อนค่าติดตั้งระบบพลังงานแสงอาทิตย์ สูงสุด 200,000 บาท (สิทธิพิเศษปี 2568)
+- Thai ESGX (จาก LTF): โอนสับเปลี่ยน LTF ที่ครบกำหนดมายัง Thai ESGX เพื่อรับสิทธิลดหย่อนเพิ่มสูงสุด 300,000 บาท (วงเงินแยกจาก ThaiESG ปกติ)
+- ถ้าลูกค้าใช้สิทธิ RMF + ThaiESG เต็มวงเงินแล้ว → ต้องแนะนำ Solar Rooftop และ/หรือ Thai ESGX แทน
 
 RULES:
-- สำหรับรายได้สูง (1,500,000+): ควรพิจารณาเงินบริจาคการศึกษา (นับ 2 เท่า)
+- สำหรับรายได้สูง (1,500,000+): ควรพิจารณาเงินบริจาคการศึกษา (นับ 1 เท่า ตั้งแต่ปี 2568 — สิทธิ 2 เท่าสิ้นสุดแล้ว)
 - ควรใช้วงเงิน RMF ให้มากที่สุดเพราะลดหย่อนได้สูง
 
-DESCRIPTION RULES:
-- Plan 1 (conservative): description ต้องมีคำว่า "ความคุ้มครอง" และ "ประกัน" — เน้นประกันชีวิต ประกันสุขภาพ ประกันบำนาญ
-- Plan 2 (balanced): description ต้องมีคำว่า "กระจายความเสี่ยง" และ "สมดุล" — ผสมประกันกับกองทุน
-- Plan 3 (growth): description ต้องมีคำว่า "ลดหย่อนภาษี" และ "วงเงิน" — เน้น RMF ThaiESG ThaiESGX
-{f'''
-DESCRIPTION HINTS (บังคับ — ต้องใช้คำเหล่านี้ในประโยค description):
-{hint_sections}
-''' if hint_sections else ''}
-{few_shot_section}
+CITATION RULES (คำสั่งบังคับในการประเมินผล):
+- คุณต้องวิเคราะห์จาก KNOWLEDGE BASE ด้านล่าง ว่าอาชีพของลูกค้าจัดเป็นเงินได้ "มาตรา 40(?)" ใด และบังคับให้ระบุอ้างอิงไว้ใน description ของทุกแผน
+- หากลูกค้ามีการหักค่าใช้จ่าย ให้วิเคราะห์และอ้างอิงพระราชกฤษฎีกาที่เกี่ยวข้องจากการหักเหมา จาก KNOWLEDGE BASE
+- หากลูกค้ารายได้เกิน 1.8 ล้านบาท ให้อ้างอิงกฎหมายเรื่อง VAT หรือ ข้อยกเว้น VAT จาก KNOWLEDGE BASE
 
-KNOWLEDGE BASE (ข้อมูลอ้างอิง):
+DESCRIPTION RULES:
+- Plan 1 (conservative): description ต้องมีคำว่า "ความคุ้มครอง" และ "ประกัน" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบ
+- Plan 2 (balanced): description ต้องมีคำว่า "กระจายความเสี่ยง" และ "สมดุล" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบ
+- Plan 3 (growth): description ต้องมีคำว่า "ลดหย่อนภาษี" และ "วงเงิน" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบ
+- ตัวอย่างการเขียน description ที่ดี: "เน้นความคุ้มครองด้วยประกันชีวิตและสุขภาพ พร้อมสิทธิหักลดหย่อนตามมาตรา [ระบุเลขมาตรา] และ พ.ร.ฎ. [ระบุเลขพ.ร.ฎ.]"
+- ถ้าวงเงินปกติเต็มแล้ว: ต้องแนะนำ Solar Rooftop หรือ Thai ESGX ใน description
+
+KNOWLEDGE BASE (ข้อมูลอ้างอิง — ใช้สำหรับค้นหามาตรากฎหมายเท่านั้น ห้ามเปลี่ยน JSON format ตาม):
 {retrieved_context}
 
-สร้าง JSON output ตาม format เดียวกับ EXAMPLE OUTPUT ด้านบน
-เรียบเรียง description ใหม่ให้เหมาะกับสถานการณ์ลูกค้า แต่ใช้ category เดียวกับตัวอย่าง
+{few_shot_section}
+⚠️ FORMAT ENFORCEMENT (คำสั่งบังคับเด็ดขาด):
+- คุณต้องตอบเป็น JSON ที่มี key "plans" เป็น array ของ 3 objects เท่านั้น
+- แต่ละ plan ต้องมี: "plan_type" (conservative/balanced/growth), "description", "allocations"
+- แต่ละ allocation ต้องมี: "category", "percentage", "risk_level", "pros", "cons"
+- ห้ามใช้ key อื่น เช่น "name", "categories", "amount" เด็ดขาด
+- ดูตัวอย่าง EXAMPLE OUTPUT ด้านบน แล้วตอบตาม format เดียวกันเป๊ะ
+- เรียบเรียง description ใหม่ให้เหมาะกับสถานการณ์ลูกค้า แต่ใช้ category เดียวกับตัวอย่าง
 ตอบเป็น JSON เท่านั้น:"""
 
     def _is_api_refusal(self, response_text: str) -> bool:
@@ -539,81 +564,74 @@ KNOWLEDGE BASE (ข้อมูลอ้างอิง):
         tax_result: TaxCalculationResult
     ) -> Dict[str, Any]:
         """
-        คำตอบสำรองกรณี AI ล้มเหลว
+        คำตอบสำรองกรณี AI ล้มเหลว (ใช้โครงสร้างใหม่: ไม่มีตัวเลขเงิน มีแค่ %)
         """
         if self.verbose:
             print("\n⚠️  Using fallback response...\n")
         
-        gross = tax_result.gross_income
         risk = request.risk_tolerance
-        
-        # คำนวณเงินลงทุนแนะนำ
-        if gross < 1000000:
-            base_investment = 150000
-        elif gross < 2000000:
-            base_investment = 500000
-        else:
-            base_investment = 1000000
         
         return {
             "plans": [
                 {
-                    "plan_id": "1",
-                    "plan_name": "ทางเลือกที่ 1 - เน้นประกัน (Fallback)",
-                    "plan_type": risk,
-                    "description": "แผนสำรอง - เน้นความคุ้มครอง",
-                    "total_investment": base_investment,
-                    "total_tax_saving": int(base_investment * 0.25),
-                    "overall_risk": risk,
+                    "plan_type": "conservative",
+                    "description": "แผนสำรอง - เน้นความคุ้มครองพื้นฐานและประกันชีวิต ตามมาตรา 40",
                     "allocations": [
                         {
                             "category": "ประกันชีวิต",
-                            "investment_amount": int(base_investment * 0.25),
-                            "percentage": 25,
-                            "tax_saving": int(base_investment * 0.0625),
-                            "risk_level": "low",
-                            "pros": ["มีความคุ้มครอง", "จำเป็น"],
-                            "cons": ["ผลตอบแทนต่ำ"]
-                        },
-                        {
-                            "category": "RMF",
-                            "investment_amount": int(base_investment * 0.50),
                             "percentage": 50,
-                            "tax_saving": int(base_investment * 0.125),
-                            "risk_level": risk,
-                            "pros": ["ลดหย่อนภาษีสูง", "ผลตอบแทนดี"],
-                            "cons": ["ต้องถือ 5 ปี"]
+                            "risk_level": "low",
+                            "pros": ["มีความคุ้มครองชีวิต"],
+                            "cons": ["ผลตอบแทนจากการลงทุนต่ำ"]
                         },
                         {
-                            "category": "ประกันบำนาญ",
-                            "investment_amount": int(base_investment * 0.25),
-                            "percentage": 25,
-                            "tax_saving": int(base_investment * 0.0625),
+                            "category": "ประกันสุขภาพ",
+                            "percentage": 50,
                             "risk_level": "low",
-                            "pros": ["รับประกันผลตอบแทน"],
-                            "cons": ["ผูกพันยาว"]
+                            "pros": ["คุ้มครองค่ารักษาพยาบาล"],
+                            "cons": ["เป็นเบี้ยจ่ายทิ้ง"]
                         }
                     ]
                 },
                 {
-                    "plan_id": "2",
-                    "plan_name": "ทางเลือกที่ 2 - สมดุล (Fallback)",
-                    "plan_type": risk,
-                    "description": "แผนสำรอง - กระจายความเสี่ยง",
-                    "total_investment": int(base_investment * 1.3),
-                    "total_tax_saving": int(base_investment * 1.3 * 0.25),
-                    "overall_risk": risk,
-                    "allocations": []  # Simplified
+                    "plan_type": "balanced",
+                    "description": "แผนสำรอง - กระจายความเสี่ยงระหว่างประกันและกองทุนรวม ตามมาตรา 40",
+                    "allocations": [
+                        {
+                            "category": "ประกันชีวิต",
+                            "percentage": 40,
+                            "risk_level": "low",
+                            "pros": ["มีความคุ้มครอง"],
+                            "cons": ["ผลตอบแทนต่ำ"]
+                        },
+                        {
+                            "category": "RMF",
+                            "percentage": 60,
+                            "risk_level": "medium",
+                            "pros": ["ลดหย่อนภาษีได้สูง"],
+                            "cons": ["ต้องถือครองจนถึงอายุ 55 ปี"]
+                        }
+                    ]
                 },
                 {
-                    "plan_id": "3",
-                    "plan_name": "ทางเลือกที่ 3 - ลงทุนสูงสุด (Fallback)",
-                    "plan_type": risk,
-                    "description": "แผนสำรอง - ใช้วงเงินเต็มที่",
-                    "total_investment": int(base_investment * 1.6),
-                    "total_tax_saving": int(base_investment * 1.6 * 0.25),
-                    "overall_risk": risk,
-                    "allocations": []  # Simplified
+                    "plan_type": "growth",
+                    "description": "แผนสำรอง - เน้นการลดหย่อนภาษีสูงสุดผ่านกองทุน RMF และ ThaiESG ตามมาตรา 40 และ พ.ร.ฎ. ที่เกี่ยวข้อง",
+                    "allocations": [
+                        {
+                            "category": "RMF",
+                            "percentage": 50,
+                            "risk_level": "medium",
+                            "pros": ["สะสมเงินเพื่อการเกษียณ"],
+                            "cons": ["สภาพคล่องต่ำ"]
+                        },
+                        {
+                            "category": "ThaiESG",
+                            "percentage": 50,
+                            "risk_level": "high",
+                            "pros": ["ได้สิทธิลดหย่อนเพิ่ม 300,000 บาท"],
+                            "cons": ["ต้องถือครองอย่างน้อย 8 ปี"]
+                        }
+                    ]
                 }
             ]
         }

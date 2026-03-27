@@ -129,12 +129,13 @@ class EvaluationTestData:
     # TEST CASE 1: รายได้ 600K - ความเสี่ยงกลาง
     # ===================================================================
     TEST_CASE_1 = {
-        "name": "รายได้ 600K - ความเสี่ยงกลาง",
-        "description": "พนักงานรายได้ปานกลาง มี PVD ความเสี่ยงกลาง",
+        "name": "ร้านค้าออนไลน์ 600K - ความเสี่ยงกลาง",
+        "description": "เจ้าของร้านค้าออนไลน์ Section 40(8) รายได้ปานกลาง ความเสี่ยงกลาง",
         "input": {
             "gross_income": 600000,
-            "income_type": "40(1)",
+            "income_type": "40(8)",
             "profession_type": None,
+            "business_type": "general_trade",
             "expense_method": "standard",
             "actual_expenses": 0,
             "personal_deduction": 60000,
@@ -149,7 +150,6 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 9000,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -167,7 +167,7 @@ class EvaluationTestData:
         "expected_plans": {
             "plan_1": {
                 "total_investment": 60000,
-                "total_tax_saving": 3800,  # Taxable 316K, Tax Before: 9,100, Tax After: 5,300, Saving: 3,800
+                "total_tax_saving": 3800,
                 "expected_text": {
                     "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะสำหรับรายได้ระดับกลาง",
                     "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
@@ -273,12 +273,13 @@ class EvaluationTestData:
     # TEST CASE 2: รายได้ 1.5M - ความเสี่ยงสูง
     # ===================================================================
     TEST_CASE_2 = {
-        "name": "รายได้ 1.5M - ความเสี่ยงสูง",
-        "description": "ผู้บริหารรายได้สูง ยอมรับความเสี่ยงสูง",
+        "name": "เจ้าของธุรกิจ 1.5M - ความเสี่ยงสูง",
+        "description": "เจ้าของธุรกิจ Section 40(8) รายได้สูง ยอมรับความเสี่ยงสูง",
         "input": {
             "gross_income": 1500000,
-            "income_type": "40(1)",
+            "income_type": "40(8)",
             "profession_type": None,
+            "business_type": "general_trade",
             "expense_method": "standard",
             "actual_expenses": 0,
             "personal_deduction": 60000,
@@ -293,7 +294,6 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 9000,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -417,12 +417,13 @@ class EvaluationTestData:
     # TEST CASE 3: รายได้ 360K - ความเสี่ยงต่ำ
     # ===================================================================
     TEST_CASE_3 = {
-        "name": "รายได้ 360K - ความเสี่ยงต่ำ",
-        "description": "พนักงานรายได้น้อย เน้นความปลอดภัย",
+        "name": "ร้านขายของชำ 360K - ความเสี่ยงต่ำ",
+        "description": "เจ้าของร้านขายของชำ Section 40(8) รายได้น้อย เน้นความปลอดภัย",
         "input": {
             "gross_income": 360000,
-            "income_type": "40(1)",
+            "income_type": "40(8)",
             "profession_type": None,
+            "business_type": "general_trade",
             "expense_method": "standard",
             "actual_expenses": 0,
             "personal_deduction": 60000,
@@ -437,7 +438,6 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 9000,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -455,7 +455,7 @@ class EvaluationTestData:
         "expected_plans": {
             "plan_1": {
                 "total_investment": 40000,
-                "total_tax_saving": 2000,  # 131K + 40K = 171K (5% bracket) → 40K × 5% = 2,000
+                "total_tax_saving": 2000,
                 "expected_text": {
                     "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะสำหรับผู้ที่ต้องการความปลอดภัย",
                     "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
@@ -561,12 +561,12 @@ class EvaluationTestData:
     # TEST CASE 4: ข้าราชการ 900K - ความเสี่ยงกลาง
     # ===================================================================
     TEST_CASE_4 = {
-        "name": "ข้าราชการ 900K - ความเสี่ยงกลาง",
-        "description": "ข้าราชการมี GPF รายได้ดี มีครอบครัว",
+        "name": "นักบัญชีอิสระ 900K - ความเสี่ยงกลาง",
+        "description": "นักบัญชีอิสระ Section 40(6) Accounting รายได้ดี มีครอบครัว",
         "input": {
             "gross_income": 900000,
-            "income_type": "40(1)",
-            "profession_type": None,
+            "income_type": "40(6)",
+            "profession_type": "accounting",
             "expense_method": "standard",
             "actual_expenses": 0,
             "personal_deduction": 60000,
@@ -581,7 +581,6 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -599,7 +598,7 @@ class EvaluationTestData:
         "expected_plans": {
             "plan_1": {
                 "total_investment": 60000,
-                "total_tax_saving": 6000,  # 386K + 60K = 446K (10% bracket) → 60K × 10% = 6,000
+                "total_tax_saving": 6000,
                 "expected_text": {
                     "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะสำหรับรายได้ระดับกลาง",
                     "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
@@ -705,12 +704,12 @@ class EvaluationTestData:
     # TEST CASE 5: ครูอาจารย์ 720K - ความเสี่ยงต่ำ
     # ===================================================================
     TEST_CASE_5 = {
-        "name": "ครูอาจารย์ 720K - ความเสี่ยงต่ำ",
-        "description": "ครูมี กบศ. (PVD Teacher) เน้นความปลอดภัย",
+        "name": "ที่ปรึกษาอิสระ 720K - ความเสี่ยงต่ำ",
+        "description": "ที่ปรึกษาอิสระ Section 40(6) เน้นความปลอดภัย มีครอบครัว",
         "input": {
             "gross_income": 720000,
-            "income_type": "40(1)",
-            "profession_type": None,
+            "income_type": "40(6)",
+            "profession_type": "other",
             "expense_method": "standard",
             "actual_expenses": 0,
             "personal_deduction": 60000,
@@ -725,7 +724,6 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -743,7 +741,7 @@ class EvaluationTestData:
         "expected_plans": {
             "plan_1": {
                 "total_investment": 60000,
-                "total_tax_saving": 3000,  # 180K + 60K = 240K (5% bracket) → 60K × 5% = 3,000
+                "total_tax_saving": 3000,
                 "expected_text": {
                     "description": "เน้นความคุ้มครอง เงินลงทุนพอเหมาะสำหรับผู้ที่ต้องการความปลอดภัย",
                     "plan_name": "ทางเลือกที่ 1 - เน้นประกัน",
@@ -869,7 +867,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1013,7 +1011,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 50000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1158,7 +1156,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 50000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1303,7 +1301,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 100000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1449,7 +1447,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1595,7 +1593,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 50000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1741,7 +1739,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 100000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -1887,7 +1885,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2033,7 +2031,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 30000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2179,7 +2177,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 50000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2325,7 +2323,7 @@ class EvaluationTestData:
             "health_insurance_parents": 30000,
             "social_security": 0,
             "pension_insurance": 150000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2471,7 +2469,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 80000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2617,7 +2615,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 20000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2763,7 +2761,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 120000,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,
@@ -2909,7 +2907,7 @@ class EvaluationTestData:
             "health_insurance_parents": 0,
             "social_security": 0,
             "pension_insurance": 0,
-            # PVD/กบข./กบศ. ลบออกแล้ว (ใช้ได้เฉพาะ 40(1))
+            # PVD/กบข./กบศ. — ไม่รองรับใน 40(6)/40(8)
             "rmf": 0,
             "thai_esg": 0,
             "thai_esgx_new": 0,

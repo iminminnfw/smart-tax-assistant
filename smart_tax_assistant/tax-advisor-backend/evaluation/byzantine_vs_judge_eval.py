@@ -55,7 +55,7 @@ from rouge_score import rouge_scorer as rouge_scorer_module
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 try:
-    from bert_score import score as bert_score_fn
+    from bert_score import BERTScorer
     BERTSCORE_AVAILABLE = True
 except ImportError:
     BERTSCORE_AVAILABLE = False
@@ -207,14 +207,32 @@ def compute_bleu(reference: str, hypothesis: str) -> float:
     return sentence_bleu([ref_tok], hyp_tok, smoothing_function=smooth)
 
 
+_bertscore_scorer = None  # Singleton — โหลดโมเดลครั้งเดียว
+
 def compute_bertscore_batch(references: List[str], hypotheses: List[str]) -> List[float]:
+    """คำนวณ BERTScore ด้วย WangchanBERTa backbone (แทน mBERT)
+
+    WangchanBERTa ให้ผลดีกว่า mBERT สำหรับภาษาไทยอย่างมีนัยสำคัญ
+    เนื่องจากถูก pretrain ด้วยข้อมูลภาษาไทย 78.5GB โดยเฉพาะ
+    ref: arxiv.org/abs/2101.09635
+
+    ใช้ BERTScorer class + patch tokenizer.model_max_length
+    (WangchanBERTa tokenizer = 1e30 → OverflowError ถ้าไม่ patch)
+    """
+    global _bertscore_scorer
     if not ENABLE_BERTSCORE or not BERTSCORE_AVAILABLE:
         return [0.0] * len(hypotheses)
     try:
-        _, _, F1 = bert_score_fn(
-            hypotheses, references,
-            lang="th", model_type="bert-base-multilingual-cased", verbose=False,
-        )
+        if _bertscore_scorer is None:
+            _bertscore_scorer = BERTScorer(
+                model_type="airesearch/wangchanberta-base-att-spm-uncased",
+                num_layers=9,
+                lang="th",
+            )
+            if _bertscore_scorer._tokenizer.model_max_length > 100_000:
+                _bertscore_scorer._tokenizer.model_max_length = 512
+
+        _, _, F1 = _bertscore_scorer.score(hypotheses, references)
         return F1.tolist()
     except Exception as e:
         print(f"   ⚠️  BERTScore error: {e}")

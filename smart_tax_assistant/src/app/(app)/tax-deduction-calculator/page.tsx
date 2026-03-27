@@ -138,7 +138,7 @@ export default function TaxDeductionCalculator() {
       f.social_security + f.provident_fund + f.gpf + f.pvd_teacher +
       f.rmf + f.thai_esg + f.thai_esgx_new + f.thai_esgx_ltf +
       f.stock_investment + f.easy_e_receipt + f.home_loan_interest + f.nsf +
-      f.donation_general + (f.donation_education * 2) + f.donation_social_enterprise + f.donation_political;
+      f.donation_general + f.donation_education + f.donation_social_enterprise + f.donation_political;
 
     const taxableIncome = Math.max(0, f.gross_income - totalDeductions);
 

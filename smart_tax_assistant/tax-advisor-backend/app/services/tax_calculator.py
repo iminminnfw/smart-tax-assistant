@@ -202,7 +202,7 @@ class TaxCalculatorService:
 
             # กลุ่มเงินบริจาค
             request.donation_general +
-            (request.donation_education * 2) +  # นับ 2 เท่า
+            request.donation_education +  # นับ 1 เท่า (สิทธิ 2 เท่าสิ้นสุด 31 ธ.ค. 2567)
             request.donation_social_enterprise +
             request.donation_political
         )

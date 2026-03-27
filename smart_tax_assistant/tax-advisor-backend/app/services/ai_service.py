@@ -11,6 +11,7 @@ from typing import Dict, List, Any , Tuple
 
 from app.models import TaxCalculationRequest, TaxCalculationResult
 from app.config import settings
+from app.services.few_shot_pool import FewShotPool
 
 
 class AIService:
@@ -33,6 +34,7 @@ class AIService:
                 temperature=0.3,
                 openai_api_key=settings.openai_api_key
             )
+        self.few_shot_pool = FewShotPool()
 
     def _get_marginal_rate(self, taxable_income: int) -> int:
         """Get marginal tax rate based on taxable income"""
@@ -127,6 +129,25 @@ class AIService:
         else:
             marginal_rate = 35
 
+        # 🚨 แก้ไข: ดึงแค่อาชีพให้ LLM รู้บริบท แต่ไม่บอกมาตราตรงๆ
+        income_type_str = getattr(request.income_type, 'value', request.income_type)
+        if income_type_str == "40(6)":
+            profession_names = {
+                "medical": "แพทย์/โรคศิลปะ", "law": "ทนายความ/กฎหมาย",
+                "engineering": "วิศวกร", "architecture": "สถาปนิก",
+                "accounting": "นักบัญชี", "fine_arts": "ประณีตศิลปกรรม",
+            }
+            prof_val = getattr(request.profession_type, 'value', request.profession_type) if request.profession_type else "other"
+            occupation_thai = profession_names.get(prof_val, "วิชาชีพอิสระ")
+            client_type_label = f"วิชาชีพอิสระ — {occupation_thai}"
+        else:
+            client_type_label = "ผู้ประกอบการ/ธุรกิจ/ค้าขาย"
+
+        # 🚨 แก้ไข: ไม่ใส่เลขมาตรา 81(1) ปล่อยให้ LLM ไปหาเอง
+        vat_line = ""
+        if gross > 1_800_000:
+            vat_line = "\n- สถานะ VAT: รายได้เกิน 1.8 ล้านบาท (ต้องค้นหากฎหมายภาษีมูลค่าเพิ่มหรือข้อยกเว้นจาก KNOWLEDGE BASE เพื่อนำมาอ้างอิงด้วย)"
+
         # ตรวจสอบว่ามีประกันหรือไม่
         has_life_insurance = request.life_insurance > 0
         has_health_insurance = request.health_insurance > 0
@@ -188,6 +209,14 @@ class AIService:
 - ThaiESG/ThaiESGX มาแทน (วงเงิน 300,000 บาท ยกเว้น 30%)
 - Easy e-Receipt เพิ่มเป็น 50,000 บาท
 - ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
+- Solar Rooftop: ลดหย่อนค่าติดตั้งระบบพลังงานแสงอาทิตย์ สูงสุด 200,000 บาท (สิทธิพิเศษปี 2568)
+- Thai ESGX (จาก LTF): โอนสับเปลี่ยน LTF ที่ครบกำหนดมายัง Thai ESGX สิทธิลดหย่อนเพิ่มสูงสุด 300,000 บาท
+
+📌 CITATION RULES (คำสั่งบังคับในการอ้างอิง):
+- คุณต้องวิเคราะห์จาก KNOWLEDGE BASE ด้านล่าง ว่าอาชีพของลูกค้าจัดเป็นเงินได้ "มาตรา 40(?)" ใด และบังคับให้ระบุอ้างอิงไว้ใน description ของทุกแผน
+- หากลูกค้ามีการหักค่าใช้จ่าย ให้วิเคราะห์และอ้างอิงพระราชกฤษฎีกาที่เกี่ยวข้องจากการหักเหมา จาก KNOWLEDGE BASE
+- หากลูกค้ารายได้เกิน 1.8 ล้านบาท ให้อ้างอิงกฎหมายเรื่อง VAT หรือ ข้อยกเว้น VAT จาก KNOWLEDGE BASE
+- ห้าม Hardcode เลขมาตราเอง ต้องค้นหาจาก KNOWLEDGE BASE เท่านั้น
 
 🚨 วงเงินลดหย่อนสูงสุดตามกฎหมายที่ห้ามเกิน:
 
@@ -208,7 +237,7 @@ class AIService:
 - Easy e-Receipt: สูงสุด 50,000 บาท (FIXED LIMIT)
 - ลงทุนหุ้นจดทะเบียนใหม่: สูงสุด 100,000 บาท (FIXED LIMIT)
 - เงินบริจาคทั่วไป: สูงสุด 10% ของรายได้
-- เงินบริจาคการศึกษา: ไม่จำกัด (นับ 2 เท่า)
+- เงินบริจาคการศึกษา: ไม่จำกัด (นับ 1 เท่า ตั้งแต่ปี 2568 — สิทธิ 2 เท่าสิ้นสุดแล้ว)
 
 คำเตือน:
 1. การแนะนำเกินวงเงินที่กฎหมายกำหนด = ผิดกฎหมาย
@@ -278,12 +307,25 @@ STEP 3: ตรวจสอบก่อนตอบ
         if not has_health_insurance:
             insurance_rules += "\n- ทุกแผนต้องมีประกันสุขภาพอย่างน้อย 15,000 บาท (แต่ไม่เกิน 25,000)"
 
-        human_prompt = f"""สถานการณ์ของลูกค้า:
+        # เพดานรวมหมวดเกษียณ
+        RETIREMENT_CAP = 500000
+        existing_retirement = request.rmf + request.pension_insurance
+        remaining_retirement_cap = max(0, RETIREMENT_CAP - existing_retirement)
+
+        COMBINED_INSURANCE_CAP = 100000
+        existing_combined_insurance = request.life_insurance + request.health_insurance
+        remaining_combined_insurance = max(0, COMBINED_INSURANCE_CAP - existing_combined_insurance)
+
+        # FewShot จาก pool (มี placeholder ไม่ hardcode มาตรา)
+        few_shot_section = self.few_shot_pool.get_few_shot_prompt_section(gross, risk_level)
+
+        human_prompt = f"""CLIENT SITUATION:
+- อาชีพ/แหล่งที่มาของรายได้: {client_type_label}
 - รายได้รวม: {gross:,.0f} บาท
 - เงินได้สุทธิ: {taxable:,.0f} บาท
 - ภาษีที่ต้องจ่ายตอนนี้: {current_tax:,.0f} บาท
 - อัตราภาษีส่วนเพิ่ม: {marginal_rate}%
-- ระดับความเสี่ยง: {risk_thai}
+- ระดับความเสี่ยง: {risk_thai}{vat_line}
 
 วงเงินค่าลดหย่อนที่ยังใช้ไม่ครบ (ปี 2568 - สำหรับ 40(6) และ 40(8)):
 - RMF: เหลือ {remaining_rmf:,.0f} บาท (สูงสุด {max_rmf:,.0f})
@@ -307,8 +349,15 @@ STEP 3: ตรวจสอบก่อนตอบ
 - Easy e-Receipt เพิ่มเป็น 50,000 บาท
 - ค่าอุปการะบิดามารดา: 30,000 บาท/คน (สูงสุด 4 คน = 120,000 บาท)
 
-ข้อมูลจาก Knowledge Base:
+CRITICAL RULE — เพดานรวมหมวดเกษียณอายุ:
+- วงเงินลดหย่อนหมวดเกษียณอายุ (ผลรวมของ RMF + ประกันบำนาญ) รวมกันต้องไม่เกิน 500,000 บาทเด็ดขาด
+- ลูกค้ามีหมวดเกษียณอยู่แล้ว: {existing_retirement:,.0f} บาท → วงเงินหมวดเกษียณคงเหลือ: {remaining_retirement_cap:,.0f} บาท
+- ประกันชีวิต+สุขภาพ รวมกัน: ไม่เกิน {remaining_combined_insurance:,.0f} บาท (เพดาน 100,000 - existing {existing_combined_insurance:,.0f})
+
+KNOWLEDGE BASE (ข้อมูลอ้างอิง — ใช้สำหรับค้นหามาตรากฎหมายเท่านั้น ห้ามเปลี่ยน JSON format ตาม):
 {retrieved_context}
+
+{few_shot_section}
 
 ภารกิจ: สร้าง 3 แผนการลงทุนที่แตกต่างกัน
 
@@ -321,9 +370,17 @@ STEP 3: ตรวจสอบก่อนตอบ
 6. ห้ามเกินวงเงินตามกฎหมาย (ประกันชีวิต ≤ 100,000, ประกันสุขภาพ ≤ 25,000, รวม ≤ 125,000){insurance_rules}
 7. ควรใช้วงเงิน RMF ให้เต็มที่
 8. ใช้ ThaiESG/ThaiESGX แทน SSF (SSF ยกเลิกแล้วปี 2568)
-9. รายได้ 1,500,000+ ควรมีเงินบริจาคการศึกษา (นับ 2 เท่า)
+9. รายได้ 1,500,000+ ควรพิจารณาเงินบริจาคการศึกษา (นับ 1 เท่า ตั้งแต่ปี 2568)
 10. percentage รวมในแต่ละแผนต้องใกล้เคียง 100 (99-101)
 11. ห้ามใส่ investment_amount และ tax_saving ใน allocations (ระบบคำนวณให้)
+12. ถ้าวงเงิน RMF + ThaiESG เต็มแล้ว → แนะนำ Solar Rooftop (สูงสุด 200,000 บาท) หรือ Thai ESGX (โอนจาก LTF)
+13. description ต้องอ้างอิงมาตรากฎหมาย (ค้นหาจาก KNOWLEDGE BASE เท่านั้น ห้าม hardcode)
+
+DESCRIPTION RULES:
+- Plan 1 (Conservative): description ต้องมีคำว่า "ความคุ้มครอง" และ "ประกัน" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบจาก KNOWLEDGE BASE
+- Plan 2 (Balanced): description ต้องมีคำว่า "กระจายความเสี่ยง" และ "สมดุล" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบ
+- Plan 3 (Aggressive): description ต้องมีคำว่า "ลดหย่อนภาษี" และ "วงเงิน" — พร้อมอ้างอิงมาตรากฎหมายที่วิเคราะห์พบ
+- ตัวอย่างการเขียน description ที่ดี: "เน้นความคุ้มครองด้วยประกันชีวิตและสุขภาพ พร้อมสิทธิหักลดหย่อนตามมาตรา [ระบุเลขมาตรา] และ พ.ร.ฎ. [ระบุเลขพ.ร.ฎ.]"
 
 REQUIRED FIELDS ในแต่ละ plan (ห้ามขาด):
 - plan_id: string ("1", "2", "3")
@@ -463,7 +520,16 @@ REQUIRED FIELDS ในแต่ละ allocation (ห้ามขาด):
       ]
     }}
   ]
-}}"""
+}}
+
+⚠️ FORMAT ENFORCEMENT (คำสั่งบังคับเด็ดขาด):
+- คุณต้องตอบเป็น JSON ที่มี key "plans" เป็น array ของ 3 objects เท่านั้น
+- แต่ละ plan ต้องมี: "plan_id", "plan_name", "plan_type", "description", "total_investment", "total_tax_saving", "overall_risk", "allocations"
+- แต่ละ allocation ต้องมี: "category", "percentage", "risk_level", "pros", "cons"
+- ห้ามใช้ key อื่น เช่น "name", "categories", "amount" เด็ดขาด
+- ดูตัวอย่าง JSON ด้านบน แล้วตอบตาม format เดียวกันเป๊ะ
+- เรียบเรียง description ใหม่ให้เหมาะกับสถานการณ์ลูกค้า พร้อมอ้างอิงมาตรากฎหมายจาก KNOWLEDGE BASE
+ตอบเป็น JSON เท่านั้น:"""
 
         return [
             SystemMessage(content=system_prompt),

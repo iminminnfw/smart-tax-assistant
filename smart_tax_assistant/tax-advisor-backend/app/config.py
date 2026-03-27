@@ -17,6 +17,17 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:14b"
     ollama_temperature: float = 0.3
 
+    # MLX Configuration (optional — Apple Silicon M1/M2/M3/M4 only)
+    # ใช้ mlx-lm สำหรับ inference บน Apple Silicon โดยตรง (เร็วกว่า Ollama บน Mac)
+    use_mlx: bool = False
+    mlx_model: str = "mlx-community/Qwen2.5-14B-Instruct-4bit"
+
+    # Embedding Configuration
+    # "ollama" = ใช้ Ollama model (qwen2.5:14b, 5120 dim)
+    # "bge-m3" = ใช้ BAAI/bge-m3 ผ่าน sentence-transformers (1024 dim, multilingual, 8192 token context)
+    # "openai" = ใช้ OpenAI text-embedding-ada-002 (1536 dim)
+    embedding_provider: str = "ollama"
+
     # SEC Open Data API Configuration (ก.ล.ต.)
     sec_api_key: str = ""
     sec_api_base_url: str = "https://api.sec.or.th/v1"
