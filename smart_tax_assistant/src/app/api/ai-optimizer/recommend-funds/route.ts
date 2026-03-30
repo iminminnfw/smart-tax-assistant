@@ -24,10 +24,16 @@ export async function POST(req: Request) {
     const fundTypes: string[] = body.fund_types || ['RMF', 'TESG', 'TESGX'];
     const limit: number = Math.min(body.limit || 5, 20);
 
-    // Map risk tolerance to max risk spectrum
+    // Target risk range per tolerance (ใช้สำหรับ scoring bonus — ไม่ใช่ hard filter)
+    // Conservative: 1-3, Moderate: 4-6, Aggressive: 7-8
+    // หมายเหตุ: TESG/TESGX ใน DB มี risk สูงสุดแค่ 6 จึงไม่ filter ด้วย minRisk
+    // แต่ใช้ scoring bonus เพื่อให้ได้กองทุน risk สูงสุดที่มีในแต่ละประเภท
+    const targetMinRisk = riskTolerance === 'conservative' ? 1
+      : riskTolerance === 'aggressive' ? 7
+      : 4;
     const maxRisk = riskTolerance === 'conservative' ? 3
       : riskTolerance === 'aggressive' ? 8
-      : 6; // moderate
+      : 6;
 
     // Step 1: Find fund IDs that match the requested spec codes (RMF/TESG/etc.)
     const matchingSpecs = await prisma.fundSpec.findMany({
@@ -67,6 +73,8 @@ export async function POST(req: Request) {
         policyDesc: true,
         investmentPolicyDesc: true,
         taxIncentiveType: true,
+        initDate: true,
+        amcId: true,
         riskSpectrums: {
           orderBy: { endDate: 'desc' },
           take: 1,
@@ -84,10 +92,18 @@ export async function POST(req: Request) {
       },
     });
 
-    // Filter: only keep funds whose latest risk spectrum is within max
+    // Hard filter ตาม risk_tolerance + fund type
+    // Conservative: 1-3, Moderate: 4-6
+    // Aggressive: RMF 7-8, TESG/TESGX เฉพาะ 6 (สูงสุดที่มีในฐานข้อมูล)
     const filteredFunds = fundsWithRisk.filter(f => {
       const latestRisk = f.riskSpectrums[0]?.riskSpectrum;
-      return latestRisk !== undefined && latestRisk <= maxRisk;
+      if (!latestRisk) return false;
+      const specCode = fundIdToSpecMap.get(f.id) || '';
+      if (riskTolerance === 'conservative') return latestRisk >= 1 && latestRisk <= 3;
+      if (riskTolerance === 'moderate') return latestRisk >= 4 && latestRisk <= 6;
+      // aggressive
+      if (specCode === 'RMF') return latestRisk >= 7 && latestRisk <= 8;
+      return latestRisk === 6; // TESG/TESGX
     });
 
     if (filteredFunds.length === 0) {
@@ -164,7 +180,20 @@ export async function POST(req: Request) {
     }
 
     // Step 5: Score and rank funds
-    // Score = weighted combination of performance and risk-adjusted metrics
+    // Scoring layers (ลำดับสำคัญ):
+    //   1. Sharpe/Alpha/Drawdown (ถ้ามี) — risk-adjusted metrics
+    //   2. Performance 1y/3y (ถ้ามี)
+    //   3. Fallback: fund age (กองทุนเก่า = ผ่านวิกฤตมาแล้ว น่าเชื่อถือกว่า)
+    //   4. Risk spectrum match bonus (ยิ่ง risk ใกล้กับ maxRisk ยิ่งดี)
+    const NOW = Date.now();
+    const MS_PER_YEAR = 1000 * 60 * 60 * 24 * 365;
+
+    // นับจำนวนกองทุนต่อ AMC เพื่อใช้เป็น proxy ขนาด AMC
+    const amcFundCount = new Map<string, number>();
+    for (const f of filteredFunds) {
+      amcFundCount.set(f.amcId, (amcFundCount.get(f.amcId) || 0) + 1);
+    }
+
     type ScoredFund = {
       id: string;
       score: number;
@@ -178,23 +207,47 @@ export async function POST(req: Request) {
       const perf = fundPerfMap.get(fund.id) || { perf1y: null, perf3y: null, perf5y: null, latestDate: null };
       const stats = fundStatsMap.get(fund.id) || { sharpeRatio: null, maxDrawdown: null, alpha: null, beta: null };
 
-      // Scoring: use statistics as primary (most RMF/TESG funds lack performance data)
-      // Filter out sentinel values (999.99) from SEC data
-      let score = 0;
       const validSharpe = stats.sharpeRatio !== null && Math.abs(stats.sharpeRatio) < 100;
       const validAlpha = stats.alpha !== null && Math.abs(stats.alpha) < 100;
       const validDrawdown = stats.maxDrawdown !== null && Math.abs(stats.maxDrawdown) < 999;
+      const hasQuantData = validSharpe || validAlpha || perf.perf1y !== null;
 
-      // Primary: Sharpe Ratio (risk-adjusted return) - weight 40%
-      if (validSharpe) score += stats.sharpeRatio! * 4;
-      // Secondary: Alpha (excess return over benchmark) - weight 30%
-      if (validAlpha) score += stats.alpha! * 3;
-      // Tertiary: Max Drawdown (less negative is better) - weight 15%
-      if (validDrawdown) score += (100 + stats.maxDrawdown!) * 0.15; // convert to positive metric
-      // If performance data exists, use it - weight 15%
+      let score = 0;
+
+      // Layer 1: Quantitative metrics (ถ้ามี)
+      if (validSharpe)   score += stats.sharpeRatio! * 4;
+      if (validAlpha)    score += stats.alpha! * 3;
+      if (validDrawdown) score += (100 + stats.maxDrawdown!) * 0.15;
       if (perf.perf1y !== null) score += perf.perf1y * 0.1;
       if (perf.perf3y !== null) score += perf.perf3y * 0.03;
       if (perf.perf5y !== null) score += perf.perf5y * 0.02;
+
+      // Layer 2: Fallback — fund age (ถ้าไม่มีข้อมูล quant)
+      // คะแนน 0-5 ตามอายุกองทุน (max 10 ปี = 5 คะแนน)
+      if (!hasQuantData && fund.initDate) {
+        const ageYears = (NOW - new Date(fund.initDate).getTime()) / MS_PER_YEAR;
+        score += Math.min(ageYears / 2, 5);
+      }
+
+      // Layer 3: AMC size bonus (AMC ใหญ่ = มีกองทุนมาก)
+      // คะแนน 0-1 normalize โดย max fund count ใน AMC
+      const maxAmc = Math.max(...amcFundCount.values());
+      score += ((amcFundCount.get(fund.amcId) || 0) / maxAmc) * 1;
+
+      // Layer 4: Risk spectrum match bonus (สำคัญมาก — กำหนดว่ากองทุน risk สูงแค่ไหนมาก่อน)
+      // ให้คะแนนตาม risk spectrum เทียบกับ target range ของ user
+      // กองทุนที่ risk อยู่ใน target range ได้ bonus สูงสุด
+      // กองทุนที่ risk ต่ำกว่า target ได้ bonus ลดลงตามสัดส่วน
+      const risk = fund.riskSpectrums[0]?.riskSpectrum || 0;
+      if (risk >= targetMinRisk) {
+        score += 20; // อยู่ใน target range — bonus สูงมาก
+      } else if (risk >= targetMinRisk - 2) {
+        // ใกล้เคียง target (เช่น TESG/TESGX ที่ risk 6 เมื่อ target=7+)
+        score += 10 + (risk - (targetMinRisk - 2)) * 5;
+      } else {
+        // risk ต่ำกว่า target มาก
+        score += Math.max(0, risk * 0.5);
+      }
 
       return {
         id: fund.id,
@@ -239,11 +292,15 @@ export async function POST(req: Request) {
     }
 
     // Step 7: Format response
-    const riskLabel = (level: number) =>
-      level <= 3 ? 'ต่ำ' : level <= 6 ? 'ปานกลาง' : 'สูง';
-
-    const riskLabelEn = (level: number) =>
-      level <= 3 ? 'Low' : level <= 6 ? 'Medium' : 'High';
+    // aggressive + risk 6 (TESG/TESGX สูงสุดที่มี) → label เป็น "สูง"
+    const riskLabel = (level: number) => {
+      if (riskTolerance === 'aggressive' && level >= 6) return 'สูง';
+      return level <= 3 ? 'ต่ำ' : level <= 6 ? 'ปานกลาง' : 'สูง';
+    };
+    const riskLabelEn = (level: number) => {
+      if (riskTolerance === 'aggressive' && level >= 6) return 'High';
+      return level <= 3 ? 'Low' : level <= 6 ? 'Medium' : 'High';
+    };
 
     const result = topFunds.map((sf, index) => {
       const risk = sf.fund.riskSpectrums[0]?.riskSpectrum || 0;

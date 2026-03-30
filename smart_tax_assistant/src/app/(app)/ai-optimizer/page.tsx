@@ -253,8 +253,8 @@ export default function AIOptimizerPage() {
             annual_income: data.annual_income || DEFAULT_PROFILE.annual_income,
             age: data.age || DEFAULT_PROFILE.age,
             risk_tolerance: data.risk_tolerance || DEFAULT_PROFILE.risk_tolerance,
-            existing_rmf: data.existing_rmf || 0,
-            existing_thai_esg: data.existing_thai_esg || 0,
+            existing_rmf: data.current_deductions?.rmf || 0,
+            existing_thai_esg: data.current_deductions?.thai_esg || 0,
             current_deductions: data.current_deductions || {},
             has_spouse: data.has_spouse || false,
             num_children: data.num_children || 0,
@@ -335,9 +335,10 @@ export default function AIOptimizerPage() {
 
 
       if (!response.ok) {
-        const errorData = await response.text();
+        const errorData = await response.json().catch(() => ({}));
         console.error('Optimize error:', response.status, errorData);
-        throw new Error('ไม่สามารถวิเคราะห์ได้ กรุณาลองใหม่อีกครั้ง');
+        const msg = errorData?.detail || errorData?.error || 'ไม่สามารถวิเคราะห์ได้ กรุณาลองใหม่อีกครั้ง';
+        throw new Error(msg);
       }
 
       const data = await response.json();
@@ -346,28 +347,28 @@ export default function AIOptimizerPage() {
       setLoadingStep(3);
       if (data.tax_info) setTaxInfo(data.tax_info);
 
-      // Map profile_analysis from backend
-      if (data.profile_analysis) {
-        // ai_advisor.analyze_profile() returns nested structure
-        const pa = data.profile_analysis;
+      // Map profile_analysis — ใช้ tax_info เป็นหลัก (คำนวณถูกต้อง)
+      const ti = data.tax_info;
+      const pa = data.profile_analysis;
+      if (ti) {
+        // คำนวณ marginal rate จาก taxable_income ที่ถูกต้อง
+        const taxable = ti.taxable_income || 0;
+        const marginalRate =
+          taxable <= 150000 ? 0 :
+          taxable <= 300000 ? 5 :
+          taxable <= 500000 ? 10 :
+          taxable <= 750000 ? 15 :
+          taxable <= 1000000 ? 20 :
+          taxable <= 2000000 ? 25 :
+          taxable <= 5000000 ? 30 : 35;
+
         setProfileAnalysis({
-          tax_bracket: pa.tax_info?.marginal_rate_percent || 0,
-          marginal_rate: pa.tax_info?.marginal_rate_percent || 0,
-          current_tax: pa.tax_info?.total_tax_before_deductions || 0,
-          max_potential_savings: pa.opportunity?.potential_tax_savings || 0,
+          tax_bracket: marginalRate,
+          marginal_rate: marginalRate,
+          current_tax: ti.tax_amount || 0,
+          max_potential_savings: data.recommended_plan?.tax_saved || 0,
           recommended_focus: [],
-          warnings: pa.warnings || [],
-        });
-      } else if (data.tax_info) {
-        // Fallback: construct from tax_info when AI advisor not available
-        const ti = data.tax_info;
-        setProfileAnalysis({
-          tax_bracket: ti.tax_bracket?.marginal_rate_percent || 0,
-          marginal_rate: ti.tax_bracket?.marginal_rate_percent || 0,
-          current_tax: ti.tax_bracket?.total_tax || 0,
-          max_potential_savings: ti.deduction_remaining?.total || 0,
-          recommended_focus: [],
-          warnings: [],
+          warnings: pa?.warnings || [],
         });
       }
 
@@ -507,15 +508,15 @@ export default function AIOptimizerPage() {
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-red-800">
+              <div className="text-sm text-red-800 flex-1">
                 <strong>เกิดข้อผิดพลาด:</strong> {error}
+                {error.includes('หน้าการเงิน') && (
+                  <a href="/financial-info" className="ml-2 underline font-semibold text-red-700 hover:text-red-900">
+                    ไปหน้าการเงิน →
+                  </a>
+                )}
               </div>
-              <button
-                onClick={() => setError(null)}
-                className="ml-auto text-red-600 hover:text-red-800"
-              >
-                ✕
-              </button>
+              <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">✕</button>
             </div>
           )}
 
@@ -535,20 +536,29 @@ export default function AIOptimizerPage() {
 
                   <div className="space-y-5">
 
-                    {/* Field 0: รายได้ต่อปี */}
+                    {/* ข้อมูลจากโปรไฟล์ */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-sm text-slate-600">
+                        <span>รายได้: <strong className="text-slate-800">฿{(profile.annual_income || 0).toLocaleString('th-TH')}</strong></span>
+                        <span>อายุ: <strong className="text-slate-800">{profile.age || 0} ปี</strong></span>
+                        <span>RMF ที่มี: <strong className="text-slate-800">฿{(profile.existing_rmf || 0).toLocaleString('th-TH')}</strong></span>
+                        <span>ESG ที่มี: <strong className="text-slate-800">฿{(profile.existing_thai_esg || 0).toLocaleString('th-TH')}</strong></span>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <a href="/financial-info" className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-white transition-colors">แก้ไขการเงิน</a>
+                        <a href="/profile-settings" className="text-xs px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-white transition-colors">แก้ไขโปรไฟล์</a>
+                      </div>
+                    </div>
+
+                    {/* Field 0: รายได้ต่อปี — ดึงจากหน้าการเงิน (hidden, kept for quota display) */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">
                         รายได้ต่อปี (บาท)
-                        <span className="ml-1 text-xs font-normal text-slate-400">— ใช้คำนวณวงเงิน RMF / ThaiESG และภาษีที่ประหยัดได้</span>
+                        <span className="ml-1 text-xs font-normal text-slate-400">— ดึงจากหน้าการเงินอัตโนมัติ</span>
                       </label>
-                      <input
-                        type="number"
-                        value={profile.annual_income || ''}
-                        onChange={(e) => setProfile({ ...profile, annual_income: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        placeholder="เช่น 1200000"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
-                        disabled={loading}
-                      />
+                      <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700">
+                        ฿{(profile.annual_income || 0).toLocaleString('th-TH')}
+                      </div>
                       {profile.annual_income > 0 && (
                         <p className="mt-1 text-xs text-slate-500">
                           วงเงิน RMF สูงสุด: ฿{Math.min(profile.annual_income * 0.30, 500000).toLocaleString('th-TH')} &nbsp;|&nbsp;
@@ -559,22 +569,15 @@ export default function AIOptimizerPage() {
 
                     <div className="border-t border-slate-100" />
 
-                    {/* Field 1: อายุ */}
+                    {/* Field 1: อายุ — ดึงจาก Profile Settings */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">
                         1. อายุ (ปี)
-                        <span className="ml-1 text-xs font-normal text-slate-400">— กำหนดระยะเวลาที่ต้องล็อค RMF ถึงอายุ 55</span>
+                        <span className="ml-1 text-xs font-normal text-slate-400">— ดึงจาก Profile Settings อัตโนมัติ</span>
                       </label>
-                      <input
-                        type="number"
-                        min="18"
-                        max="70"
-                        value={profile.age || ''}
-                        onChange={(e) => setProfile({ ...profile, age: e.target.value === '' ? 0 : Number(e.target.value) })}
-                        placeholder="เช่น 35"
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800"
-                        disabled={loading}
-                      />
+                      <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700">
+                        {profile.age || 0} ปี
+                      </div>
                       {profile.age > 0 && profile.age < 55 && (
                         <p className="mt-1 text-xs text-slate-500">
                           เหลืออีก <strong>{55 - profile.age} ปี</strong> ก่อนครบอายุ 55 (เงื่อนไขถอน RMF)
@@ -707,36 +710,24 @@ export default function AIOptimizerPage() {
                       )}
                     </div>
 
-                    {/* Optional: ลงทุนไปแล้วปีนี้ */}
+                    {/* ลงทุนไปแล้วปีนี้ — ดึงจากหน้าการเงินอัตโนมัติ */}
                     <div className="border border-dashed border-slate-300 rounded-lg p-4">
                       <p className="text-sm font-semibold text-slate-600 mb-1">
-                        ลงทุน RMF / ThaiESG ไปแล้วปีนี้? <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
+                        ลงทุน RMF / ThaiESG ไปแล้วปีนี้
                       </p>
-                      <p className="text-xs text-slate-400 mb-3">ระบบจะหักออกจากวงเงินคงเหลือก่อนคำนวณ</p>
+                      <p className="text-xs text-slate-400 mb-3">ดึงจากหน้าการเงินอัตโนมัติ ระบบหักออกจากวงเงินคงเหลือก่อนคำนวณ</p>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">RMF ที่ลงทุนแล้ว (บาท/ปี)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={profile.existing_rmf || ''}
-                            onChange={(e) => setProfile({ ...profile, existing_rmf: e.target.value === '' ? 0 : Number(e.target.value) })}
-                            disabled={loading}
-                            placeholder="0"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                          />
+                          <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 text-sm">
+                            ฿{(profile.existing_rmf || 0).toLocaleString('th-TH')}
+                          </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">ThaiESG/TESGX แล้ว (บาท/ปี)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={profile.existing_thai_esg || ''}
-                            onChange={(e) => setProfile({ ...profile, existing_thai_esg: e.target.value === '' ? 0 : Number(e.target.value) })}
-                            disabled={loading}
-                            placeholder="0"
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none text-slate-800 text-sm"
-                          />
+                          <label className="block text-xs text-slate-500 mb-1">ThaiESG/TESGX ที่ลงทุนแล้ว (บาท/ปี)</label>
+                          <div className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-slate-700 text-sm">
+                            ฿{(profile.existing_thai_esg || 0).toLocaleString('th-TH')}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -762,7 +753,7 @@ export default function AIOptimizerPage() {
                     )}
                   </button>
                   {profile.annual_income === 0 && (
-                    <p className="text-xs text-center text-red-500 mt-2">กรุณากรอกรายได้ต่อปีก่อน</p>
+                    <p className="text-xs text-center text-amber-500 mt-2">แนะนำให้กรอกข้อมูลในหน้าการเงินก่อน เพื่อความแม่นยำในการคำนวณ</p>
                   )}
 
                   {/* Loading Steps */}
@@ -870,7 +861,7 @@ export default function AIOptimizerPage() {
                       <p className="text-xl font-semibold">{profileAnalysis.marginal_rate}%</p>
                     </div>
                     <div>
-                      <p className="text-white/80 text-sm mb-1">ประหยัดได้สูงสุด</p>
+                      <p className="text-white/80 text-sm mb-1">ประหยัดจากแผนนี้</p>
                       <p className="text-xl font-semibold">฿{formatCurrency(profileAnalysis.max_potential_savings)}</p>
                     </div>
                   </div>
@@ -925,11 +916,11 @@ export default function AIOptimizerPage() {
                           <div className="space-y-3">
                             {groupFunds.map((fund, idx) => {
                       const isExpanded = expandedFund === fund.fundId;
-                      const riskColor = fund.riskSpectrum <= 3
-                        ? 'bg-green-100 text-green-800 border-green-200'
-                        : fund.riskSpectrum <= 6
-                          ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                          : 'bg-red-100 text-red-800 border-red-200';
+                      const riskColor = fund.riskLabel === 'สูง'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : fund.riskLabel === 'ต่ำ'
+                          ? 'bg-green-100 text-green-800 border-green-200'
+                          : 'bg-yellow-100 text-yellow-800 border-yellow-200';
 
                       const typeColor = fundTypeGroup === 'RMF'
                         ? 'bg-blue-100 text-blue-700'
@@ -988,42 +979,47 @@ export default function AIOptimizerPage() {
                                 <span>บลจ. {fund.amcNameTh}</span>
                               </div>
 
-                              {/* Performance Grid */}
-                              <div className="grid grid-cols-2 gap-3">
-                                {[
+                              {/* Performance Grid — แสดงเฉพาะ period ที่มีข้อมูล */}
+                              {(() => {
+                                const perfItems = [
                                   { label: 'ผลตอบแทน 3 เดือน', value: fund.performance.return3m },
                                   { label: 'ผลตอบแทน 1 ปี', value: fund.performance.return1y },
-                                ].map((item) => (
-                                  <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
-                                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
-                                    <p className={`text-base font-bold ${
-                                      item.value === null ? 'text-slate-400' :
-                                      item.value >= 0 ? 'text-green-600' : 'text-red-600'
-                                    }`}>
-                                      {item.value !== null
-                                        ? `${item.value >= 0 ? '+' : ''}${item.value.toFixed(2)}%`
-                                        : 'N/A'}
-                                    </p>
+                                ].filter(item => item.value !== null);
+                                return perfItems.length > 0 ? (
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {perfItems.map((item) => (
+                                      <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                                        <p className="text-xs text-slate-500 mb-1">{item.label}</p>
+                                        <p className={`text-base font-bold ${item.value! >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          {item.value! >= 0 ? '+' : ''}{item.value!.toFixed(2)}%
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
+                                ) : null;
+                              })()}
 
-                              {/* Statistics */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {[
+                              {/* Statistics — แสดงเฉพาะค่าที่มีข้อมูล */}
+                              {(() => {
+                                const statItems = [
                                   { label: 'Sharpe Ratio', value: fund.statistics.sharpeRatio, format: (v: number) => v.toFixed(2) },
                                   { label: 'Max Drawdown', value: fund.statistics.maxDrawdown, format: (v: number) => `${v.toFixed(2)}%` },
                                   { label: 'Alpha', value: fund.statistics.alpha, format: (v: number) => v.toFixed(2) },
                                   { label: 'Beta', value: fund.statistics.beta, format: (v: number) => v.toFixed(2) },
-                                ].map((item) => (
-                                  <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
-                                    <p className="text-xs text-slate-500 mb-1">{item.label}</p>
-                                    <p className="text-sm font-semibold text-slate-800">
-                                      {item.value !== null ? item.format(item.value) : 'N/A'}
-                                    </p>
+                                ].filter(item => item.value !== null);
+                                return statItems.length > 0 ? (
+                                  <div className={`grid gap-3 ${statItems.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+                                    {statItems.map((item) => (
+                                      <div key={item.label} className="bg-slate-50 rounded-lg p-3 text-center">
+                                        <p className="text-xs text-slate-500 mb-1">{item.label}</p>
+                                        <p className="text-sm font-semibold text-slate-800">
+                                          {item.format(item.value!)}
+                                        </p>
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
-                              </div>
+                                ) : null;
+                              })()}
 
                               {/* Top Holdings */}
                               {fund.topHoldings.length > 0 && (
@@ -1222,7 +1218,7 @@ export default function AIOptimizerPage() {
                       <div className="bg-green-50 rounded-xl p-3">
                         <div className="flex items-center gap-1.5 mb-1">
                           <TrendingUp className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-xs text-green-700 font-medium">ลดภาษีปีนี้</span>
+                          <span className="text-xs text-green-700 font-medium">ลดภาษีที่มาจากการลงทุนปีนี้</span>
                         </div>
                         <p className="text-xl font-bold text-green-900">฿{formatCurrency(recommendedPlan.tax_saved)}</p>
                       </div>

@@ -1481,59 +1481,98 @@ def calculate_allocation(
     }
 
 
+def _calc_progressive_tax(taxable: float) -> float:
+    """คำนวณภาษีแบบ progressive brackets จาก taxable income (หลังหักลดหย่อนแล้ว)"""
+    TAX_BRACKETS = [
+        (150_000, 0.00), (300_000, 0.05), (500_000, 0.10),
+        (750_000, 0.15), (1_000_000, 0.20), (2_000_000, 0.25),
+        (5_000_000, 0.30), (float('inf'), 0.35),
+    ]
+    tax = 0.0
+    prev = 0
+    for threshold, rate in TAX_BRACKETS:
+        if taxable > prev:
+            tax += (min(taxable, threshold) - prev) * rate
+        prev = threshold
+        if taxable <= threshold:
+            break
+    return tax
+
+
 def _calculate_3year_breakdown(
     annual_income: float,
     available_budget: float,
     existing_rmf: float,
     existing_thai_esg: float,
-    family_deductions: float,
     income_growth_rate: float,
-    tax_fund_svc,
     age: int,
     goal: str,
     risk_tolerance: str,
+    pre_calculated_tax,  # PreCalculatedTax — taxable_income, tax_amount, gross_income
 ) -> dict:
-    """คำนวณ tax savings รายปี สำหรับ 3 ปีข้างหน้า (high-credibility, no long-term speculation)
-    ใช้ calculate_allocation() เพื่อให้สอดคล้องกับ recommended_plan หลัก (เดิมใช้ tax_max ทำให้ตัวเลขขัดกัน)
+    """คำนวณ tax savings รายปี สำหรับ 3 ปีข้างหน้า
+
+    ใช้ pre_calculated_tax จากหน้าการเงิน (ถูกต้องตาม income_type 40(6)/40(8))
+    ไม่ใช้ calculate_tax_bracket() ที่ hardcode 40(1) อีกต่อไป
+
+    สูตรหา base taxable income (ก่อนลงทุน RMF/ESG ใหม่):
+      - ปีที่ 1: ใช้ pct.taxable_income โดยตรง (exact — รวม existing deductions แล้ว)
+      - ปีที่ 2+: scale ด้วย non_inv_ratio = (taxable + existing_inv) / gross
+                  เพื่อประมาณ expense deduction ที่ถูกต้องตาม income_type
     """
     breakdown = []
     cumulative_tax_saved = 0.0
     cumulative_investment = 0.0
 
-    current_tax_year = 2568  # ปี พ.ศ. ปัจจุบัน
+    current_tax_year = 2568
     growth = 1 + (income_growth_rate / 100)
+
+    # อนุมาน "สัดส่วนรายได้หลังหักค่าใช้จ่าย" โดยไม่นับ existing_rmf/esg
+    # เพื่อใช้ประมาณ taxable income สำหรับปีที่ 2+ ที่ไม่มี existing investment
+    gross = max(pre_calculated_tax.gross_income, 1)
+    non_inv_taxable_yr1 = pre_calculated_tax.taxable_income + (existing_rmf or 0) + (existing_thai_esg or 0)
+    non_inv_ratio = max(0.0, non_inv_taxable_yr1 / gross)  # สัดส่วน taxable ต่อ gross (ไม่นับ RMF/ESG)
 
     for yr in range(1, 4):
         yr_income = annual_income * (growth ** (yr - 1))
         yr_budget = available_budget * (growth ** (yr - 1))
 
-        # ปีที่ 2+ user ยังไม่ได้ลงทุน → existing reset เป็น 0
-        yr_existing_rmf = existing_rmf if yr == 1 else 0
-        yr_existing_thai_esg = existing_thai_esg if yr == 1 else 0
+        # ปีที่ 2+ existing reset เป็น 0 (ปีก่อนลงทุนแล้ว)
+        yr_existing_rmf = existing_rmf if yr == 1 else 0.0
+        yr_existing_thai_esg = existing_thai_esg if yr == 1 else 0.0
 
-        # ใช้ calculate_allocation() ตัวเดียวกับ recommended_plan — สม่ำเสมอ
+        # allocation (สม่ำเสมอกับ recommended_plan)
         alloc = calculate_allocation(
             age=age,
             income=yr_income,
             goal=goal,
-            monthly_budget=yr_budget / 12,  # calculate_allocation รับค่า monthly แล้วคูณ 12 เอง
+            monthly_budget=yr_budget / 12,
             risk_tolerance=risk_tolerance,
-            income_growth_rate=0.0,  # growth ถูก apply ที่ yr_income/yr_budget แล้ว ไม่ต้องซ้ำ
+            income_growth_rate=0.0,
             existing_rmf=yr_existing_rmf,
             existing_thai_esg=yr_existing_thai_esg,
         )
         rmf_amt = alloc['rmf_amount']
-        esg_amt = alloc['tesg_amount'] + alloc['tesgx_amount']  # ThaiESG + TESGX รวมกัน
+        esg_amt = alloc['tesg_amount'] + alloc['tesgx_amount']
         total_inv = alloc['total_amount']
 
-        savings = tax_fund_svc.calculate_tax_savings(
-            annual_income=yr_income,
-            rmf_investment=yr_existing_rmf + rmf_amt,
-            thai_esg_investment=yr_existing_thai_esg + esg_amt,
-            family_deductions=family_deductions,
-        )
+        # ---- คำนวณภาษีด้วย progressive brackets ตาม income_type จริง ----
+        if yr == 1:
+            # ปีที่ 1: ใช้ taxable_income จาก pre_calculated_tax (exact)
+            # pct.taxable_income = หลังหักทุกอย่างรวม existing_rmf/esg แล้ว
+            # ดังนั้น tax ก่อนลงทุนใหม่ = pct.tax_amount (ถูกต้องแล้ว)
+            tax_before = float(pre_calculated_tax.tax_amount)
+            new_taxable = max(0.0, pre_calculated_tax.taxable_income - rmf_amt - esg_amt)
+        else:
+            # ปีที่ 2+: ประมาณ taxable income จาก non_inv_ratio
+            yr_base_taxable = max(0.0, yr_income * non_inv_ratio)
+            tax_before = _calc_progressive_tax(yr_base_taxable)
+            new_taxable = max(0.0, yr_base_taxable - rmf_amt - esg_amt)
 
-        cumulative_tax_saved += savings['tax_saved']
+        tax_after = _calc_progressive_tax(new_taxable)
+        tax_saved = max(0.0, tax_before - tax_after)
+
+        cumulative_tax_saved += tax_saved
         cumulative_investment += total_inv
 
         breakdown.append({
@@ -1543,7 +1582,7 @@ def _calculate_3year_breakdown(
             "rmf_investment": round(rmf_amt),
             "thai_esg_investment": round(esg_amt),
             "total_investment": round(total_inv),
-            "tax_saved": round(savings['tax_saved']),
+            "tax_saved": round(tax_saved),
         })
 
     return {
@@ -1551,6 +1590,13 @@ def _calculate_3year_breakdown(
         "cumulative_tax_saved_3y": round(cumulative_tax_saved),
         "cumulative_investment_3y": round(cumulative_investment),
     }
+
+
+class PreCalculatedTax(BaseModel):
+    """ภาษีที่คำนวณถูกต้องแล้วจากหน้าการเงิน (income_type ถูกต้อง)"""
+    taxable_income: int
+    tax_amount: int
+    gross_income: int
 
 
 class OptimizeRequest(BaseModel):
@@ -1565,6 +1611,11 @@ class OptimizeRequest(BaseModel):
     pre_filtered_funds: Optional[List[Dict[str, Any]]] = Field(
         default=None,
         description="Pre-filtered funds from frontend DB query"
+    )
+    # ภาษีที่คำนวณถูกต้องจากหน้าการเงิน (ถ้าไม่มีจะ fallback คำนวณเอง)
+    pre_calculated_tax: Optional[PreCalculatedTax] = Field(
+        default=None,
+        description="Pre-calculated tax from financial-info page (accurate, respects income_type)"
     )
 
 
@@ -1598,9 +1649,20 @@ async def optimize(request: OptimizeRequest):
                     f"life_ins={request.profile.life_insurance_amount}, "
                     f"health_ins={request.profile.health_insurance_amount})")
 
-        tax_bracket = tax_fund_service.calculate_tax_bracket(
-            request.profile.annual_income, extra_deductions=family_deductions
-        )
+        # ============================================================
+        # Step 1b: ต้องมี pre_calculated_tax จากหน้าการเงินเท่านั้น
+        # ============================================================
+        pct = request.pre_calculated_tax
+        if not pct:
+            raise HTTPException(
+                status_code=400,
+                detail="กรุณากรอกข้อมูลรายได้และค่าลดหย่อนในหน้าการเงินก่อน เพื่อให้ระบบคำนวณภาษีปัจจุบันของคุณได้ถูกต้อง"
+            )
+
+        current_taxable_income = pct.taxable_income
+        current_tax_amount     = pct.tax_amount
+        gross_income_for_calc  = pct.gross_income
+        logger.info(f"✅ pre_calculated_tax: taxable={current_taxable_income:,}, tax={current_tax_amount:,}")
 
         # ============================================================
         # Step 2: calculate_allocation() — Phase 1/2/3 ใหม่ทั้งหมด
@@ -1608,7 +1670,17 @@ async def optimize(request: OptimizeRequest):
 
         pre_funds          = request.pre_filtered_funds or []
         income_growth_rate = request.profile.income_growth_rate or 0.0
-        monthly_budget_raw = request.profile.monthly_budget or 0.0  # monthly, backend คูณ 12 เอง
+
+        if request.profile.monthly_budget and request.profile.monthly_budget > 0:
+            monthly_budget_raw = request.profile.monthly_budget
+        else:
+            # ไม่ได้กรอกงบ → คำนวณงบที่เหมาะสมเพื่อประหยัดภาษีสูงสุด
+            # ลงทุนเท่ากับ taxable_income (cap ด้วย legal limits RMF+ESG)
+            max_rmf_limit = min(gross_income_for_calc * 0.30, 500_000)
+            max_esg_limit = min(gross_income_for_calc * 0.30, 300_000)
+            optimal_annual = min(current_taxable_income, max_rmf_limit + max_esg_limit)
+            monthly_budget_raw = optimal_annual / 12
+            logger.info(f"💡 ไม่มีงบ → ใช้งบที่เหมาะสมเพื่อลดภาษีสูงสุด: ฿{optimal_annual:,.0f}/ปี (฿{monthly_budget_raw:,.0f}/เดือน)")
 
         logger.info(
             f"money_goal={request.profile.money_goal}, "
@@ -1620,7 +1692,7 @@ async def optimize(request: OptimizeRequest):
 
         allocation = calculate_allocation(
             age              = request.profile.age,
-            income           = request.profile.annual_income,
+            income           = gross_income_for_calc,
             goal             = request.profile.money_goal or "mid_term",
             monthly_budget   = monthly_budget_raw,
             risk_tolerance   = request.profile.risk_tolerance,
@@ -1633,39 +1705,50 @@ async def optimize(request: OptimizeRequest):
         tesg_amount    = allocation["tesg_amount"]
         tesgx_amount   = allocation["tesgx_amount"]
         total_investment = allocation["total_amount"]
-        annual_budget  = (monthly_budget_raw or (request.profile.annual_income / 12 * 0.15)) * 12
+        annual_budget  = (monthly_budget_raw or (gross_income_for_calc / 12 * 0.15)) * 12
 
         # สรุปสิทธิ์คงเหลือสำหรับ tax_info
-        limits           = tax_fund_service.calculate_deduction_limits(request.profile.annual_income)
+        limits           = tax_fund_service.calculate_deduction_limits(gross_income_for_calc)
         remaining_rmf    = allocation["remaining_quota"]["rmf"]
         remaining_thai_esg = allocation["remaining_quota"]["esg"]
 
-        logger.info(
-            f"Tax bracket: {tax_bracket['marginal_rate_percent']}%, "
-            f"Invested: {total_investment:,.0f}, "
-            f"Cash remaining: {allocation['cash_remaining']:,.0f}"
-        )
+        logger.info(f"Invested: {total_investment:,.0f}, Cash remaining: {allocation['cash_remaining']:,.0f}")
 
-        # Calculate accurate tax savings
-        savings = tax_fund_service.calculate_tax_savings(
-            annual_income      = request.profile.annual_income,
-            rmf_investment     = request.profile.existing_rmf + rmf_amount,
-            thai_esg_investment= request.profile.existing_thai_esg + tesg_amount + tesgx_amount,
-            family_deductions  = family_deductions,
-        )
+        # Calculate tax savings โดยใช้ taxable_income ที่ถูกต้อง
+        new_rmf_total  = (request.profile.existing_rmf or 0) + rmf_amount
+        new_esg_total  = (request.profile.existing_thai_esg or 0) + tesg_amount + tesgx_amount
+        new_deduction  = new_rmf_total + new_esg_total
+        new_taxable    = max(0, current_taxable_income - new_deduction)
+        # คำนวณภาษีหลังลดหย่อนเพิ่ม
+        tax_after = 0
+        prev = 0
+        for threshold, rate in [(150000,0),(300000,0.05),(500000,0.10),(750000,0.15),(1000000,0.20),(2000000,0.25),(5000000,0.30),(float('inf'),0.35)]:
+            if new_taxable > prev:
+                tax_after += (min(new_taxable, threshold) - prev) * rate
+            prev = threshold
+            if new_taxable <= threshold:
+                break
 
-        # 3-year breakdown — ใช้ logic เดียวกับ recommended_plan (goal + risk aware)
+        tax_saved_amt = max(0, current_tax_amount - int(tax_after))
+        savings = {
+            'tax_before':      current_tax_amount,
+            'tax_after':       int(tax_after),
+            'tax_saved':       tax_saved_amt,
+            'effective_return': round(tax_saved_amt / new_deduction * 100, 1) if new_deduction > 0 else 0,
+            'marginal_rate':   0,
+        }
+
+        # 3-year breakdown — ใช้ pre_calculated_tax (income_type ถูกต้อง 40(6)/40(8))
         three_year = _calculate_3year_breakdown(
-            annual_income      = request.profile.annual_income,
+            annual_income      = gross_income_for_calc,
             available_budget   = annual_budget,
-            existing_rmf       = request.profile.existing_rmf,
-            existing_thai_esg  = request.profile.existing_thai_esg,
-            family_deductions  = family_deductions,
+            existing_rmf       = request.profile.existing_rmf or 0.0,
+            existing_thai_esg  = request.profile.existing_thai_esg or 0.0,
             income_growth_rate = income_growth_rate,
-            tax_fund_svc       = tax_fund_service,
             age                = request.profile.age,
             goal               = request.profile.money_goal or "mid_term",
             risk_tolerance     = request.profile.risk_tolerance,
+            pre_calculated_tax = pct,
         )
 
         # ============================================================
@@ -1817,13 +1900,15 @@ async def optimize(request: OptimizeRequest):
             "ai_powered": ai_powered,
             "profile_analysis": profile_analysis,
             "tax_info": {
-                "tax_bracket": tax_bracket,
+                "taxable_income": current_taxable_income,
+                "tax_amount": current_tax_amount,
                 "deduction_limits": limits,
                 "deduction_remaining": {
                     "rmf": remaining_rmf,
                     "thai_esg": remaining_thai_esg,
                     "total": remaining_rmf + remaining_thai_esg,
                 },
+                "source": "financial_info" if pct else "fallback_calculation",
             },
             "recommended_plan": recommended_plan,
             "recommended_funds": pre_funds,

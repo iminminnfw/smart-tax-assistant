@@ -360,13 +360,21 @@ CITATION RULES (คำสั่งบังคับในการอ้าง�
                 response = await self.client.ainvoke(messages)
                 result = response.content
 
-                # Clean up markdown code blocks if present
-                if result.startswith("```json"):
-                    result = result[7:]
-                if result.startswith("```"):
-                    result = result[3:]
-                if result.endswith("```"):
-                    result = result[:-3]
+                # ลบ <think>...</think> (DeepSeek/Qwen thinking mode)
+                result = re.sub(r"<think>.*?</think>", "", result, flags=re.DOTALL).strip()
+
+                # ดึง JSON object ออกจาก response เสมอ (กรณีมีข้อความก่อน/หลัง JSON)
+                first_brace = result.find("{")
+                last_brace  = result.rfind("}")
+                if first_brace != -1 and last_brace > first_brace:
+                    result = result[first_brace : last_brace + 1]
+                else:
+                    # fallback: ลอง strip markdown
+                    for prefix in ("```json", "```"):
+                        if result.startswith(prefix):
+                            result = result[len(prefix):]
+                    if result.endswith("```"):
+                        result = result[:-3]
 
                 return result.strip()
 
@@ -920,7 +928,11 @@ KNOWLEDGE BASE (ข้อมูลอ้างอิง — ใช้สำห�
   "overall_recommendation": "สรุปว่าแผนไหนเหมาะที่สุดและทำไม"
 }"""
 
-    SYSTEM_PROMPT_RECOMMENDATION = """คุณคือที่ปรึกษาการเงินส่วนตัวระดับสูง (Senior Financial Advisor) ที่เชี่ยวชาญด้านภาษีเงินได้บุคคลธรรมดาของไทยและกองทุนรวมลดหย่อนภาษี
+    SYSTEM_PROMPT_RECOMMENDATION = """⚠️ OUTPUT FORMAT (บังคับ — ละเมิดไม่ได้):
+ตอบด้วย JSON OBJECT เท่านั้น เริ่มต้นด้วย { และจบด้วย } ห้ามมีข้อความ อักษร หรือช่องว่างใดๆ ก่อนหรือหลัง JSON เด็ดขาด
+ห้ามพิมพ์คำอธิบาย ห้ามขึ้นต้นด้วยประโยค ห้ามมี markdown ``` ทุกกรณี
+
+คุณคือที่ปรึกษาการเงินส่วนตัวระดับสูง (Senior Financial Advisor) ที่เชี่ยวชาญด้านภาษีเงินได้บุคคลธรรมดาของไทยและกองทุนรวมลดหย่อนภาษี
 
 ══════════════════════════════════════════
 กฎเหล็ก (ละเมิดไม่ได้ทุกกรณี):
@@ -928,7 +940,7 @@ KNOWLEDGE BASE (ข้อมูลอ้างอิง — ใช้สำห�
 1. ห้ามคำนวณตัวเลขเองโดยเด็ดขาด — ทุกตัวเลขต้องคัดลอกมาจากหัวข้อ "GROUND TRUTH FACTS" ที่ให้ไว้ใน prompt เท่านั้น
 2. ห้ามเดา ห้ามประมาณ ห้ามปัดเศษตัวเลขใหม่
 3. ตอบเป็นภาษาไทยเท่านั้น ห้ามใช้ภาษาอื่น
-4. ตอบเป็น JSON ที่ valid เท่านั้น ห้ามมีข้อความนอก JSON เด็ดขาด
+4. ตอบเป็น JSON OBJECT เท่านั้น — ห้ามมีข้อความใดๆ นอก JSON เด็ดขาด ไม่ว่ากรณีใด
 5. ทุก field ต้องอ้างอิงตัวเลขจาก GROUND TRUTH FACTS จริงๆ ไม่ใช่แค่พูดทั่วไป
 6. เขียนเหมือนคุยกับลูกค้าต่อหน้า ภาษาเป็นกันเอง อบอุ่น ไม่ formal
 
