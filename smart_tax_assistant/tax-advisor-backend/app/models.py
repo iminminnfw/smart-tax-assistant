@@ -133,11 +133,11 @@ class TaxCalculationRequest(BaseModel):
     
     # กลุ่มประกันชีวิตและสุขภาพ
     life_insurance: int = Field(0, description="เบี้ยประกันชีวิต", ge=0, le=100000)
-    life_insurance_pension: int = Field(0, description="ประกันชีวิตแบบบำนาญ", ge=0, le=10000)
-    life_insurance_parents: int = Field(0, description="เบี้ยประกันชีวิตบิดามารดา", ge=0, le=60000)
-    health_insurance: int = Field(0, description="เบี้ยประกันสุขภาพ", ge=0, le=25000)
-    health_insurance_parents: int = Field(0, description="เบี้ยประกันสุขภาพบิดามารดา (สูงสุด 4 คน)", ge=0, le=60000)
-    social_security: int = Field(0, description="ประกันสังคม", ge=0, le=9000)
+    health_insurance: int = Field(0, description="เบี้ยประกันสุขภาพตนเอง (สูงสุด 25,000 และรวมกับประกันชีวิตไม่เกิน 100,000)", ge=0, le=25000)
+    health_insurance_parents_own: int = Field(0, description="เบี้ยประกันสุขภาพ/ชีวิตบิดามารดาตนเอง (รวมทุกคนสูงสุด 15,000)", ge=0, le=15000)
+    health_insurance_parents_spouse: int = Field(0, description="เบี้ยประกันสุขภาพ/ชีวิตบิดามารดาคู่สมรส (รวมทุกคนสูงสุด 15,000)", ge=0, le=15000)
+    social_security_type: str = Field("none", description="ประเภทประกันสังคม: none, 33, 39, 40")
+    social_security: int = Field(0, description="ประกันสังคม (cap ตามมาตรา: 33=9000, 39=5184, 40=3600)", ge=0, le=9000)
     
     # กลุ่มกองทุนและการลงทุน (สำหรับ 40(6) และ 40(8) เท่านั้น)
     # หมายเหตุ: PVD, กบข., กบศ. ลบออกแล้ว เพราะใช้ได้เฉพาะ 40(1) เงินเดือน
@@ -150,15 +150,16 @@ class TaxCalculationRequest(BaseModel):
     thai_esgx_ltf: int = Field(0, description="กองทุน ThaiESGX (สะสมจาก LTF)", ge=0, le=300000)
     
     # กลุ่มอื่นๆ (ใหม่ปี 2568)
-    stock_investment: int = Field(0, description="ลงทุนหุ้นจดทะเบียนที่ออกใหม่", ge=0, le=100000)
-    easy_e_receipt: int = Field(0, description="Easy e-Receipt", ge=0, le=50000)
-    home_loan_interest: int = Field(0, description="ดอกเบี้ยเงินกู้ซื้อ/สร้างบ้าน (2567-2568)", ge=0, le=100000)
+    social_enterprise_investment: int = Field(0, description="ลงทุนวิสาหกิจเพื่อสังคม SE", ge=0, le=100000)
+    easy_e_receipt: int = Field(0, description="Easy e-Receipt (16 ม.ค.–28 ก.พ. 2568)", ge=0, le=50000)
+    home_loan_interest: int = Field(0, description="ดอกเบี้ยเงินกู้ซื้อ/สร้างบ้าน", ge=0, le=100000)
+    new_house_construction: int = Field(0, description="ค่าสร้างบ้านใหม่ (ยอดลดหย่อน ทุก 1 ล้าน = 10,000 สูงสุด 100,000)", ge=0, le=100000)
     nsf: int = Field(0, description="กองทุนการออมแห่งชาติ (กอช.)", ge=0, le=30000)
-    
+    maternity_expense: int = Field(0, description="ค่าฝากครรภ์และคลอดบุตร (สูงสุด 60,000/ครรภ์)", ge=0, le=60000)
+
     # กลุ่มเงินบริจาค
-    donation_general: int = Field(0, description="เงินบริจาคทั่วไป", ge=0)
-    donation_education: int = Field(0, description="เงินบริจาคเพื่อการศึกษา (นับ 1 เท่า ตั้งแต่ปี 2568)", ge=0)
-    donation_social_enterprise: int = Field(0, description="บริจาค Social Enterprise", ge=0, le=100000)
+    donation_general: int = Field(0, description="เงินบริจาคทั่วไป (สูงสุด 10% ของเงินได้หลังหักค่าลดหย่อน)", ge=0)
+    donation_education: int = Field(0, description="เงินบริจาคเพื่อการศึกษา/กีฬา/สถานพยาบาลรัฐ (นับ 2 เท่า สูงสุด 10% ของเงินได้)", ge=0)
     donation_political: int = Field(0, description="บริจาคพรรคการเมือง", ge=0, le=10000)
     
     # ระดับความเสี่ยง

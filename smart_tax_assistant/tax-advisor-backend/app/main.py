@@ -187,31 +187,37 @@ async def calculate_tax_with_multiple_plans(
             # 🎯 บังคับใช้ total_investment ตาม tier (ไม่ใช้ค่าจาก AI)
             if idx < len(tiers):
                 total_investment = tiers[idx]
-                plan["total_investment"] = total_investment  # Override AI's value
+                plan["total_investment"] = total_investment
             else:
                 total_investment = plan.get("total_investment", 0)
 
-            # ✅ คำนวณ total tax saving ของแผนทั้งหมดอย่างถูกต้อง
-            # ใช้ฟังก์ชัน calculate_tax_saving_accurate() ที่คำนวณแบบ Multi-Bracket
+            # ✅ Smart Redistribute: cap ตามกฎหมาย + เติมส่วนเกินตาม priority
+            corrected_allocs = tax_calculator_service.redistribute_plan_allocations(
+                allocations=plan.get("allocations", []),
+                total_investment=total_investment,
+                gross_income=tax_result.gross_income,
+                request=request,
+            )
+            plan["allocations"] = corrected_allocs
+
+            # คำนวณ total_investment จริงหลัง redistribute (อาจน้อยกว่า tier ถ้าทุก cap เต็มหมด)
+            actual_total = sum(a.get("investment_amount", 0) for a in corrected_allocs)
+            plan["total_investment"] = actual_total
+
+            # ✅ คำนวณ tax saving แบบ Multi-Bracket จาก actual_total
             calculated_total_tax_saving = tax_calculator_service.calculate_tax_saving_accurate(
                 taxable_base=tax_result.taxable_income,
-                investment=total_investment
+                investment=actual_total,
             )
-
-            # แจกจ่าย tax saving ให้แต่ละ allocation ตามสัดส่วน
-            for alloc in plan.get("allocations", []):
-                percentage = alloc.get("percentage", 0)
-
-                # คำนวณ investment_amount จาก percentage
-                investment_amount = int((percentage / 100) * total_investment)
-                alloc["investment_amount"] = investment_amount
-
-                # แจกจ่าย tax_saving ตามสัดส่วน percentage
-                tax_saving = int((percentage / 100) * calculated_total_tax_saving)
-                alloc["tax_saving"] = tax_saving
-
-            # อัปเดต total_tax_saving ของแผนให้ถูกต้องตามที่คำนวณได้จริง
             plan["total_tax_saving"] = calculated_total_tax_saving
+
+            # แจกจ่าย tax_saving ตามสัดส่วน investment_amount จริง
+            for alloc in corrected_allocs:
+                amt = alloc.get("investment_amount", 0)
+                alloc["tax_saving"] = (
+                    int((amt / actual_total) * calculated_total_tax_saving)
+                    if actual_total > 0 else 0
+                )
 
         print("✅ Calculation complete.")
         # ✨ =================================================================

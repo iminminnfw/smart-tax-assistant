@@ -15,23 +15,36 @@ import { Loader2, ArrowRight, TrendingUp, TrendingDown, Zap, Target, Calculator,
 import Link from 'next/link';
 
 interface TaxFormData {
-  gross_income: number; income_type: string; expense_method: string; actual_expenses: number;
-  has_spouse: boolean; number_of_children: number; number_of_parents: number; number_of_disabled: number;
-  life_insurance: number; life_insurance_pension: number; life_insurance_parents: number;
-  health_insurance: number; health_insurance_parents: number; pension_insurance: number;
-  social_security: number; provident_fund: number; gpf: number; pvd_teacher: number;
-  rmf: number; thai_esg: number; thai_esgx_new: number; thai_esgx_ltf: number;
-  stock_investment: number; easy_e_receipt: number; home_loan_interest: number; nsf: number;
-  donation_general: number; donation_education: number; donation_social_enterprise: number;
-  donation_political: number; risk_tolerance: string;
+  gross_income: number; income_type: string; profession_type: string; business_type: string;
+  expense_method: string; actual_expenses: number;
+  has_spouse: boolean; number_of_children_30k: number; number_of_children_60k: number;
+  number_of_parents: number; number_of_disabled_family: number; has_disabled_other: boolean;
+  maternity_expense: number;
+  life_insurance: number; health_insurance: number;
+  health_insurance_parents_own: number; health_insurance_parents_spouse: number;
+  pension_insurance: number; social_security_type: string; social_security: number;
+  rmf: number; thai_esg: number; thai_esgx_new: number; thai_esgx_ltf: number; nsf: number;
+  social_enterprise_investment: number; easy_e_receipt: number;
+  home_loan_interest: number; new_house_construction: number;
+  donation_general: number; donation_education: number; donation_political: number;
+  risk_tolerance: string;
 }
 
 function calcExpense(f: TaxFormData) {
   if (f.expense_method === 'actual') return f.actual_expenses;
   const g = f.gross_income;
-  if (f.income_type === '40(1)' || f.income_type === '40(2)') return Math.min(g * 0.5, 100000);
-  if (f.income_type === '40(6)') return Math.min(g * 0.3, g);
-  return g * 0.6;
+  if (f.income_type === '40(6)') {
+    if (f.profession_type === 'medical' || f.profession_type === 'fine_arts') return g * 0.60;
+    return g * 0.30;
+  }
+  if (f.income_type === '40(8)') {
+    if (f.business_type === 'entertainment') {
+      if (g <= 300000) return g * 0.60;
+      return Math.min(300000 * 0.60 + (g - 300000) * 0.40, 600000);
+    }
+    return g * 0.60;
+  }
+  return 0;
 }
 
 function calcTax(t: number) {
@@ -54,34 +67,72 @@ function getMarginalRate(t: number) {
   if (t <= 5000000) return 30; return 35;
 }
 
+const DEFAULT_TAX_FORM: TaxFormData = {
+  gross_income: 0, income_type: '40(8)', profession_type: 'other', business_type: 'general_trade',
+  expense_method: 'standard', actual_expenses: 0,
+  has_spouse: false, number_of_children_30k: 0, number_of_children_60k: 0,
+  number_of_parents: 0, number_of_disabled_family: 0, has_disabled_other: false, maternity_expense: 0,
+  life_insurance: 0, health_insurance: 0, health_insurance_parents_own: 0, health_insurance_parents_spouse: 0,
+  pension_insurance: 0, social_security_type: 'none', social_security: 0,
+  rmf: 0, thai_esg: 0, thai_esgx_new: 0, thai_esgx_ltf: 0, nsf: 0,
+  social_enterprise_investment: 0, easy_e_receipt: 0,
+  home_loan_interest: 0, new_house_construction: 0,
+  donation_general: 0, donation_education: 0, donation_political: 0,
+  risk_tolerance: 'medium',
+};
+
 function computeDash(f: TaxFormData) {
   const g = f.gross_income;
   const exp = calcExpense(f);
-  const maxRmf = Math.min(g * 0.30, 500000);
-  const maxPen = Math.min(g * 0.15, 200000);
-  const maxPvd = Math.min(g * 0.15, 500000);
+
+  // caps ประกัน
+  const lifeHealthUsed = Math.min(f.life_insurance + f.health_insurance, 100000);
+  const maxPen = Math.min(g * 0.15, 200000 + Math.max(0, 100000 - Math.min(f.life_insurance, 100000)));
+  const ssCap = f.social_security_type === '33' ? 9000 : f.social_security_type === '39' ? 5184 : f.social_security_type === '40' ? 3600 : 0;
+
+  // caps กองทุน (combined retirement ≤ 500,000)
+  const maxEsg = Math.min(g * 0.30, 300000);
+  const penUsed = Math.min(f.pension_insurance, maxPen);
+  const rmfUsed = Math.min(f.rmf, Math.min(g * 0.30, 500000));
+  const nsfUsed = Math.min(f.nsf, 30000);
+  const retirementScale = (penUsed + rmfUsed + nsfUsed) > 500000
+    ? 500000 / (penUsed + rmfUsed + nsfUsed) : 1;
 
   const items = [
-    { label: 'RMF',            used: Math.min(f.rmf, maxRmf),                               max: maxRmf,  color: '#6366f1' },
-    { label: 'ThaiESG',        used: Math.min(f.thai_esg, 300000),                           max: 300000,  color: '#10b981' },
-    { label: 'ThaiESGX',       used: Math.min(f.thai_esgx_new + f.thai_esgx_ltf, 300000),   max: 300000,  color: '#14b8a6' },
-    { label: 'ประกันชีวิต',    used: Math.min(f.life_insurance, 100000),                     max: 100000,  color: '#3b82f6' },
-    { label: 'ประกันสุขภาพ',   used: Math.min(f.health_insurance, 25000),                   max: 25000,   color: '#06b6d4' },
-    { label: 'ประกันบำนาญ',    used: Math.min(f.pension_insurance, maxPen),                  max: maxPen,  color: '#8b5cf6' },
-    { label: 'กองทุนสำรองฯ',   used: Math.min(f.provident_fund, maxPvd),                    max: maxPvd,  color: '#f59e0b' },
-    { label: 'Easy e-Receipt', used: Math.min(f.easy_e_receipt, 50000),                      max: 50000,   color: '#f97316' },
-    { label: 'ดอกเบี้ยบ้าน',   used: Math.min(f.home_loan_interest, 100000),                max: 100000,  color: '#ec4899' },
-    { label: 'ประกันสังคม',     used: Math.min(f.social_security, 9000),                     max: 9000,    color: '#64748b' },
+    { label: 'RMF',               used: Math.round(rmfUsed * retirementScale),  max: Math.min(g * 0.30, 500000), color: '#6366f1' },
+    { label: 'ThaiESG',           used: Math.min(f.thai_esg, maxEsg),            max: maxEsg,    color: '#10b981' },
+    { label: 'ThaiESGX เงินใหม่', used: Math.min(f.thai_esgx_new, maxEsg),      max: maxEsg,    color: '#14b8a6' },
+    { label: 'ThaiESGX LTF',      used: Math.min(f.thai_esgx_ltf, maxEsg),      max: maxEsg,    color: '#0d9488' },
+    { label: 'ประกันชีวิต+สุขภาพ', used: lifeHealthUsed,                         max: 100000,    color: '#3b82f6' },
+    { label: 'ประกันบำนาญ',       used: Math.round(penUsed * retirementScale),  max: maxPen,    color: '#8b5cf6' },
+    { label: 'ประกันสุขภาพพ่อแม่', used: Math.min(f.health_insurance_parents_own + f.health_insurance_parents_spouse, 30000), max: 30000, color: '#a78bfa' },
+    { label: 'ประกันสังคม',        used: Math.min(f.social_security, ssCap),    max: ssCap || 9000, color: '#64748b' },
+    { label: 'กอช.',              used: Math.round(nsfUsed * retirementScale),  max: 30000,     color: '#f59e0b' },
+    { label: 'Easy e-Receipt',    used: Math.min(f.easy_e_receipt, 50000),       max: 50000,     color: '#f97316' },
+    { label: 'ดอกเบี้ยบ้าน',      used: Math.min(f.home_loan_interest, 100000), max: 100000,    color: '#ec4899' },
+    { label: 'สร้างบ้านใหม่',     used: Math.min(f.new_house_construction, 100000), max: 100000, color: '#f43f5e' },
+    { label: 'Social Enterprise', used: Math.min(f.social_enterprise_investment, 100000), max: 100000, color: '#84cc16' },
   ];
 
+  // ครอบครัว
   const spouse = f.has_spouse ? 60000 : 0;
-  const children = f.number_of_children * 30000;
+  const children = (f.number_of_children_30k * 30000) + (f.number_of_children_60k * 60000);
   const parents = Math.min(f.number_of_parents, 4) * 30000;
-  const disabled = f.number_of_disabled * 60000;
-  const family = spouse + children + parents + disabled;
+  const disabled = (f.number_of_disabled_family * 60000) + (f.has_disabled_other ? 60000 : 0);
+  const maternity = Math.min(f.maternity_expense, 60000);
+  const family = spouse + children + parents + disabled + maternity;
 
   const deductSum = items.reduce((s, i) => s + i.used, 0);
-  const totalDeduct = exp + 60000 + family + deductSum;
+
+  // บริจาค — cap 10% ของรายได้หลังหักอื่นๆ
+  const baseForDonation = Math.max(0, g - exp - 60000 - family - deductSum);
+  const maxDonation = Math.floor(baseForDonation * 0.10);
+  const donationGeneral = Math.min(f.donation_general, maxDonation);
+  const donationEducation2x = Math.min(f.donation_education * 2, maxDonation);
+  const donationPolitical = Math.min(f.donation_political, 10000);
+  const totalDonation = donationGeneral + donationEducation2x + donationPolitical;
+
+  const totalDeduct = exp + 60000 + family + deductSum + totalDonation;
   const taxable = Math.max(0, g - totalDeduct);
   const taxNow = calcTax(taxable);
   const taxBase = calcTax(Math.max(0, g - exp - 60000));
@@ -99,11 +150,12 @@ function computeDash(f: TaxFormData) {
   const pieData = Object.entries(groups).map(([name, value]) => ({ name, value }));
   const PIE_COLORS = items.filter(i => i.used > 0).map(i => i.color);
 
+  const insuranceUsed = items.filter(i => ['ประกันชีวิต+สุขภาพ','ประกันบำนาญ','ประกันสังคม','ประกันสุขภาพพ่อแม่'].includes(i.label)).reduce((s,i) => s+i.used, 0);
   const areaData = [
-    { name: 'รายได้รวม',      tax: taxBase },
-    { name: 'หักครอบครัว',   tax: calcTax(Math.max(0, g - exp - 60000 - family)) },
-    { name: 'หักประกัน',     tax: calcTax(Math.max(0, taxable + items.filter(i => ['ประกันชีวิต','ประกันสุขภาพ','ประกันบำนาญ','ประกันสังคม'].includes(i.label)).reduce((s,i)=>s+i.used,0))) },
-    { name: 'หักกองทุน',     tax: taxNow },
+    { name: 'รายได้รวม',       tax: taxBase },
+    { name: 'หักครอบครัว',    tax: calcTax(Math.max(0, g - exp - 60000 - family)) },
+    { name: 'หักประกัน',      tax: calcTax(Math.max(0, g - exp - 60000 - family - insuranceUsed)) },
+    { name: 'หักกองทุน',      tax: taxNow },
     { name: 'ถ้าใช้สิทธิ์ครบ', tax: Math.max(0, taxNow - potential) },
   ];
 
@@ -143,7 +195,10 @@ export default function WelcomeHomePage() {
   useEffect(() => {
     if (status === 'authenticated') {
       fetch('/api/user/financial-profile').then(r => r.json()).then(d => {
-        if (d.tax_form_data?.gross_income > 0) setDash(computeDash(d.tax_form_data as TaxFormData));
+        if (d.tax_form_data?.gross_income > 0) {
+          const merged: TaxFormData = { ...DEFAULT_TAX_FORM, ...d.tax_form_data };
+          setDash(computeDash(merged));
+        }
       }).catch(() => {}).finally(() => setLoading(false));
     }
   }, [status]);
