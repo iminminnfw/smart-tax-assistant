@@ -417,8 +417,8 @@ export default function TaxDeductionCalculator() {
               <SummaryRow label="Easy e-Receipt" value={f.easy_e_receipt} />
               <SummaryRow label="ดอกเบี้ยเงินกู้บ้าน" value={f.home_loan_interest} />
               <SummaryRow label="ค่าสร้างบ้านใหม่" value={f.new_house_construction} />
-              <SummaryRow label="บริจาคทั่วไป" value={f.donation_general} />
-              <SummaryRow label="บริจาคเพื่อการศึกษา (นับ 2 เท่า)" value={f.donation_education} />
+              <SummaryRow label="บริจาคทั่วไปหรือบริจาคเพื่อการศึกษา" value={f.donation_general} />
+              <SummaryRow label="บริจาคเพื่อการกีฬา/สถานพยาบาลรัฐ (นับ 2 เท่า)" value={f.donation_education} />
               <SummaryRow label="บริจาคพรรคการเมือง" value={f.donation_political} />
               {[f.social_enterprise_investment, f.easy_e_receipt, f.home_loan_interest, f.new_house_construction, f.donation_general, f.donation_education, f.donation_political].every(v => v === 0) && (
                 <p className="text-xs text-gray-400 text-center py-2">ไม่มีการลดหย่อนอื่นๆ</p>
