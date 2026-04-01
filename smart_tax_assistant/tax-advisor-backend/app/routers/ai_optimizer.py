@@ -1280,6 +1280,127 @@ def _calculate_family_deductions(profile: "UserProfileRequest") -> float:
     return total
 
 
+# ── Allocation Range Tables ─────────────────────────────────────────────────
+# ตาราง 1: RMF vs ESG(รวม) — ขึ้นกับ goal + age
+# tuple = (min%, max%) ของ RMF และ ESG ตามลำดับ
+RMF_ESG_RANGES: dict = {
+    ("retirement", "lt35"):  {"rmf": (65, 78), "esg": (22, 35)},
+    ("retirement", "35_49"): {"rmf": (74, 88), "esg": (12, 26)},
+    ("retirement", "gte50"): {"rmf": (78, 92), "esg": (8,  22)},
+    ("mid_term",   "lt40"):  {"rmf": (10, 28), "esg": (72, 90)},
+    ("mid_term",   "40_49"): {"rmf": (28, 50), "esg": (50, 72)},
+    ("mid_term",   "gte50"): {"rmf": (40, 60), "esg": (40, 60)},
+    ("short_term", "lt47"):  {"rmf": (0,   8), "esg": (92,100)},
+    ("short_term", "gte47"): {"rmf": (22, 40), "esg": (60, 78)},
+}
+
+# ตาราง 2: ThaiESG vs TESGX ภายใน ESG — ขึ้นกับ risk
+# tuple = (min%, max%) ของ ThaiESG และ TESGX โดย % คิดจากส่วน ESG ที่ได้รับ
+ESG_SPLIT_RANGES: dict = {
+    "conservative": {"tesg": (95, 100), "tesgx": (0,   5)},
+    "moderate":     {"tesg": (72,  90), "tesgx": (10, 28)},
+    "aggressive":   {"tesg": (32,  50), "tesgx": (50, 68)},
+}
+
+
+def _get_age_key_rmf_esg(goal: str, age: int) -> str:
+    """หา age bucket key สำหรับ RMF_ESG_RANGES"""
+    if goal == "retirement":
+        if age < 35:   return "lt35"
+        if age < 50:   return "35_49"
+        return "gte50"
+    elif goal == "mid_term":
+        if age < 40:   return "lt40"
+        if age < 50:   return "40_49"
+        return "gte50"
+    else:  # short_term
+        return "lt47" if age < 47 else "gte47"
+
+
+def _get_allocation_ranges(goal: str, age: int, risk: str) -> dict:
+    """ดึง ranges ทั้ง 2 ตารางตาม goal/age/risk"""
+    age_key  = _get_age_key_rmf_esg(goal, age)
+    rmf_esg  = RMF_ESG_RANGES.get((goal, age_key), {"rmf": (0, 100), "esg": (0, 100)})
+    esg_split = ESG_SPLIT_RANGES.get(risk, ESG_SPLIT_RANGES["moderate"])
+    return {"rmf_esg": rmf_esg, "esg_split": esg_split}
+
+
+def _jitter_allocation(goal: str, age: int, risk: str) -> tuple:
+    """
+    Fallback jitter: สุ่มค่าภายใน range แทนการใช้ค่ากลาง
+    Returns (rmf_pct, tesg_pct, tesgx_pct) รวม = 100
+    """
+    import random
+    ranges = _get_allocation_ranges(goal, age, risk)
+    rmf_min, rmf_max = ranges["rmf_esg"]["rmf"]
+    esg_min, esg_max = ranges["rmf_esg"]["esg"]
+
+    # short_term lt47: rmf fixed = 0
+    if rmf_max == 0:
+        rmf_pct = 0.0
+        esg_pct = 100.0
+    else:
+        rmf_pct = round(random.uniform(rmf_min, rmf_max), 1)
+        esg_pct = round(100.0 - rmf_pct, 1)
+
+    # ESG split
+    tesg_min, tesg_max = ranges["esg_split"]["tesg"]
+    if risk != "aggressive":
+        tesg_split = round(random.uniform(tesg_min, tesg_max) / 100, 3)
+        tesgx_split = 1.0 - tesg_split
+    else:
+        tesg_split = round(random.uniform(tesg_min, tesg_max) / 100, 3)
+        tesgx_split = 1.0 - tesg_split
+
+    tesg_pct  = round(esg_pct * tesg_split,  1)
+    tesgx_pct = round(esg_pct * tesgx_split, 1)
+
+    # แก้ rounding error
+    diff = round(100.0 - (rmf_pct + tesg_pct + tesgx_pct), 1)
+    tesg_pct = round(tesg_pct + diff, 1)
+
+    return rmf_pct, tesg_pct, tesgx_pct
+
+
+def _validate_and_normalize_allocation(
+    rmf: float,
+    tesg: float,
+    tesgx: float,
+    risk: str,
+) -> Optional[tuple]:
+    """
+    Validate และ normalize สัดส่วนที่ LLM ตอบมา
+
+    Returns:
+        (rmf_pct, tesg_pct, tesgx_pct) ที่รวมเป็น 100.0 เสมอ
+        หรือ None ถ้า output ไม่ valid (caller ใช้ rule-based fallback)
+    """
+    # กฎบังคับ: TESGX = 0 ถ้าไม่ aggressive
+    if (risk or "moderate").lower() != "aggressive":
+        tesgx = 0.0
+
+    # ค่าติดลบ → 0
+    rmf  = max(0.0, float(rmf  or 0))
+    tesg = max(0.0, float(tesg or 0))
+    tesgx = max(0.0, float(tesgx or 0))
+
+    total = rmf + tesg + tesgx
+    if total <= 0:
+        # LLM ตอบไร้สาระ → fallback
+        return None
+
+    # Normalize ให้รวม = 100
+    rmf_pct   = round(rmf  / total * 100, 1)
+    tesg_pct  = round(tesg / total * 100, 1)
+    tesgx_pct = round(tesgx / total * 100, 1)
+
+    # แก้ rounding error เล็กน้อย (33.3+33.3+33.3=99.9) → บวกส่วนต่างเข้า rmf
+    diff = round(100.0 - (rmf_pct + tesg_pct + tesgx_pct), 1)
+    rmf_pct = round(rmf_pct + diff, 1)
+
+    return rmf_pct, tesg_pct, tesgx_pct
+
+
 def calculate_allocation(
     age: int,
     income: float,
@@ -1289,6 +1410,7 @@ def calculate_allocation(
     income_growth_rate: float = 0.0,
     existing_rmf: float = 0.0,
     existing_thai_esg: float = 0.0,
+    llm_ratios: Optional[Dict] = None,
 ) -> Dict:
     """
     คำนวณสัดส่วนการลงทุน RMF : ThaiESG : TESGX ที่เหมาะสมที่สุด (ปี 2569)
@@ -1312,77 +1434,89 @@ def calculate_allocation(
 
     annual_budget = monthly_budget * 12
 
-    # ── Phase 1: Base RMF vs ESG ratio ──────────────────────────────
+    # ── Phase 1+2: AI-decided ratios (ถ้ามี) หรือ rule-based ────────
     goal = (goal or "mid_term").lower().strip()
-
-    if goal == "short_term":
-        if age < 47:
-            rmf_pct, esg_pct = 0.0, 1.0
-            age_factor = (
-                f"อายุ {age} ปี เลือกเป้าหมายระยะสั้น (ต้องใช้เงินภายใน 5 ปี) "
-                f"RMF ล็อคถึงอายุ 55 ถอนไม่ทันแน่นอน ระบบจึงไม่จัด RMF เลย "
-                f"เอาเงินทั้งหมดไปลงกลุ่ม ESG ที่ล็อคแค่ 5 ปีแทน"
-            )
-            goal_factor = "ต้องการใช้เงินก้อนในอนาคตอันใกล้ ThaiESG ล็อคแค่ 5 ปีเหมาะที่สุด"
-        else:
-            rmf_pct, esg_pct = 0.30, 0.70
-            age_factor = (
-                f"อายุ {age} ปี แม้เป้าหมายระยะสั้น แต่อายุใกล้ 55 ปีแล้ว "
-                f"RMF จะล็อคไม่นานและลดหย่อนภาษีได้ดี จึงแบ่งบางส่วน"
-            )
-            goal_factor = "ต้องการใช้เงินเร็ว แต่อายุใกล้ 55 RMF บางส่วนยังคุ้มค่าลดหย่อน"
-
-    elif goal == "retirement":
-        if age < 35:
-            rmf_pct, esg_pct = 0.70, 0.30
-            age_factor = (
-                f"อายุ {age} ปี เป้าหมายเกษียณระยะยาว มีเวลาล็อคเงินนาน "
-                f"RMF เหมาะมากเพราะลดหย่อนภาษีได้สูงและบังคับออมระยะยาว"
-            )
-        else:
-            rmf_pct, esg_pct = 0.80, 0.20
-            age_factor = (
-                f"อายุ {age} ปี เป้าหมายเกษียณ อายุ 55 ไม่ไกลมาก "
-                f"เน้น RMF หนักเพื่อประหยัดภาษีสูงสุดและออมเพื่อเกษียณโดยตรง"
-            )
-        goal_factor = "เป้าหมายเกษียณ RMF คือเครื่องมือที่ออกแบบมาเพื่อจุดนี้โดยตรง"
-
-    else:  # mid_term (default)
-        if age < 45:
-            rmf_pct, esg_pct = 0.20, 0.80
-            age_factor = (
-                f"อายุ {age} ปี เป้าหมายระยะกลาง 5-10 ปี ยังมีเวลาพอสมควร "
-                f"เน้น ThaiESG เพื่อสภาพคล่อง RMF แค่ส่วนน้อยเพื่อลดหย่อนเพิ่ม"
-            )
-        else:
-            rmf_pct, esg_pct = 0.50, 0.50
-            age_factor = (
-                f"อายุ {age} ปี เป้าหมายระยะกลาง อายุเริ่มเข้าใกล้ 55 ปี "
-                f"แบ่ง RMF และ ThaiESG เท่ากันเพื่อสมดุลระหว่างการลดหย่อนและสภาพคล่อง"
-            )
-        goal_factor = "ระยะกลาง 5-10 ปี ThaiESG ล็อค 5 ปีพอดี สภาพคล่องดีกว่า RMF"
-
-    # ── Phase 2: ESG split by risk ───────────────────────────────────
     risk = (risk_tolerance or "moderate").lower().strip()
 
-    if risk == "conservative":
-        tesg_split, tesgx_split = 1.0, 0.0
-        risk_factor = (
-            "ระดับความเสี่ยงต่ำ เลือก ThaiESG ล้วนๆ ไม่มี TESGX "
-            "ThaiESG กระจายหุ้นหลายตลาด ผันผวนน้อยกว่าและเหมาะกับคนรับความเสี่ยงได้จำกัด"
-        )
-    elif risk == "aggressive":
-        tesg_split, tesgx_split = 0.40, 0.60
-        risk_factor = (
-            "กล้าเสี่ยงสูง เทน้ำหนัก TESGX 60% ซึ่งลงทุนในหุ้นไทยขนาดเล็ก-กลาง "
-            "โอกาสเติบโตสูงกว่าแต่ผันผวนมากกว่า เหมาะกับนักลงทุนที่รับ drawdown ได้"
-        )
-    else:  # moderate
-        tesg_split, tesgx_split = 0.80, 0.20
-        risk_factor = (
-            "ความเสี่ยงปานกลาง ผสม ThaiESG 80% กับ TESGX 20% "
-            "ได้โอกาสเติบโตจาก TESGX บางส่วน แต่ยังมีความมั่นคงจาก ThaiESG เป็นหลัก"
-        )
+    if llm_ratios is not None:
+        # ── Phase 1+2: AI ตัดสินใจ (validate + normalize แล้วโดย caller) ──
+        esg_total = llm_ratios["tesg_pct"] + llm_ratios["tesgx_pct"]
+        rmf_pct    = llm_ratios["rmf_pct"]   / 100
+        esg_pct    = esg_total / 100
+        tesg_split  = llm_ratios["tesg_pct"] / esg_total if esg_total > 0 else 1.0
+        tesgx_split = 1.0 - tesg_split
+        age_factor   = llm_ratios.get("age_factor",    f"AI วิเคราะห์: อายุ {age} ปี")
+        goal_factor  = llm_ratios.get("goal_factor",   f"AI วิเคราะห์: เป้าหมาย {goal}")
+        risk_factor  = llm_ratios.get("risk_factor",   f"AI วิเคราะห์: ความเสี่ยง {risk}")
+
+    else:
+        # ── Phase 1: Base RMF vs ESG ratio (rule-based fallback) ────────
+        if goal == "short_term":
+            if age < 47:
+                rmf_pct, esg_pct = 0.0, 1.0
+                age_factor = (
+                    f"อายุ {age} ปี เลือกเป้าหมายระยะสั้น (ต้องใช้เงินภายใน 5 ปี) "
+                    f"RMF ล็อคถึงอายุ 55 ถอนไม่ทันแน่นอน ระบบจึงไม่จัด RMF เลย "
+                    f"เอาเงินทั้งหมดไปลงกลุ่ม ESG ที่ล็อคแค่ 5 ปีแทน"
+                )
+                goal_factor = "ต้องการใช้เงินก้อนในอนาคตอันใกล้ ThaiESG ล็อคแค่ 5 ปีเหมาะที่สุด"
+            else:
+                rmf_pct, esg_pct = 0.30, 0.70
+                age_factor = (
+                    f"อายุ {age} ปี แม้เป้าหมายระยะสั้น แต่อายุใกล้ 55 ปีแล้ว "
+                    f"RMF จะล็อคไม่นานและลดหย่อนภาษีได้ดี จึงแบ่งบางส่วน"
+                )
+                goal_factor = "ต้องการใช้เงินเร็ว แต่อายุใกล้ 55 RMF บางส่วนยังคุ้มค่าลดหย่อน"
+
+        elif goal == "retirement":
+            if age < 35:
+                rmf_pct, esg_pct = 0.70, 0.30
+                age_factor = (
+                    f"อายุ {age} ปี เป้าหมายเกษียณระยะยาว มีเวลาล็อคเงินนาน "
+                    f"RMF เหมาะมากเพราะลดหย่อนภาษีได้สูงและบังคับออมระยะยาว"
+                )
+            else:
+                rmf_pct, esg_pct = 0.80, 0.20
+                age_factor = (
+                    f"อายุ {age} ปี เป้าหมายเกษียณ อายุ 55 ไม่ไกลมาก "
+                    f"เน้น RMF หนักเพื่อประหยัดภาษีสูงสุดและออมเพื่อเกษียณโดยตรง"
+                )
+            goal_factor = "เป้าหมายเกษียณ RMF คือเครื่องมือที่ออกแบบมาเพื่อจุดนี้โดยตรง"
+
+        else:  # mid_term (default)
+            if age < 45:
+                rmf_pct, esg_pct = 0.20, 0.80
+                age_factor = (
+                    f"อายุ {age} ปี เป้าหมายระยะกลาง 5-10 ปี ยังมีเวลาพอสมควร "
+                    f"เน้น ThaiESG เพื่อสภาพคล่อง RMF แค่ส่วนน้อยเพื่อลดหย่อนเพิ่ม"
+                )
+            else:
+                rmf_pct, esg_pct = 0.50, 0.50
+                age_factor = (
+                    f"อายุ {age} ปี เป้าหมายระยะกลาง อายุเริ่มเข้าใกล้ 55 ปี "
+                    f"แบ่ง RMF และ ThaiESG เท่ากันเพื่อสมดุลระหว่างการลดหย่อนและสภาพคล่อง"
+                )
+            goal_factor = "ระยะกลาง 5-10 ปี ThaiESG ล็อค 5 ปีพอดี สภาพคล่องดีกว่า RMF"
+
+        # ── Phase 2: ESG split by risk (rule-based fallback) ────────────
+        if risk == "conservative":
+            tesg_split, tesgx_split = 1.0, 0.0
+            risk_factor = (
+                "ระดับความเสี่ยงต่ำ เลือก ThaiESG ล้วนๆ ไม่มี TESGX "
+                "ThaiESG กระจายหุ้นหลายตลาด ผันผวนน้อยกว่าและเหมาะกับคนรับความเสี่ยงได้จำกัด"
+            )
+        elif risk == "aggressive":
+            tesg_split, tesgx_split = 0.40, 0.60
+            risk_factor = (
+                "กล้าเสี่ยงสูง เทน้ำหนัก TESGX 60% ซึ่งลงทุนในหุ้นไทยขนาดเล็ก-กลาง "
+                "โอกาสเติบโตสูงกว่าแต่ผันผวนมากกว่า เหมาะกับนักลงทุนที่รับ drawdown ได้"
+            )
+        else:  # moderate
+            tesg_split, tesgx_split = 0.80, 0.20
+            risk_factor = (
+                "ความเสี่ยงปานกลาง ผสม ThaiESG 80% กับ TESGX 20% "
+                "ได้โอกาสเติบโตจาก TESGX บางส่วน แต่ยังมีความมั่นคงจาก ThaiESG เป็นหลัก"
+            )
 
     # ── Phase 3: Quota caps (net of existing investments) ────────────
     gross_max_rmf  = min(income * 0.30, 500_000)
@@ -1690,6 +1824,83 @@ async def optimize(request: OptimizeRequest):
             f"existing_thai_esg={request.profile.existing_thai_esg:,.0f}"
         )
 
+        # ── Step 2a: ให้ AI ตัดสินใจสัดส่วน (ถ้า AI พร้อม) ─────────────
+        _goal_key  = (request.profile.money_goal or "mid_term").lower().strip()
+        _risk_key  = (request.profile.risk_tolerance or "moderate").lower().strip()
+        _alloc_ranges = _get_allocation_ranges(_goal_key, request.profile.age, _risk_key)
+
+        llm_ratios = None
+        if ai_advisor:
+            try:
+                print("\n[Optimizer] ⏳ Step 0/4 — AI กำลังตัดสินใจสัดส่วน RMF/ESG/TESGX...", flush=True)
+                from ..services.ai_tax_advisor import UserProfile as _UP
+                _profile_for_alloc = _UP(
+                    age              = request.profile.age,
+                    annual_income    = gross_income_for_calc,
+                    monthly_expenses = request.profile.monthly_expenses or 0,
+                    existing_savings = request.profile.existing_savings or 0,
+                    emergency_fund   = request.profile.emergency_fund or 0,
+                    risk_tolerance   = request.profile.risk_tolerance,
+                    occupation       = request.profile.occupation or "employee",
+                    marital_status   = request.profile.marital_status or "single",
+                    dependents       = request.profile.dependents or 0,
+                    existing_rmf     = request.profile.existing_rmf or 0.0,
+                    existing_thai_esg= request.profile.existing_thai_esg or 0.0,
+                    existing_insurance = request.profile.existing_insurance or 0.0,
+                )
+                raw_llm = await ai_advisor.decide_allocation(
+                    profile           = _profile_for_alloc,
+                    money_goal        = _goal_key,
+                    monthly_budget    = monthly_budget_raw,
+                    existing_rmf      = request.profile.existing_rmf or 0.0,
+                    existing_thai_esg = request.profile.existing_thai_esg or 0.0,
+                    taxable_income    = float(current_taxable_income),
+                    tax_amount        = float(current_tax_amount),
+                    allocation_ranges = _alloc_ranges,
+                )
+
+                if raw_llm is not None:
+                    validated = _validate_and_normalize_allocation(
+                        rmf   = raw_llm["rmf_pct"],
+                        tesg  = raw_llm["tesg_pct"],
+                        tesgx = raw_llm["tesgx_pct"],
+                        risk  = request.profile.risk_tolerance,
+                    )
+                    if validated is not None:
+                        rmf_n, tesg_n, tesgx_n = validated
+                        llm_ratios = {
+                            **raw_llm,
+                            "rmf_pct":   rmf_n,
+                            "tesg_pct":  tesg_n,
+                            "tesgx_pct": tesgx_n,
+                        }
+                        print(
+                            f"[Optimizer] ✅ AI allocation: RMF={rmf_n}% / ThaiESG={tesg_n}% / TESGX={tesgx_n}%",
+                            flush=True
+                        )
+                    else:
+                        print("[Optimizer] ⚠️  AI allocation normalize ไม่ได้ → ใช้ jitter fallback", flush=True)
+                else:
+                    print("[Optimizer] ⚠️  AI allocation ตอบไม่ได้ → ใช้ jitter fallback", flush=True)
+
+            except Exception as _e:
+                logger.warning(f"AI decide_allocation failed: {_e} → ใช้ jitter fallback")
+                print(f"[Optimizer] ⚠️  AI allocation error: {_e} → ใช้ jitter fallback", flush=True)
+
+        # ถ้า LLM ไม่มีหรือล้มเหลว → สุ่มภายใน range (jitter fallback)
+        if llm_ratios is None:
+            _j_rmf, _j_tesg, _j_tesgx = _jitter_allocation(_goal_key, request.profile.age, _risk_key)
+            print(f"[Optimizer] 🎲 Jitter fallback: RMF={_j_rmf}% / ThaiESG={_j_tesg}% / TESGX={_j_tesgx}%", flush=True)
+            llm_ratios = {
+                "rmf_pct":      _j_rmf,
+                "tesg_pct":     _j_tesg,
+                "tesgx_pct":    _j_tesgx,
+                "age_factor":   f"อายุ {request.profile.age} ปี เหลือ {max(0, 55 - request.profile.age)} ปีก่อนถึง 55",
+                "goal_factor":  f"เป้าหมาย {_goal_key} — สัดส่วน RMF/ESG ที่เหมาะสมตามช่วงอายุ",
+                "risk_factor":  f"ความเสี่ยง {_risk_key} — ThaiESG/TESGX ตามระดับความเสี่ยงที่เลือก",
+                "budget_factor": f"งบ ฿{monthly_budget_raw * 12:,.0f}/ปี (฿{monthly_budget_raw:,.0f}/เดือน)",
+            }
+
         allocation = calculate_allocation(
             age              = request.profile.age,
             income           = gross_income_for_calc,
@@ -1699,6 +1910,7 @@ async def optimize(request: OptimizeRequest):
             income_growth_rate = income_growth_rate,
             existing_rmf     = request.profile.existing_rmf or 0.0,
             existing_thai_esg= request.profile.existing_thai_esg or 0.0,
+            llm_ratios       = llm_ratios,
         )
 
         rmf_amount     = allocation["rmf_amount"]

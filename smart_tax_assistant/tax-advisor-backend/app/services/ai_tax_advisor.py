@@ -1362,6 +1362,146 @@ TAX_ROI           = {tax_roi_pct}% (ผลตอบแทนทันทีจ�
             "issues"         : all_issues,
         }
 
+    async def decide_allocation(
+        self,
+        profile: "UserProfile",
+        money_goal: str,
+        monthly_budget: float,
+        existing_rmf: float,
+        existing_thai_esg: float,
+        taxable_income: float,
+        tax_amount: float,
+        allocation_ranges: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
+        """
+        ให้ AI ตัดสินใจสัดส่วนการลงทุน RMF / ThaiESG / TESGX
+
+        AI วิเคราะห์โปรไฟล์และตัดสินใจเองว่าสัดส่วนที่เหมาะสมที่สุดคือเท่าไหร่
+        ไม่ใช่ fixed rule — AI มีอิสระในการให้เหตุผลและกำหนดสัดส่วน
+
+        Returns:
+            {
+              "rmf_pct": float (0-100),
+              "tesg_pct": float (0-100),
+              "tesgx_pct": float (0-100),   # 0 เสมอถ้าไม่ aggressive
+              "age_factor": str,
+              "goal_factor": str,
+              "risk_factor": str,
+              "budget_factor": str,
+            }
+            หรือ None ถ้า LLM ล้มเหลว (caller ใช้ rule-based fallback)
+        """
+        years_to_55   = max(0, 55 - profile.age)
+        annual_budget = monthly_budget * 12
+        max_rmf       = min(profile.annual_income * 0.30, 500_000) - existing_rmf
+        max_esg       = min(profile.annual_income * 0.30, 300_000) - existing_thai_esg
+
+        goal_labels = {
+            "retirement": "เก็บยาวเพื่อเกษียณ",
+            "mid_term":   "ลดหย่อน + ถอนได้ระยะกลาง 5-10 ปี",
+            "short_term": "ต้องการใช้เงินก้อนในอนาคตอันใกล้ (< 5 ปี)",
+        }
+        goal_label = goal_labels.get(money_goal, money_goal)
+
+        # ── สร้าง range string สำหรับ inject เข้า prompt ──────────────────
+        if allocation_ranges:
+            rmf_min, rmf_max   = allocation_ranges["rmf_esg"]["rmf"]
+            esg_min, esg_max   = allocation_ranges["rmf_esg"]["esg"]
+            tesg_min, tesg_max = allocation_ranges["esg_split"]["tesg"]
+            tsgx_min, tsgx_max = allocation_ranges["esg_split"]["tesgx"]
+            _range_block = (
+                f"ช่วงที่กำหนดสำหรับผู้ใช้คนนี้ (ต้องอยู่ในช่วงนี้เท่านั้น):\n"
+                f"  - RMF: {rmf_min}%–{rmf_max}% ของงบทั้งหมด\n"
+                f"  - ESG รวม (ThaiESG + TESGX): {esg_min}%–{esg_max}% ของงบทั้งหมด\n"
+                f"  - ThaiESG: {tesg_min}%–{tesg_max}% ของส่วน ESG\n"
+                f"  - TESGX: {tsgx_min}%–{tsgx_max}% ของส่วน ESG\n"
+                f"  (rmf_pct + tesg_pct + tesgx_pct ต้องรวมเป็น 100 พอดี)\n\n"
+                f"สำคัญ: ห้ามตอบค่ากลางของช่วงตรงๆ (เช่น ถ้าช่วง 74–88 ห้ามตอบ 81 พอดี)\n"
+                f"ให้วิเคราะห์โปรไฟล์แล้วเลือกค่าที่เหมาะสมที่สุดกับคนนี้จริงๆ"
+            )
+        else:
+            _range_block = "ใช้วิจารณญาณตามแนวทางที่ระบุใน system prompt"
+
+        system_prompt = """คุณเป็น AI ผู้เชี่ยวชาญด้านการวางแผนภาษีและการลงทุนในประเทศไทย
+หน้าที่: กำหนดสัดส่วนการลงทุน RMF / ThaiESG / TESGX ที่เหมาะสมที่สุดสำหรับผู้ใช้คนนี้
+
+ความรู้พื้นฐานเกี่ยวกับกองทุนแต่ละประเภท:
+- RMF: ลดหย่อนภาษีได้สูง แต่ล็อคเงินจนอายุ 55 ปี เหมาะกับเป้าหมายระยะยาว/เกษียณ
+  ยิ่งอายุใกล้ 55 ยิ่งคุ้มค่า เพราะล็อคระยะเวลาสั้น
+- ThaiESG: ล็อค 5 ปีนับจากวันซื้อ สภาพคล่องดีกว่า RMF เหมาะกับทุกเป้าหมาย
+- TESGX: เหมือน ThaiESG แต่ความเสี่ยงสูงกว่า เหมาะเฉพาะผู้รับความเสี่ยงสูง (aggressive)
+
+ปัจจัยที่ควรพิจารณาในการปรับค่าภายในช่วงที่กำหนด:
+- อายุน้อยกว่าค่ากลางของ bucket → เพิ่ม ESG (สภาพคล่องดีกว่า), ลด RMF
+- อายุมากกว่าค่ากลางของ bucket → เพิ่ม RMF (ล็อคระยะสั้น คุ้มมาก), ลด ESG
+- income_growth_rate สูง → เพิ่ม RMF เล็กน้อย (ประหยัดภาษีในอนาคตได้มากขึ้น)
+- ภาษีปัจจุบันสูง (tax_amount มาก) → เพิ่ม RMF เพื่อลดภาษีสูงสุด
+- โควตา RMF เหลือน้อย (existing_rmf สูง) → เพิ่ม ESG แทน
+- ความเสี่ยง aggressive + ESG มาก → เพิ่ม TESGX ในช่วงบน
+
+กฎบังคับ (ห้ามฝ่าฝืนเด็ดขาดไม่ว่ากรณีใด):
+1. ถ้า risk_tolerance ไม่ใช่ aggressive: tesgx_pct ต้องเป็น 0 เท่านั้น
+2. rmf_pct + tesg_pct + tesgx_pct ต้องรวมกันได้ = 100 พอดี ห้ามเกินหรือต่ำกว่า
+3. แต่ละค่าต้องอยู่ในช่วงที่กำหนดใน user message เท่านั้น
+
+ตอบเป็น JSON เท่านั้น ห้ามมีข้อความนอก JSON ตอบภาษาไทยใน reasoning fields"""
+
+        user_message = f"""โปรไฟล์ผู้ใช้:
+- อายุ: {profile.age} ปี (เหลืออีก {years_to_55} ปี ถึงอายุ 55 — เงื่อนไขถอน RMF)
+- รายได้ต่อปี: ฿{profile.annual_income:,.0f}
+- ระดับความเสี่ยง: {profile.risk_tolerance}
+- เป้าหมาย: {goal_label}
+- งบลงทุน: ฿{annual_budget:,.0f}/ปี (฿{monthly_budget:,.0f}/เดือน)
+- RMF ที่ลงทุนไปแล้วปีนี้: ฿{existing_rmf:,.0f} (โควตาคงเหลือ: ฿{max(0, max_rmf):,.0f})
+- ThaiESG/TESGX ที่ลงทุนไปแล้วปีนี้: ฿{existing_thai_esg:,.0f} (โควตาคงเหลือ: ฿{max(0, max_esg):,.0f})
+- รายได้สุทธิที่ต้องเสียภาษี: ฿{taxable_income:,.0f}
+- ภาษีปัจจุบัน (ก่อนลงทุน): ฿{tax_amount:,.0f}
+
+{_range_block}
+
+ตอบ JSON รูปแบบนี้เท่านั้น:
+{{
+  "rmf_pct": <ตัวเลข 0-100 อยู่ในช่วงที่กำหนด>,
+  "tesg_pct": <ตัวเลข 0-100 อยู่ในช่วงที่กำหนด>,
+  "tesgx_pct": <ตัวเลข 0-100 อยู่ในช่วงที่กำหนด>,
+  "age_factor": "<อธิบายว่าอายุส่งผลต่อการตัดสินใจอย่างไร และทำไมถึงเลือกค่านี้ไม่ใช่ค่าอื่น>",
+  "goal_factor": "<อธิบายว่าเป้าหมายส่งผลต่อการตัดสินใจอย่างไร>",
+  "risk_factor": "<อธิบายว่าระดับความเสี่ยงส่งผลต่อการตัดสินใจอย่างไร>",
+  "budget_factor": "<อธิบายว่างบประมาณและโควตาส่งผลต่อการตัดสินใจอย่างไร>"
+}}"""
+
+        try:
+            raw = await self._call_llm(system_prompt, user_message, temperature=0.7)
+            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            result = json.loads(raw)
+
+            rmf_pct   = float(result.get("rmf_pct",   0))
+            tesg_pct  = float(result.get("tesg_pct",  0))
+            tesgx_pct = float(result.get("tesgx_pct", 0))
+
+            # ตรวจ: ต้องมีอย่างน้อย 1 field และไม่ล้วนเป็น 0
+            if rmf_pct < 0 or tesg_pct < 0 or tesgx_pct < 0:
+                logger.warning("decide_allocation: LLM returned negative values → fallback")
+                return None
+
+            if (rmf_pct + tesg_pct + tesgx_pct) <= 0:
+                logger.warning("decide_allocation: LLM returned all zeros → fallback")
+                return None
+
+            return {
+                "rmf_pct":      rmf_pct,
+                "tesg_pct":     tesg_pct,
+                "tesgx_pct":    tesgx_pct,
+                "age_factor":   result.get("age_factor",    ""),
+                "goal_factor":  result.get("goal_factor",   ""),
+                "risk_factor":  result.get("risk_factor",   ""),
+                "budget_factor": result.get("budget_factor", ""),
+            }
+
+        except Exception as e:
+            logger.warning(f"decide_allocation LLM call failed: {e}")
+            return None
+
 
 # ============================================================
 # Factory Function
