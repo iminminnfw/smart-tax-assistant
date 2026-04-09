@@ -41,6 +41,13 @@ evaluation_output/
 scripts/evaluation_output/
 **/evaluation_output/
 
+# Evaluation scripts
+evaluation/
+app/services/evaluation_service.py
+app/services/ai_service_for_evaluation.py
+app/services/evaluation_test_data.py
+scripts/run_evaluation_complete.py
+
 # Data files
 data/
 
