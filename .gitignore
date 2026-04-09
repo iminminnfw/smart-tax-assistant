@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # PDF documents
 microsoft-copilot-studio-guidance-architecture.pdf
 
@@ -7,3 +10,8 @@ venv/
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Database dumps
+*.sql
+*.dump
