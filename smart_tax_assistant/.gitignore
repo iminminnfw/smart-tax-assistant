@@ -53,3 +53,15 @@ SEC_OPEN_DATA/
 
 # Structure file
 structure.txt
+
+# Dev logs
+dev-logs/
+
+# Database dumps & backups
+*.dump
+*.backup
+*.sql.backup
+smarttax_backup*.dump
+
+# OS
+Thumbs.db

@@ -36,8 +36,13 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Evaluation output
+# Evaluation output (all locations)
 evaluation_output/
+scripts/evaluation_output/
+**/evaluation_output/
+
+# Data files
+data/
 
 # Structure file
 structure.txt
